@@ -84,7 +84,7 @@ Adds a (kbd ...) if `general-implicit-kbd' is non-nil."
 ;;; define-key and evil-define-key Wrappers
 ;; TODO better way to do this?
 ;; https://www.reddit.com/r/emacs/comments/1582uo/bufferlocalsetkey_set_a_key_in_one_buffer_only/
-(defun general-emacs-local-set-key (key func)
+(defun general--emacs-local-set-key (key func)
   "Bind KEY to FUNC for the current buffer only using a minor mode."
   (let* ((mode-name-loc (gensym "general-blm")))
     (eval `(define-minor-mode ,mode-name-loc nil nil nil (make-sparse-keymap)))
@@ -110,7 +110,7 @@ sequence of any length. KEYMAP determines the keymap to bind the MAPS in."
     (while (setq key (pop maps)
                  func (pop maps))
       (if (eq keymap 'local)
-          (general-emacs-local-set-key key func)
+          (general--emacs-local-set-key key func)
         (define-key keymap key func)))))
 
 ;; can't apply evil-define-key since it is a macro
