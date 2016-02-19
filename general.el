@@ -143,10 +143,8 @@ keybindings in. KEYMAP determines the keymap to bind the MAPS in."
             ;; has no &rest
             (evil-local-set-key state key func)
           (evil-define-key state keymap key func))))))
-    
 
 ;;; Functions With Keyword Arguments
-;; TODO does autoload recognize cl-defun?
 ;;;###autoload
 (cl-defun general-define-key
     (&rest maps &key (prefix general-default-prefix)
