@@ -82,6 +82,22 @@ Adds a (kbd ...) if `general-implicit-kbd' is non-nil."
                 maps)))
 
 ;;; define-key and evil-define-key Wrappers
+;; TODO better way to do this?
+;; https://www.reddit.com/r/emacs/comments/1582uo/bufferlocalsetkey_set_a_key_in_one_buffer_only/
+(defun general-emacs-local-set-key (key func)
+  "Bind KEY to FUNC for the current buffer only using a minor mode."
+  (let* ((mode-name-loc (gensym "general-blm")))
+    (eval `(define-minor-mode ,mode-name-loc nil nil nil (make-sparse-keymap)))
+    (setq buffer-local-mode mode-name-loc)
+    (funcall mode-name-loc 1)
+    (define-key
+      (symbol-value (intern (concat (symbol-name mode-name-loc) "-map")))
+      key func)))
+
+;; this works but will make it so that keys defined for the major mode will no longer affect
+;; (use-local-map (copy-keymap (current-local-map)))
+;; (local-set-key (kbd "C-c y") 'helm-apropos)
+
 (defun general--emacs-define-key (prefix keymap &rest maps)
   "A more convenient way to define keys in general.
 This function is only meant to be used as a wrapper for `define-key' for those
@@ -92,7 +108,9 @@ sequence of any length. KEYMAP determines the keymap to bind the MAPS in."
   (setq maps (general--apply-prefix prefix maps))
   (while (setq key (pop maps)
                func (pop maps))
-    (define-key keymap key func)))
+    (if (eq keymap 'local)
+        (general-emacs-local-set-key key func)
+      (define-key keymap key func))))
 
 ;; can't apply evil-define-key since it is a macro
 ;; either need to use eval or splice (,@) with defmacro
@@ -120,7 +138,10 @@ keybindings in. KEYMAP determines the keymap to bind the MAPS in."
   (with-eval-after-load 'evil
     (while (setq key (pop maps)
                  func (pop maps))
-      (evil-define-key state keymap key func))))
+      (if (eq keymap 'local)
+          ;; has no &rest
+          (evil-local-set-key state key func)
+        (evil-define-key state keymap key func)))))
 
 ;;; Functions With Keyword Arguments
 ;; TODO does autoload recognize cl-defun?

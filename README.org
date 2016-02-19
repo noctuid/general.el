@@ -10,6 +10,7 @@ A general is a leader. -- onioncheese
 - Allows an arbitrary number of prefix keys or "leaders" of any length
 - Does not /require/ a prefix key
 - Allows choosing the evil state to map keys in
+- Allows for buffer local keybindings (with or without evil)
 - Does not depend on evil (can be used for normal emacs keybindings)
 - Does not use a global minor mode
 - Wraps ~evil-define-key~ instead of weirdly re-implementing half of it
@@ -129,6 +130,9 @@ If you don't want to use ~evil-define-key~ for global keybindings, you can use t
 #+end_src
 
 Note that keybindings made for normal state in the global map will override keybindings made for evil-normal-state-map.
+
+** Binding Keys for the Current Buffer
+Specifying ~:keymap 'local~ will bind keys in the current buffer alone, which may be useful in rare cases. This is not the same as using ~local-set-key~ (which will set the key for the current buffer's major mode). It uses ~evil-local-set-key~ when an evil state is given or a function that creates a minor mode for the current buffer otherwise.
 
 ** Creating Extra Keybinding Functions (Advanced)
 The primary purpose of this package is to provide a single function for key definitions that is simple and flexible. Most users probably won't want to use this functionality (apart from ~general-evil-setup~). However, if you would like more specific keybinding functions for certain prefixes, evil states, or keymaps, this package provides macros to generate these functions.
