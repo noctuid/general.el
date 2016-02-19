@@ -90,9 +90,10 @@ function, positional arguments are required. PREFIX corresponds to a prefix
 sequence of any length. KEYMAP determines the keymap to bind the MAPS in."
   (declare (indent defun))
   (setq maps (general--apply-prefix prefix maps))
-  (while (setq key (pop maps)
-               func (pop maps))
-    (define-key keymap key func)))
+  (let (key func)
+    (while (setq key (pop maps)
+                 func (pop maps))
+      (define-key keymap key func))))
 
 ;; can't apply evil-define-key since it is a macro
 ;; either need to use eval or splice (,@) with defmacro
@@ -118,9 +119,10 @@ keybindings in. KEYMAP determines the keymap to bind the MAPS in."
   (setq maps (general--apply-prefix prefix maps))
   ;; emacs 24.4 dependency
   (with-eval-after-load 'evil
-    (while (setq key (pop maps)
-                 func (pop maps))
-      (evil-define-key state keymap key func))))
+    (let (key func)
+      (while (setq key (pop maps)
+                   func (pop maps))
+        (evil-define-key state keymap key func)))))
 
 ;;; Functions With Keyword Arguments
 ;; TODO does autoload recognize cl-defun?
