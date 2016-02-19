@@ -4,7 +4,7 @@
 ;; URL: https://github.com/noctuid/general.el
 ;; Created: February 17, 2016
 ;; Keywords: vim, evil, leader, keybindings, keys
-;; Package-Requires: ((dash "2.11.0") (cl-lib "0.5"))
+;; Package-Requires: ((cl-lib "0.5"))
 ;; Version: 0.1
 
 ;; This file is not part of GNU Emacs.
@@ -34,7 +34,6 @@
 ;; For more information see the README in the online repository.
 
 ;;; Code:
-(require 'dash)
 (require 'cl-lib)
 
 (defgroup general nil
@@ -75,11 +74,12 @@ Non-evil users should keep this nil."
   "Prepend the PREFIX sequence to all MAPS.
 Adds a (kbd ...) if `general-implicit-kbd' is non-nil."
   (let ((prefix (or prefix "")))
-    (--map-when (stringp it)
+    (mapcar (lambda (elem)
+              (when (stringp elem)
                 (if general-implicit-kbd
-                    (kbd (concat prefix " " it))
-                  (concat prefix it))
-                maps)))
+                    (kbd (concat prefix " " elem))
+                  (concat prefix elem))))
+            maps)))
 
 ;;; define-key and evil-define-key Wrappers
 ;; TODO better way to do this?
