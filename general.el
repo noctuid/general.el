@@ -4,7 +4,7 @@
 ;; URL: https://github.com/noctuid/general.el
 ;; Created: February 17, 2016
 ;; Keywords: vim, evil, leader, keybindings, keys
-;; Package-Requires: ((emacs "24.4") (dash "2.11.0") (cl-lib "0.5"))
+;; Package-Requires: ((dash "2.11.0") (cl-lib "0.5"))
 ;; Version: 0.1
 
 ;; This file is not part of GNU Emacs.
@@ -123,7 +123,7 @@ sequence of any length. KEYMAP determines the keymap to bind the MAPS in."
 ;;   (declare (indent 3))
 ;;   (setq prefix-key (or prefix-key ""))
 ;;   (setq maps (--map-when (stringp it ) (concat prefix-key it) maps))
-;;   `(with-eval-after-load 'evil
+;;   `(eval-after-load 'evil
 ;;      (evil-define-key ,state ,keymap ,@maps)))
 
 (defun general--evil-define-key (prefix state keymap &rest maps)
@@ -135,8 +135,7 @@ prefix sequence of any length. STATE corresponds to the evil state to make the
 keybindings in. KEYMAP determines the keymap to bind the MAPS in."
   (declare (indent 3))
   (setq maps (general--apply-prefix prefix maps))
-  ;; emacs 24.4 dependency
-  (with-eval-after-load 'evil
+  (eval-after-load 'evil
     (let (key func)
       (while (setq key (pop maps)
                    func (pop maps))
