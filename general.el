@@ -202,14 +202,19 @@ list of keymaps)."
   (unless (listp keymaps)
     (setq keymaps (list keymaps)))
   (dolist (keymap keymaps)
-    (general--delay `(and (boundp ',keymap)
-                          (keymapp ,keymap))
-                    `(if ',states
-                         (dolist (state ',states)
-                           (apply #'general--evil-define-key ,prefix state ,keymap ',maps))
-                       (apply #'general--emacs-define-key ,prefix ,keymap ',maps))
-                    'after-load-functions t nil
-                    (format "general-define-key-in-%s" keymap))))
+    (general--delay `(or (eq ',keymap 'local)
+                         (and (boundp ',keymap)
+                              (keymapp ,keymap)))
+        `(let ((keymap (if (eq ',keymap 'local)
+                           ;; want to keep keymap quoted if was 'local
+                           ',keymap
+                         ,keymap)))
+           (if ',states
+               (dolist (state ',states)
+                 (apply #'general--evil-define-key ,prefix state keymap ',maps))
+             (apply #'general--emacs-define-key ,prefix keymap ',maps)))
+      'after-load-functions t nil
+      (format "general-define-key-in-%s" keymap))))
 
 ;;;###autoload
 (defmacro general-create-definer (name &rest args)
