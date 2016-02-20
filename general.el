@@ -115,7 +115,7 @@ the buffer-local value of HOOK is modified."
   "Bind KEY to FUNC for the current buffer only using a minor mode."
   (if general--blm
       (define-key (general--generate-keymap-name general--blm) key func)
-    (let* ((mode-name-loc (gensym "general-blm")))
+    (let* ((mode-name-loc (cl-gensym "general-blm")))
       (eval `(define-minor-mode ,mode-name-loc nil nil nil (make-sparse-keymap)))
       (setq-local general--blm mode-name-loc)
       (funcall mode-name-loc 1)
