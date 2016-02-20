@@ -85,15 +85,20 @@ Adds a (kbd ...) if `general-implicit-kbd' is non-nil."
 ;;; define-key and evil-define-key Wrappers
 ;; TODO better way to do this?
 ;; https://www.reddit.com/r/emacs/comments/1582uo/bufferlocalsetkey_set_a_key_in_one_buffer_only/
+(defvar general--blm nil)
+(defun general--generate-keymap-name (sym)
+  "Generate a map name from SYM."
+  (symbol-value (intern (concat (symbol-name sym) "-map"))))
+
 (defun general--emacs-local-set-key (key func)
   "Bind KEY to FUNC for the current buffer only using a minor mode."
-  (let* ((mode-name-loc (gensym "general-blm")))
-    (eval `(define-minor-mode ,mode-name-loc nil nil nil (make-sparse-keymap)))
-    (setq buffer-local-mode mode-name-loc)
-    (funcall mode-name-loc 1)
-    (define-key
-      (symbol-value (intern (concat (symbol-name mode-name-loc) "-map")))
-      key func)))
+  (if general--blm
+      (define-key (general--generate-keymap-name general--blm) key func)
+    (let* ((mode-name-loc (gensym "general-blm")))
+      (eval `(define-minor-mode ,mode-name-loc nil nil nil (make-sparse-keymap)))
+      (setq-local general--blm mode-name-loc)
+      (funcall mode-name-loc 1)
+      (define-key (general--generate-keymap-name general--blm) key func))))
 
 ;; this works but will make it so that keys defined for the major mode will no longer affect
 ;; (use-local-map (copy-keymap (current-local-map)))
