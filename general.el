@@ -67,7 +67,7 @@ Non-evil users should keep this nil."
                   (const :tag "Emacs state" emacs)
                   (const :tag "Use define-key not evil-define-key" nil))))
 
-(defcustom general-default-keymaps 'global-map
+(defcustom general-default-keymaps 'global
   "The default keymap to bind keys in."
   :group 'general)
 
@@ -203,12 +203,16 @@ list of keymaps)."
     (setq keymaps (list keymaps)))
   (dolist (keymap keymaps)
     (general--delay `(or (eq ',keymap 'local)
+                         (eq ',keymap 'global)
                          (and (boundp ',keymap)
                               (keymapp ,keymap)))
-        `(let ((keymap (if (eq ',keymap 'local)
-                           ;; want to keep keymap quoted if was 'local
-                           ',keymap
-                         ,keymap)))
+        `(let ((keymap (cond ((eq ',keymap 'local)
+                              ;; keep keymap quoted if it was 'local
+                              'local)
+                             ((eq ',keymap 'global)
+                              (current-global-map))
+                             (t
+                              ,keymap))))
            (if ',states
                (dolist (state ',states)
                  (apply #'general--evil-define-key ,prefix state keymap ',maps))

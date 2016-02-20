@@ -23,7 +23,7 @@ A general is a leader. -- onioncheese
 (require 'general)
 (setq my-leader1 (kbd "C-c"))
 
-;; bind "C-c a" and "C-c b" in global-map
+;; bind "C-c a" and "C-c b" globally
 (general-define-key :prefix my-leader1
                     "a" 'some-command
                     "b" 'another-command)
@@ -93,29 +93,26 @@ Vim-like definitions:
 #+end_src
 * More Details
 This package provides one main function, ~general-define-key~, for key definitions for both evil and non-evil users. If you do not like keyword arguments or would like to create your own key-defining functions, this package also allows for these things.
-** Settings
+** Settings and Keyword Arguments
 ~general-implicit-kbd~ can be set to nil if you want to manually use ~(kbd "keys")~ or if you don't want to use kbd at all.
 
-~general-default-prefix~, ~general-default-states~, and ~general-default-keymaps~ determine the defaults for the keyword arguments. By default, there is no prefix or state (each is nil), and the keymap is ~(quote global-map)~ (keymaps must be quoted).
+~general-default-prefix~, ~general-default-states~, and ~general-default-keymaps~ determine the defaults for the corresponding keyword arguments =:prefix=, =:states=, and =:keymaps=.. By default, there is no prefix or state (each is nil), and the keymap is ~(quote global)~. Each keymap can either be a quoted keymap or ~(quote global)~ or ~(quote local)~. When the keymap is 'local, the key will be bound only in the current buffer (see the heading below for more information). When the keymap is 'global, the key will be bound in the ~(current-global-map)~.
 
-~general-default-states~ and ~general-default-keymaps~ can be lists or a single element, allowing the user to define keys for multiple evil states or keymaps simultaneously. This can be useful in certain situations to prevent redundant keybindings (you want to define the same keys for visual and normal state).
-
-** Keyword Arguments
-Note that ~general-define-key~'s =:states= keyword is for evil only. The other available keywords are =:prefix= and =:keymaps=. =:prefix= can be a prefix of arbitrary length and defaults to none. =:keymaps= defaults to using the global map.
+~general-default-states~ and ~general-default-keymaps~ can be lists or a single element, allowing the user to define keys for multiple evil states or keymaps simultaneously. This can be useful in certain situations to prevent redundant keybindings (e.g. you want to define the same keys for visual and normal state).
 
 ** Notes for Evil Users
 When =:states= is specified (or ~general-default-states~ is non-nil), ~general-define-key~ will act as a wrapper around ~evil-define-key~. This means that the following are equivalent:
-
 #+begin_src emacs-lisp
 (setq general-default-states 'normal)
 (general-define-key
  "j" 'my-j)
 
-(evil-define-key 'normal global-map
-  "j" 'my-j)
+(let ((keymap (current-global-map)))
+  (evil-define-key 'normal keymap
+    "j" 'my-j))
 #+end_src
 
-Note that the "standard" way to define global keybindings in normal mode is as follows:
+Note that the "standard" way to define global keybindings for an evil state is as follows:
 #+begin_src emacs-lisp
 (define-key evil-normal-state-map "j" 'my-j)
 (define-key evil-visual-state-map "j" 'my-j)
@@ -125,7 +122,7 @@ Note that the "standard" way to define global keybindings in normal mode is as f
 
 These are the equivalent with general:
 #+begin_src emacs-lisp
-(general-define-key :keymaps '(evil-normal-state-map)
+(general-define-key :keymaps '(evil-normal-state-map evil-visual-state-map)
                     "j" 'my-j
                     "k" 'my-k)
 ;; or 
@@ -154,7 +151,7 @@ The ~general-create-definer~ macro can create functions for more succinctly defi
 
 It can also be used to implement a command to always use a certain prefix without having to always specify it (like ~evil-leader~ does):
 #+begin_src emacs-lisp
-(general-create-definer my-leader1 :keymaps 'global-map :prefix "C-c")
+(general-create-definer my-leader1 :keymaps 'global :prefix "C-c")
 ;; bind "C-c o" to other-window
 (my-leader1 "o" 'other-window)
 #+end_src
