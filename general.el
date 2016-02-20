@@ -75,10 +75,11 @@ Non-evil users should keep this nil."
 Adds a (kbd ...) if `general-implicit-kbd' is non-nil."
   (let ((prefix (or prefix "")))
     (mapcar (lambda (elem)
-              (when (stringp elem)
-                (if general-implicit-kbd
-                    (kbd (concat prefix " " elem))
-                  (concat prefix elem))))
+              (if (stringp elem)
+                  (if general-implicit-kbd
+                      (kbd (concat prefix " " elem))
+                    (concat prefix elem))
+                elem))
             maps)))
 
 ;;; define-key and evil-define-key Wrappers
