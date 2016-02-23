@@ -100,6 +100,8 @@ This package provides one main function, ~general-define-key~, for key definitio
 
 ~general-default-states~ and ~general-default-keymaps~ can be lists or a single element, allowing the user to define keys for multiple evil states or keymaps simultaneously. This can be useful in certain situations to prevent redundant keybindings (e.g. you want to define the same keys for visual and normal state).
 
+There is also a =:predicate= keyword for giving a condition under which a map should be active.
+
 ** Notes for Evil Users
 When =:states= is specified (or ~general-default-states~ is non-nil), ~general-define-key~ will act as a wrapper around ~evil-define-key~. This means that the following are equivalent:
 #+begin_src emacs-lisp
@@ -139,6 +141,19 @@ Note that keybindings made for normal state in the global map will override keyb
 
 ** Binding Keys for Only the Current Buffer
 Specifying ~:keymaps 'local~ will bind keys in the current buffer alone, which may be useful in rare cases. This is not the same as using ~local-set-key~ (which will set the key for the current buffer's major mode). It uses ~evil-local-set-key~ when an evil state is given or a function that creates a minor mode for the current buffer otherwise.
+
+** Predicates
+The user can use the ~:predicate~ keyword to specify a condition under which the map(s) should be active. For example:
+#+begin_src emacs-lisp
+(general-define-key :keymaps 'local
+                    ;; \\' is the buffer end
+                    :predicate '(looking-at "\\'")
+                    "<right>" 'beginning-of-buffer)
+#+end_src
+
+~<right>~ will now behave normally except at the end of the buffer where it will jump to the beginning of the buffer. Note that with ~:predicate~, you can still only have a key bound once in a single keymap. If you want to have a key take a lot of different actions depending on conditions in a single keymap, you'll want to put those conditions directly in the command or use something like [[https://github.com/yuutayamada/mykie-el][mykie]] instead.
+
+See [[http://endlessparentheses.com/define-context-aware-keys-in-emacs.html][this post]] for more information about how this works.
 
 ** Creating Extra Keybinding Functions (Advanced)
 The primary purpose of this package is to provide a single function for key definitions that is simple and flexible. Most users probably won't want to use this functionality (apart from ~general-evil-setup~). However, if you would like more specific keybinding functions for certain prefixes, evil states, or keymaps, this package provides macros to generate these functions. 

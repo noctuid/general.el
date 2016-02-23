@@ -84,6 +84,18 @@ Adds a (kbd ...) if `general-implicit-kbd' is non-nil."
                 elem))
             maps)))
 
+;; http://endlessparentheses.com/define-context-aware-keys-in-emacs.html
+(defun general--apply-predicate (predicate maps)
+  "Apply PREDICATE to the commands in MAPS."
+  (mapcar (lambda (maybe-command)
+            (if (not (stringp maybe-command))
+                `(menu-item "" nil
+                            :filter (lambda (&optional _)
+                                      (when ,predicate
+                                        (,maybe-command))))
+              maybe-command))
+          maps))
+
 ;; don't force non-evil user to require evil for one function (this is evil-delay)
 (defun general--delay (condition form hook &optional append local name)
   "Execute FORM when CONDITION becomes true, checking with HOOK.
@@ -173,6 +185,7 @@ number of keys and commands to bind."
     (&rest maps &key (prefix general-default-prefix)
            (states general-default-states)
            (keymaps general-default-keymaps)
+           (predicate)
            &allow-other-keys)
   "The primary key definition function provided by general.
 
@@ -192,7 +205,7 @@ list of keymaps)."
   ;; remove keyword arguments from rest var
   (setq maps
         (cl-loop for (key value) on maps by 'cddr
-                 when (not (member key (list :prefix :states :keymaps)))
+                 when (not (member key (list :prefix :states :keymaps :predicate)))
                  collect key
                  and collect value))
   ;; don't force the user to wrap a single state or keymap in a list
@@ -201,6 +214,8 @@ list of keymaps)."
     (setq states (list states)))
   (unless (listp keymaps)
     (setq keymaps (list keymaps)))
+  (when predicate
+    (setq maps (general--apply-predicate predicate maps)))
   (dolist (keymap keymaps)
     (general--delay `(or (eq ',keymap 'local)
                          (eq ',keymap 'global)
