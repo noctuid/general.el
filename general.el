@@ -171,13 +171,17 @@ number of keys and commands to bind."
   (declare (indent 3))
   (setq maps (general--apply-prefix prefix maps))
   (eval-after-load 'evil
-    (let (key func)
-      (while (setq key (pop maps)
-                   func (pop maps))
-        (if (eq keymap 'local)
-            ;; has no &rest
-            (evil-local-set-key state key func)
-          (evil-define-key state keymap key func))))))
+    `(let ((maps ',maps)
+           (keymap ',keymap)
+           (state ',state)
+           key
+           func)
+       (while (setq key (pop maps)
+                    func (pop maps))
+         (if (eq keymap 'local)
+             ;; has no &rest
+             (evil-local-set-key state key func)
+           (evil-define-key state keymap key func))))))
 
 ;;; Functions With Keyword Arguments
 ;;;###autoload
