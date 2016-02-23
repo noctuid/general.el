@@ -253,7 +253,6 @@ are intended to be the defaults."
 This creates global key definition functions for the evil states.
 Specifying SHORT-NAMES as non-nil will create non-prefixed function
 aliases such as `nmap' for `general-nmap'."
-  (require 'evil)
   (general-create-definer general-nmap :keymaps 'evil-normal-state-map)
   (general-create-definer general-imap :keymaps 'evil-insert-state-map)
   (general-create-definer general-vmap :keymaps 'evil-visual-state-map)
