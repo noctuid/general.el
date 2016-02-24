@@ -21,7 +21,7 @@ A general is a leader. -- onioncheese
 ** Non-evil
 #+begin_src emacs-lisp
 (require 'general)
-(setq my-leader1 (kbd "C-c"))
+(setq my-leader1 "C-c")
 
 ;; bind "C-c a" and "C-c b" globally
 (general-define-key :prefix my-leader1
