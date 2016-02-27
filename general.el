@@ -52,6 +52,16 @@ This applies to the prefix key as well."
   :group 'general
   :type 'string)
 
+(defcustom general-default-non-normal-prefix nil
+  "The default prefix key sequence to use for the 'emacs and 'insert states.
+Note that this setting is only useful for evil-users and will only have an
+effect when binding keys in the 'emacs and/or 'insert states or in the
+'evil-insert-state-map and/or 'evil-emacs-state-map keymaps. When this is not
+specified, `general-default-prefix' will be the default prefix for any
+states and keymaps."
+  :group 'general
+  :type 'string)
+
 (defcustom general-default-states nil
   "The default evil state to make mappings in.
 Non-evil users should keep this nil."
@@ -186,6 +196,7 @@ KEYMAP is 'local. MAPS is any number of keys and commands to bind."
 ;;;###autoload
 (cl-defun general-define-key
     (&rest maps &key (prefix general-default-prefix)
+           (non-normal-prefix general-default-non-normal-prefix)
            (states general-default-states)
            (keymaps general-default-keymaps)
            (predicate)
@@ -202,43 +213,59 @@ symbol. If any keymap does not exist, the keybindings will be deferred until
 the keymap does exist, so using `eval-after-load' is not necessary with this
 function.
 
+If NON-NORMAL-PREFIX is specified, this prefix will be used for emacs and insert
+state keybindings instead of PREFIX. This argument will only have an effect if
+'insert and/or 'emacs is one of the STATES or if 'evil-insert-state-map and/or
+'evil-emacs-state-map is one of the KEYMAPS.
+
 Unlike with normal key definitions functions, the keymaps in KEYMAPS should be
 quoted (this makes it easy to check if there is only one keymap instead of a
 list of keymaps)."
-  ;; remove keyword arguments from rest var
-  (setq maps
-        (cl-loop for (key value) on maps by 'cddr
-                 when (not (member key (list :prefix :states :keymaps :predicate)))
-                 collect key
-                 and collect value))
-  ;; don't force the user to wrap a single state or keymap in a list
-  ;; luckily nil is a list
-  (unless (listp states)
-    (setq states (list states)))
-  (unless (listp keymaps)
-    (setq keymaps (list keymaps)))
-  (when predicate
-    (setq maps (general--apply-predicate predicate maps)))
-  (when prefix
-    (setq maps (general--apply-prefix prefix maps)))
-  (dolist (keymap keymaps)
-    (general--delay `(or (eq ',keymap 'local)
-                         (eq ',keymap 'global)
-                         (and (boundp ',keymap)
-                              (keymapp ,keymap)))
-        `(let ((keymap (cond ((eq ',keymap 'local)
-                              ;; keep keymap quoted if it was 'local
-                              'local)
-                             ((eq ',keymap 'global)
-                              (current-global-map))
-                             (t
-                              ,keymap))))
-           (if ',states
-               (dolist (state ',states)
-                 (apply #'general--evil-define-key state keymap ',maps))
-             (apply #'general--emacs-define-key keymap ',maps)))
-      'after-load-functions t nil
-      (format "general-define-key-in-%s" keymap))))
+  (let (non-normal-maps)
+    ;; remove keyword arguments from rest var
+    (setq maps
+          (cl-loop for (key value) on maps by 'cddr
+                   when (not (member key (list :prefix :states :keymaps :predicate)))
+                   collect key
+                   and collect value))
+    ;; don't force the user to wrap a single state or keymap in a list
+    ;; luckily nil is a list
+    (unless (listp states)
+      (setq states (list states)))
+    (unless (listp keymaps)
+      (setq keymaps (list keymaps)))
+    (when predicate
+      (setq maps (general--apply-predicate predicate maps)))
+    (when prefix
+      (setq maps (general--apply-prefix prefix maps)))
+    (when non-normal-prefix
+      (setq non-normal-maps (general--apply-prefix non-normal-prefix maps)))
+    (dolist (keymap keymaps)
+      (general--delay `(or (eq ',keymap 'local)
+                           (eq ',keymap 'global)
+                           (and (boundp ',keymap)
+                                (keymapp ,keymap)))
+          `(let ((keymap (cond ((eq ',keymap 'local)
+                                ;; keep keymap quoted if it was 'local
+                                'local)
+                               ((eq ',keymap 'global)
+                                (current-global-map))
+                               (t
+                                ,keymap))))
+             (if ',states
+                 (dolist (state ',states)
+                   (if (and ',non-normal-maps
+                            (member state '(insert emacs)))
+                       (apply #'general--evil-define-key state keymap
+                              ',non-normal-maps)
+                     (apply #'general--evil-define-key state keymap ',maps)))
+               (if (and ',non-normal-maps
+                        (member ',keymap (list 'evil-insert-state-map
+                                               'evil-emacs-state-map)))
+                   (apply #'general--emacs-define-key keymap ',non-normal-maps)
+                 (apply #'general--emacs-define-key keymap ',maps))))
+        'after-load-functions t nil
+        (format "general-define-key-in-%s" keymap)))))
 
 ;;;###autoload
 (defmacro general-create-definer (name &rest args)

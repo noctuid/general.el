@@ -91,6 +91,23 @@ Vim-like definitions:
 (nmap "j" 'evil-next-visual-line
       "k" 'evil-previous-visual-line)
 #+end_src
+
+If you want to bind the same commands with a different prefix key for insert and emacs state, you can specify =:non-normal-prefix= or set ~general-default-non-normal-prefix~. For example, this command will bind `SPC /` to swiper in normal and motion state and `M-SPC /` to swiper in emacs and insert state:
+#+begin_src emacs-lisp
+(general-define-key :states '(normal motion insert emacs)
+                    :keymaps 'text-mode-map
+                    :prefix "SPC"
+                    :non-normal-prefix "M-SPC"
+                    "/" 'swiper)
+#+end_src
+
+This also applies when binding keys in ~evil-insert-state-map~ and ~evil-emacs-state-map~.
+
+General is flexible in allowing you to choose how you write things, so if the above would be something you'd use often, you could create a function with the above keyword arguments as defaults using ~evil-general-create-definer~ and write the definition like this:
+#+begin_src emacs-lisp
+(my-normal-and-insert-define-key "/" 'swiper)
+#+end_src
+
 * More Details
 This package provides one main function, ~general-define-key~, for key definitions for both evil and non-evil users. If you do not like keyword arguments or would like to create your own key-defining functions, this package also allows for these things.
 ** Settings and Keyword Arguments
