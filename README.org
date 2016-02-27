@@ -1,9 +1,11 @@
-* About
+[[https://melpa.org/#/general][file:https://melpa.org/packages/general-badge.svg]]
+
 [[https://github.com/noctuid/general.el][file:http://i.imgur.com/SXA66y7.png]]
 #+BEGIN_QUOTE
 A general is a leader. -- onioncheese
 #+END_QUOTE
 
+* About
 ~general~ provides a more convenient way to bind keys in emacs for both evil and non-evil users. ~general-define-key~ allows defining multiple keys at once, implicitly wrapping key strings with ~(kbd ...)~, having named prefix key sequences (like the leader key in vim), and more.
 
 * Advantages Over Evil-Leader
