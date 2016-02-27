@@ -119,6 +119,7 @@ the buffer-local value of HOOK is modified."
 ;; TODO better way to do this?
 ;; https://www.reddit.com/r/emacs/comments/1582uo/bufferlocalsetkey_set_a_key_in_one_buffer_only/
 (defvar general--blm nil)
+
 (defun general--generate-keymap-name (sym)
   "Generate a map name from SYM."
   (symbol-value (intern (concat (symbol-name sym) "-map"))))
@@ -137,12 +138,12 @@ the buffer-local value of HOOK is modified."
 ;; (use-local-map (copy-keymap (current-local-map)))
 ;; (local-set-key (kbd "C-c y") 'helm-apropos)
 
-(defun general--emacs-define-key (prefix keymap &rest maps)
-  "Wrapper for `define-key'.
-This adds support for a PREFIX sequence and buffer local keybindings if KEYMAP
-is 'local. MAPS is any number of keys and commands to bind."
-  (declare (indent defun))
-  (setq maps (general--apply-prefix prefix maps))
+(defun general--emacs-define-key (keymap &rest maps)
+  "Wrapper for `define-key' and general's `general--emacs-local-set-key'.
+KEYMAP determines which keymap the MAPS will be defined in. When KEYMAP is
+is 'local, the MAPS will be bound only in the current buffer. MAPS is any
+number of paired keys and commands"
+  (declare (indent 1))
   (let (key func)
     (while (setq key (pop maps)
                  func (pop maps))
@@ -163,13 +164,11 @@ is 'local. MAPS is any number of keys and commands to bind."
 ;;   `(eval-after-load 'evil
 ;;      (evil-define-key ,state ,keymap ,@maps)))
 
-(defun general--evil-define-key (prefix state keymap &rest maps)
+(defun general--evil-define-key (state keymap &rest maps)
   "A wrapper for `evil-define-key' and `evil-local-set-key'.
-This adds support for using a PREFIX sequence. STATE is the evil state to bind
-the keys in. `evil-local-set-key' is used when KEYMAP is 'local. MAPS is any
-number of keys and commands to bind."
-  (declare (indent 3))
-  (setq maps (general--apply-prefix prefix maps))
+STATE is the evil state to bind the keys in. `evil-local-set-key' is used when
+KEYMAP is 'local. MAPS is any number of keys and commands to bind."
+  (declare (indent defun))
   (eval-after-load 'evil
     `(let ((maps ',maps)
            (keymap ',keymap)
@@ -220,6 +219,8 @@ list of keymaps)."
     (setq keymaps (list keymaps)))
   (when predicate
     (setq maps (general--apply-predicate predicate maps)))
+  (when prefix
+    (setq maps (general--apply-prefix prefix maps)))
   (dolist (keymap keymaps)
     (general--delay `(or (eq ',keymap 'local)
                          (eq ',keymap 'global)
@@ -234,8 +235,8 @@ list of keymaps)."
                               ,keymap))))
            (if ',states
                (dolist (state ',states)
-                 (apply #'general--evil-define-key ,prefix state keymap ',maps))
-             (apply #'general--emacs-define-key ,prefix keymap ',maps)))
+                 (apply #'general--evil-define-key state keymap ',maps))
+             (apply #'general--emacs-define-key keymap ',maps)))
       'after-load-functions t nil
       (format "general-define-key-in-%s" keymap))))
 
