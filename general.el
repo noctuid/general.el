@@ -276,7 +276,7 @@ NAME will be the function name and ARGS are the keyword arguments that
 are intended to be the defaults."
   `(defun ,name (&rest args)
      ;; can still override keywords afterwards
-     (apply #'general-define-key ,@args args)))
+     (apply #'general-define-key (append args ',args))))
 
 ;;; Optional Setup
 ;;;###autoload
