@@ -278,6 +278,25 @@ are intended to be the defaults."
      ;; can still override keywords afterwards
      (apply #'general-define-key (append args ',args))))
 
+;;;###autoload
+(defun general-emacs-define-key (keymaps &rest args)
+  "A wrapper for `general-define-key' that is similar to `define-key'.
+It has a positional argument for KEYMAPS. It acts the same as
+`general-define-key', and ARGS can contain keyword arguments in addition to
+keybindings."
+  (declare (indent 1))
+  (apply #'general-define-key (append args (list :keymaps keymaps)) ))
+
+;;;###autoload
+(defun general-evil-define-key (states keymaps &rest args)
+  "A wrapper for `general-define-key' that is similar to `evil-define-key'.
+It has positional arguments for STATES and KEYMAPS. It acts the same as
+`general-define-key', and ARGS can contain keyword arguments in addition to
+keybindings."
+  (declare (indent defun))
+  (apply #'general-define-key
+         (append args (list :states states :keymaps keymaps))))
+
 ;;; Optional Setup
 ;;;###autoload
 (defun general-evil-setup (&optional short-names)
