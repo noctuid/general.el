@@ -225,7 +225,8 @@ list of keymaps)."
     ;; remove keyword arguments from rest var
     (setq maps
           (cl-loop for (key value) on maps by 'cddr
-                   when (not (member key (list :prefix :states :keymaps :predicate)))
+                   when (not (member key (list :prefix :states :keymaps :predicate
+                                               :non-normal-prefix)))
                    collect key
                    and collect value))
     ;; don't force the user to wrap a single state or keymap in a list
