@@ -82,7 +82,7 @@ Non-evil users should keep this nil."
   :group 'general)
 
 ;;; Helpers
-(defun general--apply-prefix (prefix maps)
+(defun general--apply-prefix-and-kbd (prefix maps)
   "Prepend the PREFIX sequence to all MAPS.
 Adds a (kbd ...) if `general-implicit-kbd' is non-nil."
   (let ((prefix (or prefix "")))
@@ -237,10 +237,10 @@ list of keymaps)."
       (setq keymaps (list keymaps)))
     (when predicate
       (setq maps (general--apply-predicate predicate maps)))
-    (when prefix
-      (setq maps (general--apply-prefix prefix maps)))
+    (setq maps (general--apply-prefix-and-kbd prefix maps))
     (when non-normal-prefix
-      (setq non-normal-maps (general--apply-prefix non-normal-prefix maps)))
+      (setq non-normal-maps
+            (general--apply-prefix-and-kbd non-normal-prefix maps)))
     (dolist (keymap keymaps)
       (general--delay `(or (eq ',keymap 'local)
                            (eq ',keymap 'global)
