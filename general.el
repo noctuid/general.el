@@ -312,10 +312,15 @@ aliases such as `nmap' for `general-nmap'."
   (general-create-definer general-omap :keymaps 'evil-operator-state-map)
   (general-create-definer general-mmap :keymaps 'evil-motion-state-map)
   (general-create-definer general-emap :keymaps 'evil-emacs-state-map)
+  (general-create-definer general-otomap :keymaps 'evil-outer-text-objects-map)
+  (general-create-definer general-itomap :keymaps 'evil-inner-text-objects-map)
   (general-create-definer general-nvmap :keymaps '(evil-normal-state-map
                                                    evil-visual-state-map))
   (general-create-definer general-iemap :keymaps '(evil-insert-state-map
                                                    evil-emacs-state-map))
+  (general-create-definer general-tomap
+                          :keymaps '(evil-outer-text-objects-map
+                                     evil-inner-text-objects-map))
   (when short-names
     (defalias 'nmap 'general-nmap)
     (defalias 'imap 'general-imap)
@@ -323,8 +328,11 @@ aliases such as `nmap' for `general-nmap'."
     (defalias 'rmap 'general-rmap)
     (defalias 'omap 'general-omap)
     (defalias 'emap 'general-emap)
+    (defalias 'otomap 'general-otomap)
+    (defalias 'itomap 'general-itomap)
     (defalias 'nvmap 'general-nvmap)
-    (defalias 'iemap 'general-iemap)))
+    (defalias 'iemap 'general-iemap)
+    (defalias 'tomap 'general-tomap)))
 
 (provide 'general)
 ;;; general.el ends here
