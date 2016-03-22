@@ -277,7 +277,7 @@ NAME will be the function name and ARGS are the keyword arguments that
 are intended to be the defaults."
   `(defun ,name (&rest args)
      ;; can still override keywords afterwards
-     (apply #'general-define-key (append args ',args))))
+     (apply #'general-define-key (append args (list ,@args)))))
 
 ;;;###autoload
 (defun general-emacs-define-key (keymaps &rest args)
