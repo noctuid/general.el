@@ -57,8 +57,20 @@ This applies to the prefix key as well."
 Note that this setting is only useful for evil-users and will only have an
 effect when binding keys in the 'emacs and/or 'insert states or in the
 'evil-insert-state-map and/or 'evil-emacs-state-map keymaps. When this is not
-specified, `general-default-prefix' will be the default prefix for any
-states and keymaps."
+specified, `general-default-prefix' will be the default prefix for any states
+and keymaps. If this is specified `general-default-prefix' or the arg to :prefix
+will not be used when binding keys in the insert and emacs states."
+  :group 'general
+  :type 'string)
+
+(defcustom general-default-global-prefix nil
+  "The default prefix key sequence to use for all evil states.
+This setting is only useful for evil users. Note that like with
+`general-default-non-normal-prefix', if this or :global-prefix is specified,
+`general-default-prefix' or the arg to :prefix will not be used for binding
+keys in the insert and emacs states. If you don't need a different or extra
+prefix for one or both state types (insert and emacs vs. the other states),
+just use `general-default-prefix'/:prefix by itself."
   :group 'general
   :type 'string)
 
@@ -197,6 +209,7 @@ KEYMAP is 'local. MAPS is any number of keys and commands to bind."
 (cl-defun general-define-key
     (&rest maps &key (prefix general-default-prefix)
            (non-normal-prefix general-default-non-normal-prefix)
+           (global-prefix general-default-global-prefix)
            (states general-default-states)
            (keymaps general-default-keymaps)
            (predicate)
@@ -216,17 +229,22 @@ function.
 If NON-NORMAL-PREFIX is specified, this prefix will be used for emacs and insert
 state keybindings instead of PREFIX. This argument will only have an effect if
 'insert and/or 'emacs is one of the STATES or if 'evil-insert-state-map and/or
-'evil-emacs-state-map is one of the KEYMAPS.
+'evil-emacs-state-map is one of the KEYMAPS. Alternatively, GLOBAL-PREFIX can be
+used with PREFIX and/or NON-NORMAL-PREFIX to bind keys in all states under a
+specified prefix. Like with NON-NORMAL-PREFIX, GLOBAL-PREFIX will prevent PREFIX
+from applying to insert and emacs states. Note that these keywords are only
+useful for evil users.
 
 Unlike with normal key definitions functions, the keymaps in KEYMAPS should be
 quoted (this makes it easy to check if there is only one keymap instead of a
 list of keymaps)."
-  (let (non-normal-maps)
+  (let (non-normal-prefix-maps
+        global-prefix-maps)
     ;; remove keyword arguments from rest var
     (setq maps
           (cl-loop for (key value) on maps by 'cddr
                    when (not (member key (list :prefix :states :keymaps :predicate
-                                               :non-normal-prefix)))
+                                               :non-normal-prefix :global-prefix)))
                    collect key
                    and collect value))
     ;; don't force the user to wrap a single state or keymap in a list
@@ -237,10 +255,14 @@ list of keymaps)."
       (setq keymaps (list keymaps)))
     (when predicate
       (setq maps (general--apply-predicate predicate maps)))
-    (setq maps (general--apply-prefix-and-kbd prefix maps))
     (when non-normal-prefix
-      (setq non-normal-maps
+      (setq non-normal-prefix-maps
             (general--apply-prefix-and-kbd non-normal-prefix maps)))
+    (when global-prefix
+      (setq global-prefix-maps
+            (general--apply-prefix-and-kbd global-prefix maps)))
+    ;; last so not applying prefix twice
+    (setq maps (general--apply-prefix-and-kbd prefix maps))
     (dolist (keymap keymaps)
       (general--delay `(or (eq ',keymap 'local)
                            (eq ',keymap 'global)
@@ -255,16 +277,30 @@ list of keymaps)."
                                 ,keymap))))
              (if ',states
                  (dolist (state ',states)
-                   (if (and ',non-normal-maps
-                            (member state '(insert emacs)))
-                       (apply #'general--evil-define-key state keymap
-                              ',non-normal-maps)
-                     (apply #'general--evil-define-key state keymap ',maps)))
-               (if (and ',non-normal-maps
-                        (member ',keymap (list 'evil-insert-state-map
-                                               'evil-emacs-state-map)))
-                   (apply #'general--emacs-define-key keymap ',non-normal-maps)
-                 (apply #'general--emacs-define-key keymap ',maps))))
+                   (cond ((and (or ',non-normal-prefix-maps
+                                   ',global-prefix-maps)
+                               (member state '(insert emacs)))
+                          (when ',non-normal-prefix-maps
+                            (apply #'general--evil-define-key state keymap
+                                   ',non-normal-prefix-maps)))
+                         (t
+                          (apply #'general--evil-define-key state keymap
+                                 ',maps)))
+                   (when ',global-prefix-maps
+                     (apply #'general--evil-define-key state keymap
+                            ',global-prefix-maps)))
+               (cond ((and (or ',non-normal-prefix-maps
+                               ',global-prefix-maps)
+                           (member 'keymap (list 'evil-insert-state-map
+                                                 'evil-emacs-state-map)))
+                      (when ',non-normal-prefix-maps
+                        (apply #'general--emacs-define-key keymap
+                               ',non-normal-prefix-maps)))
+                     (t
+                      (apply #'general--emacs-define-key keymap ',maps)))
+               (when ',global-prefix-maps
+                 (apply #'general--emacs-define-key keymap
+                        ',global-prefix-maps))))
         'after-load-functions t nil
         (format "general-define-key-in-%s" keymap)))))
 
