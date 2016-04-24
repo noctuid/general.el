@@ -167,8 +167,8 @@ is 'local, the MAPS will be bound only in the current buffer. MAPS is any
 number of paired keys and commands"
   (declare (indent 1))
   (let (key func)
-    (while (setq key (pop maps)
-                 func (pop maps))
+    (while (setq key (pop maps))
+      (setq func (pop maps))
       (if (eq keymap 'local)
           (general--emacs-local-set-key key func)
         (define-key keymap key func)))))
@@ -197,8 +197,8 @@ KEYMAP is 'local. MAPS is any number of keys and commands to bind."
            (state ',state)
            key
            func)
-       (while (setq key (pop maps)
-                    func (pop maps))
+       (while (setq key (pop maps))
+         (setq func (pop maps))
          (if (eq keymap 'local)
              ;; has no &rest
              (evil-local-set-key state key func)
