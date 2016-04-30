@@ -352,6 +352,9 @@ aliases such as `nmap' for `general-nmap'."
   (general-create-definer general-itomap :keymaps 'evil-inner-text-objects-map)
   (general-create-definer general-nvmap :keymaps '(evil-normal-state-map
                                                    evil-visual-state-map))
+  (general-create-definer general-nvmmap :keymaps '(evil-normal-state-map
+                                                    evil-visual-state-map
+                                                    evil-motion-state-map))
   (general-create-definer general-iemap :keymaps '(evil-insert-state-map
                                                    evil-emacs-state-map))
   (general-create-definer general-tomap
@@ -367,6 +370,7 @@ aliases such as `nmap' for `general-nmap'."
     (defalias 'otomap 'general-otomap)
     (defalias 'itomap 'general-itomap)
     (defalias 'nvmap 'general-nvmap)
+    (defalias 'nvmmap 'general-nvmmap)
     (defalias 'iemap 'general-iemap)
     (defalias 'tomap 'general-tomap)))
 
