@@ -291,8 +291,8 @@ list of keymaps)."
                             ',global-prefix-maps)))
                (cond ((and (or ',non-normal-prefix-maps
                                ',global-prefix-maps)
-                           (member 'keymap (list 'evil-insert-state-map
-                                                 'evil-emacs-state-map)))
+                           (member ',keymap '(evil-insert-state-map
+                                              evil-emacs-state-map)))
                       (when ',non-normal-prefix-maps
                         (apply #'general--emacs-define-key keymap
                                ',non-normal-prefix-maps)))
