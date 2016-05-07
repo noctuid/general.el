@@ -122,14 +122,14 @@ This package provides one main function, ~general-define-key~, for key definitio
 There is also a =:predicate= keyword for giving a condition under which a map should be active.
 
 ** Positional Argument Wrappers
-When you're defining keys in specific keymaps and states, using positional arguments can be shorter. General has two functions that have the equivalent positional arguments of ~define-key~ and ~evil-define-key~. They are ~general-emacs-define-key~ and ~general-evil-define-key~ respectively. These are simply wrappers for ~general-define-key~ that pass the positional arguments to the corresponding keywords.
+When you're defining keys in specific keymaps and states, using positional arguments can be shorter. General has two macros that can basically act as drop-in replacements for ~define-key~ and ~evil-define-key~. They are ~general-emacs-define-key~ and ~general-evil-define-key~. These are simply wrappers for ~general-define-key~ that pass the positional arguments to the corresponding keywords. However, for compatibility with ~define-key~ and ~evil-define-key~, it is not necessary to quote a single keymap. When you specify multiple keymaps, the list should still be quoted. 
 
 For example, the following are equivalent:
 #+begin_src emacs-lisp
 (general-define-key :keymaps 'org-mode-map
                     "TAB" 'org-cycle
                     "S-TAB" 'org-shifttab)
-(general-emacs-define-key 'org-mode-map
+(general-emacs-define-key org-mode-map
   "TAB" 'org-cycle
   "S-TAB" 'org-shifttab)
 
@@ -143,7 +143,7 @@ And the following are equivalent:
 #+begin_src emacs-lisp
 (general-define-key :states '(normal visual) :keymaps 'org-mode-map
                     "TAB" 'org-cycle)
-(general-evil-define-key '(normal visual) 'org-mode-map
+(general-evil-define-key '(normal visual) org-mode-map
   "TAB" 'org-cycle)
 
 ;; equivalent with evil-define-key
@@ -153,7 +153,7 @@ And the following are equivalent:
   (kbd "TAB") 'org-cycle)
 #+end_src
 
-The actual behavior of these two functions is the same as ~general-define-key~. You can still use ~general-define-key~'s keyword arguments after the positional arguments:
+The actual behavior of these two macros is the same as ~general-define-key~. You can still use ~general-define-key~'s keyword arguments after the positional arguments:
 #+begin_src emacs-lisp
 ;; these are both valid
 (general-emacs-define-key 'global
