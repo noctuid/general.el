@@ -344,6 +344,43 @@ keymap, it does not need to be quoted."
                                     ',keymaps
                                   ,keymaps)))
 
+;;; Commands that Could Aid in Key Definition
+;; https://emacs.stackexchange.com/questions/6037/emacs-bind-key-to-prefix/13432#13432
+;; altered to allow execution in a emacs state
+;; and to create a named function with a docstring
+;;;###autoload
+(defmacro general-simulate-keys (keys &optional emacs-state)
+  "Return a function to simulate KEYS.
+If EMACS-STATE is non-nil, execute the keys in emacs state. Otherwise simulate
+the keys in the current context (will work without evil). KEYS should be given
+in `kbd' notation."
+  `(defun ,(intern (concat "general-simulate-"
+                           (replace-regexp-in-string " " "_" keys)))
+       ()
+     ,(concat "Simulate '" keys "' in " (if emacs-state
+                                            "emacs state."
+                                          "the current context."))
+     (interactive)
+     (when ,emacs-state
+       ;; so don't have to redefine evil-stop-execute-in-emacs-state
+       (setq this-command #'evil-execute-in-emacs-state)
+       ;; doesn't work
+       ;; (cl-flet ((evil-echo (_) nil))
+       ;;   (evil-execute-in-emacs-state))
+       (add-hook 'post-command-hook #'evil-stop-execute-in-emacs-state t)
+       (setq evil-execute-in-emacs-state-buffer (current-buffer))
+       (cond
+         ((evil-visual-state-p)
+          (let ((mrk (mark))
+                (pnt (point)))
+            (evil-emacs-state)
+            (set-mark mrk)
+            (goto-char pnt)))
+         (t
+          (evil-emacs-state))))
+     (setq prefix-arg current-prefix-arg)
+     (setq unread-command-events (listify-key-sequence (kbd ,keys)))))
+
 ;;; Optional Setup
 ;;;###autoload
 (defun general-evil-setup (&optional short-names)

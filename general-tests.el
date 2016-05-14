@@ -130,5 +130,14 @@
     (general-test-evil-keys 'insert general-test-map (kbd "C-t") #'c-t)
     (general-test-evil-keys 'insert general-test2-map (kbd "C-t") #'c-t)))
 
+(ert-deftest general-simulate-keys ()
+  (let ((general-test-map (make-sparse-keymap)))
+    (evil-define-key 'normal general-test-map
+      "n" (general-simulate-keys "C-n" t))
+    (general-test-evil-keys 'normal general-test-map
+      "n" #'general-simulate-C-n)
+    ;; TODO: add a lispy-with like test for the effect
+    ))
+
 (provide 'general-tests)
 ;;; general-tests.el ends here

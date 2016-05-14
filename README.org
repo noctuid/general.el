@@ -217,6 +217,19 @@ The user can use the ~:predicate~ keyword to specify a condition under which the
 
 See [[http://endlessparentheses.com/define-context-aware-keys-in-emacs.html][this post]] for more information about how this works.
 
+** Functions to Help With Key Definition
+General provides a macro called ~general-simulate-keys~ that can be used to simulate the press of a key sequence. In some cases, this can be used similarly to a keyboard macro, but it has some advantages. Unlike with a keyboard macro, prefix arguments will work for the command the key simulates. The key simulated does not have to correspond to the full key sequence for a command. In these cases [[https://github.com/justbur/emacs-which-key][which-key]] will show the keys bound under the simulated prefix. For example:
+#+begin_src emacs-lisp
+(general-nmap "SPC" (general-simulate-keys "C-c"))
+#+end_src
+
+~general-simulate-key~ can take an optional argument (for use with evil only) that will cause the keys to be simulated in emacs state. This allows something like the following to work:
+#+begin_src emacs-lisp
+(general-nmap "j" (general-simulate-keys "C-n" t))
+#+end_src
+
+Also note that ~general-simulate-keys~ creates a named function with a docstring, so which-key and ~describe-key~ will work properly for keys bound to a command created with it.
+
 ** Creating Extra Keybinding Functions (Advanced)
 The primary purpose of this package is to provide a single function for key definitions that is simple and flexible. Most users probably won't want to use this functionality (apart from ~general-evil-setup~). However, if you would like more specific keybinding functions for certain prefixes, evil states, or keymaps, this package provides macros to generate these functions. 
 
