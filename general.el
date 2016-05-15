@@ -381,6 +381,42 @@ in `kbd' notation."
      (setq prefix-arg current-prefix-arg)
      (setq unread-command-events (listify-key-sequence (kbd ,keys)))))
 
+;;;###autoload
+(defmacro general-key-dispatch (fallback-command &rest maps)
+  "Create a function that will run FALLBACK-COMMAND or a command from MAPS.
+MAPS consists of <key> <command> pairs. If a key in MAPS is matched, the
+corresponding command will be run. Otherwise FALLBACK-COMMAND will be run
+with the unmatched keys. So, for example, if \"ab\" was pressed, and \"ab\" is
+not one of the key sequences from MAPS, the FALLBACK-COMMAND will be run
+followed by the simulated keypresses of \"ab\". Prefix arguments will still work
+regardless of which command is run. This is useful for binding under non-prefix
+keys. For example, this can be used to redefine a sequence like\"ctb\" or
+\"cow\" in evil but still have \"c\" work as `evil-change'."
+  (declare (indent 1))
+  `(defun ,(intern (format "general-dispatch-%s" (eval fallback-command)))
+       (char)
+     ,(format "Run %s or something else based on CHAR."
+              (eval fallback-command))
+     (interactive "c")
+     (setq char (char-to-string char))
+     (let ((map (make-sparse-keymap)))
+       (if general-implicit-kbd
+           (general--emacs-define-key map
+             ,@(general--apply-prefix-and-kbd nil maps))
+         (general--emacs-define-key map ,@maps))
+       (while (keymapp (lookup-key map char))
+         (setq char (concat char (char-to-string (read-char)))))
+       (setq prefix-arg current-prefix-arg)
+       (set-transient-map map)
+       (cond ((lookup-key map char)
+              (setq unread-command-events (listify-key-sequence char)))
+             (t
+              ;; doesn't matter what is used as the entry point
+              ;; ("a" doesn't work though for some reason)
+              (define-key map "z" ,fallback-command)
+              (setq unread-command-events (listify-key-sequence
+                                           (concat "z" char))))))))
+
 ;;; Optional Setup
 ;;;###autoload
 (defun general-evil-setup (&optional short-names)
