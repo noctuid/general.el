@@ -349,17 +349,23 @@ keymap, it does not need to be quoted."
 ;; altered to allow execution in a emacs state
 ;; and to create a named function with a docstring
 ;;;###autoload
-(defmacro general-simulate-keys (keys &optional emacs-state)
-  "Return a function to simulate KEYS.
+(defmacro general-simulate-keys (keys &optional emacs-state docstring name)
+  "Create a function to simulate KEYS.
 If EMACS-STATE is non-nil, execute the keys in emacs state. Otherwise simulate
 the keys in the current context (will work without evil). KEYS should be given
-in `kbd' notation."
-  `(defun ,(intern (concat "general-simulate-"
-                           (replace-regexp-in-string " " "_" keys)))
+in `kbd' notation. If DOCSTRING is given, it will replace the automatically
+generated docstring. If NAME is given, it will replace the automatically
+generated function name. NAME should not be quoted."
+  `(defun ,(or name
+               (intern (concat "general-simulate-"
+                               (replace-regexp-in-string " " "_" keys)
+                               (when emacs-state
+                                 "-in-emacs-state"))))
        ()
-     ,(concat "Simulate '" keys "' in " (if emacs-state
-                                            "emacs state."
-                                          "the current context."))
+     ,(or docstring
+          (concat "Simulate '" keys "' in " (if emacs-state
+                                                "emacs state."
+                                              "the current context.")))
      (interactive)
      (when ,emacs-state
        ;; so don't have to redefine evil-stop-execute-in-emacs-state

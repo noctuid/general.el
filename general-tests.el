@@ -133,9 +133,13 @@
 (ert-deftest general-simulate-keys ()
   (let ((general-test-map (make-sparse-keymap)))
     (evil-define-key 'normal general-test-map
-      "n" (general-simulate-keys "C-n" t))
+      "n" (general-simulate-keys "C-n")
+      "N" (general-simulate-keys "C-n" t)
+      (kbd "SPC") (general-simulate-keys "C-c" nil "" general-C-c))
     (general-test-evil-keys 'normal general-test-map
-      "n" #'general-simulate-C-n)
+                            "n" #'general-simulate-C-n
+                            "N" #'general-simulate-C-n-in-emacs-state
+                            (kbd "SPC") #'general-C-c)
     ;; TODO: add a lispy-with like test for the effect
     ))
 
