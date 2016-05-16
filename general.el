@@ -413,15 +413,13 @@ keys. For example, this can be used to redefine a sequence like\"ctb\" or
        (while (keymapp (lookup-key map char))
          (setq char (concat char (char-to-string (read-char)))))
        (setq prefix-arg current-prefix-arg)
-       (set-transient-map map)
        (cond ((lookup-key map char)
+              (set-transient-map map)
               (setq unread-command-events (listify-key-sequence char)))
              (t
-              ;; doesn't matter what is used as the entry point
-              ;; ("a" doesn't work though for some reason)
-              (define-key map "z" ,fallback-command)
-              (setq unread-command-events (listify-key-sequence
-                                           (concat "z" char))))))))
+              ;; have to do this in "reverse" order (call command 2nd)
+              (setq unread-command-events (listify-key-sequence char))
+              (call-interactively ,fallback-command))))))
 
 ;;; Optional Setup
 ;;;###autoload
