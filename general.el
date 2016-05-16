@@ -352,40 +352,55 @@ keymap, it does not need to be quoted."
 (defmacro general-simulate-keys (keys &optional emacs-state docstring name)
   "Create a function to simulate KEYS.
 If EMACS-STATE is non-nil, execute the keys in emacs state. Otherwise simulate
-the keys in the current context (will work without evil). KEYS should be given
-in `kbd' notation. If DOCSTRING is given, it will replace the automatically
-generated docstring. If NAME is given, it will replace the automatically
-generated function name. NAME should not be quoted."
-  `(defun ,(or name
-               (intern (concat "general-simulate-"
-                               (replace-regexp-in-string " " "_" keys)
-                               (when emacs-state
-                                 "-in-emacs-state"))))
-       ()
-     ,(or docstring
-          (concat "Simulate '" keys "' in " (if emacs-state
-                                                "emacs state."
-                                              "the current context.")))
-     (interactive)
-     (when ,emacs-state
-       ;; so don't have to redefine evil-stop-execute-in-emacs-state
-       (setq this-command #'evil-execute-in-emacs-state)
-       ;; doesn't work
-       ;; (cl-flet ((evil-echo (_) nil))
-       ;;   (evil-execute-in-emacs-state))
-       (add-hook 'post-command-hook #'evil-stop-execute-in-emacs-state t)
-       (setq evil-execute-in-emacs-state-buffer (current-buffer))
-       (cond
-         ((evil-visual-state-p)
-          (let ((mrk (mark))
-                (pnt (point)))
-            (evil-emacs-state)
-            (set-mark mrk)
-            (goto-char pnt)))
-         (t
-          (evil-emacs-state))))
-     (setq prefix-arg current-prefix-arg)
-     (setq unread-command-events (listify-key-sequence (kbd ,keys)))))
+the keys in the current context (will work without evil). KEYS should be a
+string  given in `kbd' notation. It an also be a list of a single command
+followed by a string of the keys to simulate after calling that command. If
+DOCSTRING is given, it will replace the automatically generated docstring. If
+NAME is given, it will replace the automatically generated function name. NAME
+should not be quoted."
+  (let ((keys (if (listp keys)
+                  (cadr keys)
+                keys))
+        (command (when (listp keys)
+                   (car keys))))
+    `(defun ,(or name
+                 (intern (concat
+                          (format "general-simulate-%s"
+                                  (if command
+                                      (eval command)
+                                    ""))
+                          (when command
+                            "-")
+                          (replace-regexp-in-string " " "_" keys)
+                          (when emacs-state
+                            "-in-emacs-state"))))
+         ()
+       ,(or docstring
+            (concat "Simulate '" keys "' in " (if emacs-state
+                                                  "emacs state."
+                                                "the current context.")))
+       (interactive)
+       (when ,emacs-state
+         ;; so don't have to redefine evil-stop-execute-in-emacs-state
+         (setq this-command #'evil-execute-in-emacs-state)
+         ;; doesn't work
+         ;; (cl-flet ((evil-echo (_) nil))
+         ;;   (evil-execute-in-emacs-state))
+         (add-hook 'post-command-hook #'evil-stop-execute-in-emacs-state t)
+         (setq evil-execute-in-emacs-state-buffer (current-buffer))
+         (cond
+           ((evil-visual-state-p)
+            (let ((mrk (mark))
+                  (pnt (point)))
+              (evil-emacs-state)
+              (set-mark mrk)
+              (goto-char pnt)))
+           (t
+            (evil-emacs-state))))
+       (setq prefix-arg current-prefix-arg)
+       (setq unread-command-events (listify-key-sequence (kbd ,keys)))
+       (when ,command
+         (call-interactively ,command)))))
 
 ;;;###autoload
 (defmacro general-key-dispatch (fallback-command &rest maps)

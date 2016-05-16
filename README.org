@@ -219,7 +219,7 @@ See [[http://endlessparentheses.com/define-context-aware-keys-in-emacs.html][thi
 
 ** Functions to Help With Key Definition
 *** Simulating Keypresses
-General provides a macro called ~general-simulate-keys~ that can be used to simulate the press of a key sequence. In some cases, this can be used similarly to a keyboard macro, but it has some advantages. Unlike with a keyboard macro, prefix arguments will work for the command the key simulates. The key simulated does not have to correspond to the full key sequence for a command. In these cases [[https://github.com/justbur/emacs-which-key][which-key]] will show the keys bound under the simulated prefix. For example:
+General provides a macro called ~general-simulate-keys~ that can be used to simulate a key sequence. In some cases, this can be used similarly to a keyboard macro, but it has some advantages. Unlike with a keyboard macro, prefix arguments will work for the command the key simulates. The key simulated does not have to correspond to the full key sequence for a command. In these cases [[https://github.com/justbur/emacs-which-key][which-key]] will show the keys bound under the simulated prefix. For example:
 #+begin_src emacs-lisp
 (general-nmap "SPC" (general-simulate-keys "C-c"))
 #+end_src
@@ -228,6 +228,8 @@ General provides a macro called ~general-simulate-keys~ that can be used to simu
 #+begin_src emacs-lisp
 (general-nmap "j" (general-simulate-keys "C-n" t))
 #+end_src
+
+The key section can also be replaced by a list of a command and keys (e.g. ~(general-simulate-keys (#'evil-delete "iw"))~). See the next section for a reasonable use case for this feature.
 
 Also note that ~general-simulate-keys~ creates a named function with a docstring, so which-key and ~describe-key~ will work properly for keys bound to a command created with it. The automatically generated function name and docstring can be replaced with optional arguments:
 #+begin_src emacs-lisp
@@ -247,11 +249,12 @@ This functionality is mainly targeted at evil users, but it could potentially be
 (general-nmap "c"
               (general-key-dispatch 'evil-change
                 "ow" 'toggle-word-wrap
-                "tb" 'some-func
+                "w" (general-simulate-keys ('evil-change "iw"))
+                "tb" 'some-command
                 "c" 'evil-change-whole-line))
 #+end_src
 
-In this example, the function created will execute any of the mapped key sequences or fall back to ~evil-change~. For example, =ow= is mapped, so =cow= will run ~toggle-word-wrap~. On the other hand, =w= is not mapped, so =cw= will act the same as =cw= would by default. Like with ~general-simulate-keys~, this uses ~unread-command-events~ internally instead of a keyboard macro, so prefix arguments will still work (e.g. =2cw=). However, because evil handles =cc= differently (because =c= is not a motion), =c= must be explicitly bound to ~evil-change-whole-line~ to keep its behavior.
+In this example, the function created will execute any of the mapped key sequences or fall back to ~evil-change~. For example, =ow= is mapped, so =cow= will run ~toggle-word-wrap~. On the other hand, =b= is not mapped, so =cb= will act the same as =cb= would by default. Like with ~general-simulate-keys~, this uses ~unread-command-events~ internally instead of a keyboard macro, so prefix arguments will still work (e.g. =2cb=). However, because evil handles =cc= differently (since =c= is not a motion), =c= must be explicitly bound to ~evil-change-whole-line~ to keep its behavior. Another thing to note is that you can't bind a key in the ~general-key-dispatch~ section to simulate the base key (in this case =c=). For this example, you cant't bind =w= to ~(general-simulate-keys "ciw")~. While this won't cause an infinite loop, it won't work either, so you have to use the command name instead.
 
 ** Creating Extra Keybinding Functions (Advanced)
 The primary purpose of this package is to provide a single function for key definitions that is simple and flexible. Most users probably won't want to use this functionality (apart from ~general-evil-setup~). However, if you would like more specific keybinding functions for certain prefixes, evil states, or keymaps, this package provides macros to generate these functions. 
