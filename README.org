@@ -236,8 +236,13 @@ Also note that ~general-simulate-keys~ creates a named function with a docstring
                      "Simulate C-c in emacs state with SPC."
                      general-SPC-simulates-C-c))
 #+end_src
+
+Make sure that you don't bind a key to simulate itself (e.g. ~(general-emap "C-n" (general-simulate-keys "C-n" t))~) as it wouldn't do anything (and would cause an infinite loop).
+
 *** Mapping Under Non-prefix Keys
-This functionality is mainly targeted at evil users, but it could potentially be useful for non-evil users as well. In vim you can bind something like =cow= without a problem. With evil, =c= is bound to ~evil-change~, so you can't bind directly to =cow=. A workaround for this case is to bind a key in ~evil-operator-state-map~, but this won't work, for example, if you wanted to bind =ctb= to something special. I've come up with a more general workaround, ~general-key-dispatch~. Consider the following:
+Note that this feature is experimental at the moment (see issue #18).
+
+This functionality is mainly targeted at evil users, but it could potentially be useful for non-evil users as well. In vim you can bind something like =cow= without a problem. With evil, =c= is bound to ~evil-change~, so you can't bind directly to =cow=. A workaround for this case is to bind a key in ~evil-operator-state-map~, but this won't work, for example, if you wanted to bind =ctb= to something special. I've come up with a more general workaround, ~general-key-dispatch~. Consider the following example:
 #+begin_src emacs-lisp
 (general-nmap "c"
               (general-key-dispatch 'evil-change
