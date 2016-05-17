@@ -264,7 +264,9 @@ Another possible use is to emulate vim's =imap=. For example, you can recreate t
                 "k" 'evil-normal-state))
 #+end_src
 
-One thing to note is that this will not time out, and =j= will only be inserted after the next keypress. For an alternate way to do this, you might want to look at [[https://github.com/vlevit/key-seq.el][key-seq.el]] and [[https://www.emacswiki.org/emacs/key-chord.el][key-chord.el]].
+If you plan on using more than one of these with ~self-insert-command~, you'll need to either use =:lambda t= or the =:name= keyword argument to prevent the newly created functions from clobbering each other.
+
+Another thing to note is that commands created in this way will not time out, and =j= will only be inserted after the next keypress. For an alternate way to do this, you might want to look at [[https://github.com/vlevit/key-seq.el][key-seq.el]] and [[https://www.emacswiki.org/emacs/key-chord.el][key-chord.el]].
 
 ** Creating Extra Keybinding Functions (Advanced)
 The primary purpose of this package is to provide a single function for key definitions that is simple and flexible. Most users probably won't want to use this functionality (apart from ~general-evil-setup~). However, if you would like more specific keybinding functions for certain prefixes, evil states, or keymaps, this package provides macros to generate these functions. 

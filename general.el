@@ -403,7 +403,8 @@ should not be quoted."
          (call-interactively ,command)))))
 
 ;;;###autoload
-(defmacro general-key-dispatch (fallback-command &rest maps)
+(cl-defmacro general-key-dispatch
+    (fallback-command &rest maps &key lambda name docstring &allow-other-keys)
   "Create a function that will run FALLBACK-COMMAND or a command from MAPS.
 MAPS consists of <key> <command> pairs. If a key in MAPS is matched, the
 corresponding command will be run. Otherwise FALLBACK-COMMAND will be run
@@ -411,30 +412,46 @@ with the unmatched keys. So, for example, if \"ab\" was pressed, and \"ab\" is
 not one of the key sequences from MAPS, the FALLBACK-COMMAND will be run
 followed by the simulated keypresses of \"ab\". Prefix arguments will still work
 regardless of which command is run. This is useful for binding under non-prefix
-keys. For example, this can be used to redefine a sequence like\"ctb\" or
-\"cow\" in evil but still have \"c\" work as `evil-change'."
+keys. For example, this can be used to redefine a sequence like \"cw\" or
+\"cow\" in evil but still have \"c\" work as `evil-change'. LAMBDA, NAME, and
+DOCSTRING are optional keyword arguments. If LAMBDA is non-nil, a lambda will be
+created instead of a named function. This is potentially useful if you want to
+have multiple commands that fall back to the same command (e.g. to
+`self-insert-command'). NAME and DOCSTRING can be used to replace the
+automatically generated name and docstring for the created function."
   (declare (indent 1))
-  `(defun ,(intern (format "general-dispatch-%s" (eval fallback-command)))
-       (char)
-     ,(format "Run %s or something else based on CHAR."
-              (eval fallback-command))
-     (interactive "c")
-     (setq char (char-to-string char))
-     (let ((map (make-sparse-keymap)))
-       (if general-implicit-kbd
-           (general--emacs-define-key map
-             ,@(general--apply-prefix-and-kbd nil maps))
-         (general--emacs-define-key map ,@maps))
-       (while (keymapp (lookup-key map char))
-         (setq char (concat char (char-to-string (read-char)))))
-       (setq prefix-arg current-prefix-arg)
-       (cond ((lookup-key map char)
-              (set-transient-map map)
-              (setq unread-command-events (listify-key-sequence char)))
-             (t
-              ;; have to do this in "reverse" order (call command 2nd)
-              (setq unread-command-events (listify-key-sequence char))
-              (call-interactively ,fallback-command))))))
+  (let ((name (or name (intern (format "general-dispatch-%s"
+                                       (eval fallback-command)))))
+        ;; remove keyword arguments from maps
+        (maps (cl-loop for (key value) on maps by 'cddr
+                 when (not (member key (list :lambda :name :docstring)))
+                 collect key
+                 and collect value)))
+    `(let ((dispatch-func
+            (lambda (char)
+              ,(or docstring (format "Run %s or something else based on CHAR."
+                                     (eval fallback-command)))
+              (interactive "c")
+              (setq char (char-to-string char))
+              (let ((map (make-sparse-keymap)))
+                (if general-implicit-kbd
+                    (general--emacs-define-key map
+                      ,@(general--apply-prefix-and-kbd nil maps))
+                  (general--emacs-define-key map ,@maps))
+                (while (keymapp (lookup-key map char))
+                  (setq char (concat char (char-to-string (read-char)))))
+                (setq prefix-arg current-prefix-arg)
+                (cond ((lookup-key map char)
+                       (set-transient-map map)
+                       (setq unread-command-events (listify-key-sequence char)))
+                      (t
+                       ;; have to do this in "reverse" order (call command 2nd)
+                       (setq unread-command-events (listify-key-sequence char))
+                       (call-interactively ,fallback-command)))))))
+       (if ,lambda
+           dispatch-func
+         (defalias ',name dispatch-func)
+         #',name))))
 
 ;;; Optional Setup
 ;;;###autoload
