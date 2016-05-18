@@ -383,20 +383,8 @@ should not be quoted."
        (when ,emacs-state
          ;; so don't have to redefine evil-stop-execute-in-emacs-state
          (setq this-command #'evil-execute-in-emacs-state)
-         ;; doesn't work
-         ;; (cl-flet ((evil-echo (_) nil))
-         ;;   (evil-execute-in-emacs-state))
-         (add-hook 'post-command-hook #'evil-stop-execute-in-emacs-state t)
-         (setq evil-execute-in-emacs-state-buffer (current-buffer))
-         (cond
-           ((evil-visual-state-p)
-            (let ((mrk (mark))
-                  (pnt (point)))
-              (evil-emacs-state)
-              (set-mark mrk)
-              (goto-char pnt)))
-           (t
-            (evil-emacs-state))))
+         (let ((evil-no-display t))
+           (evil-execute-in-emacs-state)))
        (setq prefix-arg current-prefix-arg)
        (setq unread-command-events (listify-key-sequence (kbd ,keys)))
        (when ,command
