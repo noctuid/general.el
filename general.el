@@ -430,12 +430,18 @@ automatically generated name and docstring for the created function."
                   (setq char (concat char (char-to-string (read-char)))))
                 (setq prefix-arg current-prefix-arg)
                 (cond ((lookup-key map char)
-                       (set-transient-map map)
-                       (setq unread-command-events (listify-key-sequence char)))
+                       (call-interactively (lookup-key map char)))
                       (t
                        ;; have to do this in "reverse" order (call command 2nd)
                        (setq unread-command-events (listify-key-sequence char))
-                       (call-interactively ,fallback-command)))))))
+                       (call-interactively ,fallback-command)
+                       (when evil-repeat-info
+                         ;; remove duplicate keys from evil-repeat-info
+                         ;; (setcar evil-repeat-info
+                         ;;         (substring (car evil-repeat-info) 0 1))
+                         (setq evil-repeat-info
+                               (cons (substring (car evil-repeat-info) 0 1)
+                                     (cdr evil-repeat-info))))))))))
        (if ,lambda
            dispatch-func
          (defalias ',name dispatch-func)
