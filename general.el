@@ -358,22 +358,23 @@ followed by a string of the keys to simulate after calling that command. If
 DOCSTRING is given, it will replace the automatically generated docstring. If
 NAME is given, it will replace the automatically generated function name. NAME
 should not be quoted."
-  (let ((keys (if (listp keys)
-                  (cadr keys)
-                keys))
-        (command (when (listp keys)
-                   (car keys))))
-    `(defun ,(or name
-                 (intern (concat
-                          (format "general-simulate-%s"
-                                  (if command
-                                      (eval command)
-                                    ""))
-                          (when command
-                            "-")
-                          (replace-regexp-in-string " " "_" keys)
-                          (when emacs-state
-                            "-in-emacs-state"))))
+  (let* ((command (when (listp keys)
+                    (car keys)))
+         (keys (if (listp keys)
+                   (cadr keys)
+                 keys))
+         (name (or name
+                   (intern (concat
+                            (format "general-simulate-%s"
+                                    (if command
+                                        (eval command)
+                                      ""))
+                            (when command
+                              "-")
+                            (replace-regexp-in-string " " "_" keys)
+                            (when emacs-state
+                              "-in-emacs-state"))))))
+    `(defun ,name
          ()
        ,(or docstring
             (concat "Simulate '" keys "' in " (if emacs-state
@@ -385,14 +386,45 @@ should not be quoted."
          (setq this-command #'evil-execute-in-emacs-state)
          (let ((evil-no-display t))
            (evil-execute-in-emacs-state)))
-       (setq prefix-arg current-prefix-arg)
-       (setq unread-command-events (listify-key-sequence (kbd ,keys)))
-       (when ,command
-         (call-interactively ,command)))))
+       (let ((keys (kbd ,keys))
+             (command ,command))
+         (setq prefix-arg current-prefix-arg)
+         (setq unread-command-events (listify-key-sequence keys))
+         (when command
+           (call-interactively command))))))
+
+(defvar general--last-dispatch nil)
+
+(defun general--fix-repeat (flag)
+  "Modified version of `evil-repeat-keystrokes'.
+It will remove extra keys added in a general-dispatch-... command."
+  (cond ((eq flag 'pre)
+         (when evil-this-register
+           (evil-repeat-record
+            `(set evil-this-register ,evil-this-register)))
+         (setq evil-repeat-keys (this-command-keys)))
+        ((eq flag 'post)
+         (evil-repeat-record (if (zerop (length (this-command-keys)))
+                                 evil-repeat-keys
+                               (this-command-keys)))
+         (evil-clear-command-keys)
+         (let* ((command (cl-getf general--last-dispatch :command))
+                (repeat-prop (evil-get-command-property command :repeat t))
+                (fallback (cl-getf general--last-dispatch :fallback))
+                (invoked-keys (cl-getf general--last-dispatch :invoked-keys))
+                (keys (cl-getf general--last-dispatch :keys)))
+           (if (or (memq repeat-prop (list nil 'abort 'ignore))
+                   (and (eq repeat-prop 'motion)
+                        (not (memq evil-state '(insert replace)))))
+               (evil-repeat-abort)
+             (if fallback
+                 ;; may not know full key sequence
+                 (setcar evil-repeat-info invoked-keys)
+               (setq evil-repeat-info (list (concat invoked-keys keys)))))))))
 
 ;;;###autoload
 (cl-defmacro general-key-dispatch
-    (fallback-command &rest maps &key lambda name docstring &allow-other-keys)
+    (fallback-command &rest maps &key name docstring &allow-other-keys)
   "Create a function that will run FALLBACK-COMMAND or a command from MAPS.
 MAPS consists of <key> <command> pairs. If a key in MAPS is matched, the
 corresponding command will be run. Otherwise FALLBACK-COMMAND will be run
@@ -402,50 +434,53 @@ followed by the simulated keypresses of \"ab\". Prefix arguments will still work
 regardless of which command is run. This is useful for binding under non-prefix
 keys. For example, this can be used to redefine a sequence like \"cw\" or
 \"cow\" in evil but still have \"c\" work as `evil-change'. LAMBDA, NAME, and
-DOCSTRING are optional keyword arguments. If LAMBDA is non-nil, a lambda will be
-created instead of a named function. This is potentially useful if you want to
-have multiple commands that fall back to the same command (e.g. to
-`self-insert-command'). NAME and DOCSTRING can be used to replace the
-automatically generated name and docstring for the created function."
+DOCSTRING are optional keyword arguments. They can be used to replace the
+automatically generated name and docstring for the created function and are
+potentially useful if you want to create multiple, different commands using the
+same FALLBACK-COMMAND (e.g. `self-insert-command')."
   (declare (indent 1))
   (let ((name (or name (intern (format "general-dispatch-%s"
                                        (eval fallback-command)))))
         ;; remove keyword arguments from maps
         (maps (cl-loop for (key value) on maps by 'cddr
-                 when (not (member key (list :lambda :name :docstring)))
-                 collect key
-                 and collect value)))
-    `(let ((dispatch-func
-            (lambda (char)
-              ,(or docstring (format "Run %s or something else based on CHAR."
-                                     (eval fallback-command)))
-              (interactive "c")
-              (setq char (char-to-string char))
-              (let ((map (make-sparse-keymap)))
-                (if general-implicit-kbd
-                    (general--emacs-define-key map
-                      ,@(general--apply-prefix-and-kbd nil maps))
-                  (general--emacs-define-key map ,@maps))
-                (while (keymapp (lookup-key map char))
-                  (setq char (concat char (char-to-string (read-char)))))
-                (setq prefix-arg current-prefix-arg)
-                (cond ((lookup-key map char)
-                       (call-interactively (lookup-key map char)))
-                      (t
-                       ;; have to do this in "reverse" order (call command 2nd)
-                       (setq unread-command-events (listify-key-sequence char))
-                       (call-interactively ,fallback-command)
-                       (when evil-repeat-info
-                         ;; remove duplicate keys from evil-repeat-info
-                         ;; (setcar evil-repeat-info
-                         ;;         (substring (car evil-repeat-info) 0 1))
-                         (setq evil-repeat-info
-                               (cons (substring (car evil-repeat-info) 0 1)
-                                     (cdr evil-repeat-info))))))))))
-       (if ,lambda
-           dispatch-func
-         (defalias ',name dispatch-func)
-         #',name))))
+                       when (not (member key (list :name :docstring)))
+                       collect key
+                       and collect value)))
+    `(progn
+       (when (fboundp 'evil-set-command-property)
+         (evil-set-command-property #',name :repeat 'general--fix-repeat))
+       (defun ,name (char)
+         ,(or docstring (format "Run %s or something else based on CHAR."
+                                (eval fallback-command)))
+         ;; TODO maybe don't read in a char initially; rename char
+         (interactive "c")
+         (setq char (char-to-string char))
+         (let ((map (make-sparse-keymap))
+               ;; remove read in char
+               (invoked-keys (substring (this-command-keys) 0 -1))
+               matched-command
+               fallback)
+           (if general-implicit-kbd
+               (general--emacs-define-key map
+                 ,@(general--apply-prefix-and-kbd nil maps))
+             (general--emacs-define-key map ,@maps))
+           (while (keymapp (lookup-key map char))
+             (setq char (concat char (char-to-string (read-char)))))
+           (setq prefix-arg current-prefix-arg)
+           (cond
+            ((setq matched-command (lookup-key map char))
+             (call-interactively matched-command))
+            (t
+             ;; have to do this in "reverse" order (call command 2nd)
+             (setq unread-command-events (listify-key-sequence char))
+             (call-interactively ,fallback-command)
+             (setq fallback t
+                   matched-command ,fallback-command)))
+           (setq general--last-dispatch
+                 `(:command ,matched-command
+                            :invoked-keys ,invoked-keys
+                            :keys ,char
+                            :fallback ,fallback)))))))
 
 ;;; Optional Setup
 ;;;###autoload

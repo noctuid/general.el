@@ -251,13 +251,13 @@ This functionality is mainly targeted at evil users, but it could potentially be
                 "tb" 'some-command
                 "c" 'evil-change-whole-line
                 ;; could be used for other operators where there
-                ;; isn't an existing command for the linewise version
+                ;; isn't an existing command for the linewise version:
                 ;; "c" (general-simulate-keys ('evil-change "c"))
                 ))
 (general-vmap "c" 'evil-change)
 #+end_src
 
-In this example, the function created will execute any of the mapped key sequences or fall back to ~evil-change~. For example, =ow= is mapped, so =cow= will run ~toggle-word-wrap~. On the other hand, =b= is not mapped, so =cb= will act the same as =cb= would by default. Like with ~general-simulate-keys~, this uses ~unread-command-events~ internally instead of a keyboard macro, so prefix arguments will still work (e.g. =2cb=). However, because evil handles =cc= differently (since =c= is not a motion), =c= must be explicitly bound to ~evil-change-whole-line~ (or to simulate "cc") to keep its behavior. In visual state, =c= is not actually bound by default will use the normal state command, so to keep =c= working the same in visual state, you should explicitly bind it to ~evil-change~.
+In this example, the function created will execute any of the mapped key sequences or fall back to ~evil-change~. For example, =ow= is mapped, so =cow= will run ~toggle-word-wrap~. On the other hand, =b= is not mapped, so =cb= will act the same as =cb= would by default. Counts and repeating should still work for both the mapped keys and fallback command. Because evil handles =cc= differently (since =c= is not a motion), =c= must be explicitly bound to ~evil-change-whole-line~ (or to simulate "cc") to keep its behavior. In visual state, =c= is not actually bound by default and will use the normal state command, so to keep =c= working the same in visual state, you should explicitly bind it to ~evil-change~.
 
 Another thing to note is that you can't bind a key in the ~general-key-dispatch~ section to simulate the base key (in this case =c=). For this example, you cant't bind =w= to ~(general-simulate-keys "ciw")~. While this won't cause an infinite loop, it won't work either, so you have to use the command name instead. Also, if you use a count in the middle (i.e =c2w=), it will act as =c2w= and not =c2iw=. If anyone cares about this, I could probably add an option to allow changing the count in the middle without immediately falling back to the default command.
 
@@ -268,7 +268,7 @@ Another possible use is to emulate vim's =imap=. For example, you can recreate t
                 "k" 'evil-normal-state))
 #+end_src
 
-If you plan on using more than one of these with ~self-insert-command~, you'll need to either use =:lambda t= or the =:name= keyword argument to prevent the newly created functions from clobbering each other.
+If you plan on using more than one of these with ~self-insert-command~, you'll need to use the =:name= keyword argument to prevent the newly created functions from clobbering each other.
 
 Another thing to note is that commands created in this way will not time out, and =j= will only be inserted after the next keypress. For an alternate way to do this, you might want to look at [[https://github.com/vlevit/key-seq.el][key-seq.el]] and [[https://www.emacswiki.org/emacs/key-chord.el][key-chord.el]].
 
