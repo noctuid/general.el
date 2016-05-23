@@ -391,7 +391,8 @@ should not be quoted."
          (setq prefix-arg current-prefix-arg)
          (setq unread-command-events (listify-key-sequence keys))
          (when command
-           (call-interactively command))))))
+           (let ((this-command command))
+             (call-interactively command)))))))
 
 (defvar general--last-dispatch nil)
 
@@ -469,13 +470,17 @@ same FALLBACK-COMMAND (e.g. `self-insert-command')."
            (setq prefix-arg current-prefix-arg)
            (cond
             ((setq matched-command (lookup-key map char))
-             (call-interactively matched-command))
+             ;; necessary for evil-this-operator checks because
+             ;; evil-define-operator sets evil-this-operator to this-command
+             (let ((this-command matched-command))
+               (call-interactively matched-command)))
             (t
+             (setq fallback t
+                   matched-command ,fallback-command)
              ;; have to do this in "reverse" order (call command 2nd)
              (setq unread-command-events (listify-key-sequence char))
-             (call-interactively ,fallback-command)
-             (setq fallback t
-                   matched-command ,fallback-command)))
+             (let ((this-command ,fallback-command))
+               (call-interactively ,fallback-command))))
            (setq general--last-dispatch
                  `(:command ,matched-command
                             :invoked-keys ,invoked-keys

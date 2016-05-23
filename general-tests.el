@@ -204,7 +204,14 @@ considered as part of the region."
   (should (string= (general-with "|a\na\na" "cc")
                    "|\na\na"))
   (should (string= (general-with "one |two" "cb")
-                   "|two")))
+                   "|two"))
+  ;; test evil-want-change-word-to-end
+  (let ((evil-want-change-word-to-end t))
+    (should (string= (general-with "|one two" "cW")
+                     "| two")))
+  (let ((evil-want-change-word-to-end nil))
+    (should (string= (general-with "|one two" "cW")
+                     "|two"))))
 
 (ert-deftest general-dispatch-repeating ()
   (general-emacs-define-key evil-normal-state-map
@@ -230,8 +237,9 @@ considered as part of the region."
                      (evil-declare-repeat #'evil-forward-word-begin)
                      "cow.")
                    "one two |three"))
-  (should (string= (general-with "|one two three four" (kbd "c W ESC ."))
-                   "|three four"))
+  (let ((evil-want-change-word-to-end nil))
+    (should (string= (general-with "|one two three four" (kbd "c W ESC ."))
+                     "|three four")))
   (should (string= (general-with "|one two three" (kbd "c a w ESC ."))
                    "|three"))
   (should (string= (general-with "|one two three four" (kbd "c w ESC ."))
@@ -296,8 +304,9 @@ considered as part of the region."
                    "|\na"))
   (should (string= (general-with "|one two three" "2zbgttzyx")
                    "one two |three"))
-  (should (string= (general-with "|one two three" "2zbgw")
-                   "|three")))
+  (let ((evil-want-change-word-to-end nil))
+    (should (string= (general-with "|one two three" "2zbgw")
+                     "|three"))))
 
 ;; TODO this actually breaks repeating-and-counts for some reason
 (ert-deftest general-dispatch-seq-repeating ()
@@ -308,8 +317,9 @@ considered as part of the region."
             "c" #'evil-change-whole-line
             "ttzyx" #'evil-forward-word-begin))
   (evil-declare-repeat #'evil-forward-word-begin)
-  (should (string= (general-with "|one two three" (kbd "z b g w ESC ."))
-                   "|three"))
+  (let ((evil-want-change-word-to-end nil))
+    (should (string= (general-with "|one two three" (kbd "z b g w ESC ."))
+                     "|three")))
   (should (string= (general-with "|one\ntwo\nthree" (kbd "z b g c ESC j ."))
                    "\n|\nthree"))
   (should (string= (general-with "|one two three" "zbgttzyx.")
