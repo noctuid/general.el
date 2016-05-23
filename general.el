@@ -399,29 +399,31 @@ should not be quoted."
 (defun general--fix-repeat (flag)
   "Modified version of `evil-repeat-keystrokes'.
 It will remove extra keys added in a general-dispatch-... command."
-  (cond ((eq flag 'pre)
-         (when evil-this-register
-           (evil-repeat-record
-            `(set evil-this-register ,evil-this-register)))
-         (setq evil-repeat-keys (this-command-keys)))
-        ((eq flag 'post)
-         (evil-repeat-record (if (zerop (length (this-command-keys)))
-                                 evil-repeat-keys
-                               (this-command-keys)))
-         (evil-clear-command-keys)
-         (let* ((command (cl-getf general--last-dispatch :command))
-                (repeat-prop (evil-get-command-property command :repeat t))
-                (fallback (cl-getf general--last-dispatch :fallback))
-                (invoked-keys (cl-getf general--last-dispatch :invoked-keys))
-                (keys (cl-getf general--last-dispatch :keys)))
-           (if (or (memq repeat-prop (list nil 'abort 'ignore))
-                   (and (eq repeat-prop 'motion)
-                        (not (memq evil-state '(insert replace)))))
-               (evil-repeat-abort)
-             (if fallback
-                 ;; may not know full key sequence
-                 (setcar evil-repeat-info invoked-keys)
-               (setq evil-repeat-info (list (concat invoked-keys keys)))))))))
+  (eval-after-load 'evil
+    '(cond ((eq flag 'pre)
+            (when evil-this-register
+              (evil-repeat-record
+               `(set evil-this-register ,evil-this-register)))
+            (setq evil-repeat-keys (this-command-keys)))
+           ((eq flag 'post)
+            (evil-repeat-record (if (zerop (length (this-command-keys)))
+                                    evil-repeat-keys
+                                  (this-command-keys)))
+            (evil-clear-command-keys)
+            (let* ((command (cl-getf general--last-dispatch :command))
+                   (repeat-prop (evil-get-command-property command :repeat t))
+                   (fallback (cl-getf general--last-dispatch :fallback))
+                   (invoked-keys (cl-getf general--last-dispatch :invoked-keys))
+                   (keys (cl-getf general--last-dispatch :keys)))
+              (if (or (memq repeat-prop (list nil 'abort 'ignore))
+                      (and (eq repeat-prop 'motion)
+                           (not (memq evil-state '(insert replace)))))
+                  (evil-repeat-abort)
+                (if fallback
+                    ;; may not know full key sequence
+                    (setcar evil-repeat-info invoked-keys)
+                  (setq evil-repeat-info
+                        (list (concat invoked-keys keys))))))))))
 
 ;;;###autoload
 (cl-defmacro general-key-dispatch
