@@ -513,6 +513,7 @@ same FALLBACK-COMMAND (e.g. `self-insert-command')."
                             :fallback ,fallback)))))))
 
 ;;; Optional Setup
+;;;###autoload
 (defmacro general-create-vim-definer
     (name keymaps &optional states default-to-states)
   "A helper function to create vim-like wrappers over `general-define-key'.
