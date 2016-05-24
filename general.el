@@ -74,24 +74,37 @@ just use `general-default-prefix'/:prefix by itself."
   :group 'general
   :type 'string)
 
+(define-widget 'general-state 'lazy
+  "General's evil state type."
+  :type '(choice
+          (const :tag "Normal state" normal)
+          (const :tag "Insert state" insert)
+          (const :tag "Visual state" visual)
+          (const :tag "Replace state" replace)
+          (const :tag "Operator state" operator)
+          (const :tag "Motion state" motion)
+          (const :tag "Emacs state" emacs)
+          (const :tag "Use define-key not evil-define-key" nil)))
+
 (defcustom general-default-states nil
-  "The default evil state to make mappings in.
+  "The default evil state(s) to make mappings in.
 Non-evil users should keep this nil."
   :group 'general
-  :type '(repeat :tag "States"
-                 (choice
-                  (const :tag "Normal state" normal)
-                  (const :tag "Insert state" insert)
-                  (const :tag "Visual state" visual)
-                  (const :tag "Replace state" replace)
-                  (const :tag "Operator state" operator)
-                  (const :tag "Motion state" motion)
-                  (const :tag "Emacs state" emacs)
-                  (const :tag "Use define-key not evil-define-key" nil))))
+  :type '(choice general-state
+                 (set general-state)))
+
+(define-widget 'general-keymap 'lazy
+  "General's keymap type."
+  :type '(choice
+          (const :tag "Global keymap" global)
+          (const :tag "Buffer local keymap" local)
+          symbol))
 
 (defcustom general-default-keymaps 'global
-  "The default keymap to bind keys in."
-  :group 'general)
+  "The default keymap(s) to bind keys in."
+  :group 'general
+  :type '(choice general-keymap
+                 (repeat general-keymap)))
 
 (defcustom general-vim-definer-default nil
   "Whether set the states or keymaps in a `general-create-vim-definer' function.
