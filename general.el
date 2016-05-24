@@ -93,6 +93,16 @@ Non-evil users should keep this nil."
   "The default keymap to bind keys in."
   :group 'general)
 
+(defcustom general-vim-definer-default nil
+  "Whether set the states or keymaps in a `general-create-vim-definer' function.
+If nil, use the default from when the function was created. If 'keymaps, set the
+default keymaps. If 'states, set the default states."
+  :group 'general
+  :type '(choice
+          (const :tag "Default to setting :keymaps" keymaps)
+          (const :tag "Default to setting :states" states)
+          (const :tag "Use the initial default" nil)))
+
 ;;; Helpers
 (defun general--apply-prefix-and-kbd (prefix maps)
   "Prepend the PREFIX sequence to all MAPS.
@@ -490,44 +500,106 @@ same FALLBACK-COMMAND (e.g. `self-insert-command')."
                             :fallback ,fallback)))))))
 
 ;;; Optional Setup
+(defmacro general-create-vim-definer
+    (name keymaps &optional states default-to-states)
+  "A helper function to create vim-like wrappers over `general-define-key'.
+The function created will be called NAME and will have the keymaps default to
+KEYMAPS or the states default to STATES. If DEFAULT-TO-STATES is non-nil,
+:states STATES will be used. Otherwise :keymaps KEYMAPS will be used. This can
+be overriden later by setting the global `general-vim-definer-default'
+option."
+  `(defun ,name (&rest args)
+     ,(format "A wrapper function over `general-define-key'.
+
+It has one the following defaults depending on `general-vim-definer-default':
+:keymaps
+%s
+
+:states
+%s
+
+When `general-vim-definer-default' is nil, default to setting %s.
+(If the default :states is nil, :keymaps will be used no matter what.)"
+              keymaps states
+              (if default-to-states
+                  ":states"
+                ":keymaps"))
+     ;; can still override keywords afterwards
+     (let ((default-to-states
+             (cond ((eq general-vim-definer-default 'states)
+                    t)
+                   ((eq general-vim-definer-default 'keymaps)
+                    nil)
+                   (t
+                    ,default-to-states))))
+       (apply #'general-define-key
+              (append args (if (and default-to-states ,states)
+                               (list :states ,states)
+                             (list :keymaps ,keymaps)))))))
+
 ;;;###autoload
-(defun general-evil-setup (&optional short-names)
+(defmacro general-evil-setup (&optional short-names default-to-states)
   "Set up some basic equivalents for vim mapping functions.
 This creates global key definition functions for the evil states.
 Specifying SHORT-NAMES as non-nil will create non-prefixed function
 aliases such as `nmap' for `general-nmap'."
-  (general-create-definer general-nmap :keymaps 'evil-normal-state-map)
-  (general-create-definer general-imap :keymaps 'evil-insert-state-map)
-  (general-create-definer general-vmap :keymaps 'evil-visual-state-map)
-  (general-create-definer general-rmap :keymaps 'evil-replace-state-map)
-  (general-create-definer general-omap :keymaps 'evil-operator-state-map)
-  (general-create-definer general-mmap :keymaps 'evil-motion-state-map)
-  (general-create-definer general-emap :keymaps 'evil-emacs-state-map)
-  (general-create-definer general-otomap :keymaps 'evil-outer-text-objects-map)
-  (general-create-definer general-itomap :keymaps 'evil-inner-text-objects-map)
-  (general-create-definer general-nvmap :keymaps '(evil-normal-state-map
-                                                   evil-visual-state-map))
-  (general-create-definer general-nvmmap :keymaps '(evil-normal-state-map
-                                                    evil-visual-state-map
-                                                    evil-motion-state-map))
-  (general-create-definer general-iemap :keymaps '(evil-insert-state-map
-                                                   evil-emacs-state-map))
-  (general-create-definer general-tomap
-                          :keymaps '(evil-outer-text-objects-map
-                                     evil-inner-text-objects-map))
-  (when short-names
-    (defalias 'nmap 'general-nmap)
-    (defalias 'imap 'general-imap)
-    (defalias 'vmap 'general-vmap)
-    (defalias 'rmap 'general-rmap)
-    (defalias 'omap 'general-omap)
-    (defalias 'emap 'general-emap)
-    (defalias 'otomap 'general-otomap)
-    (defalias 'itomap 'general-itomap)
-    (defalias 'nvmap 'general-nvmap)
-    (defalias 'nvmmap 'general-nvmmap)
-    (defalias 'iemap 'general-iemap)
-    (defalias 'tomap 'general-tomap)))
+  `(progn
+     (general-create-vim-definer general-nmap
+                                 'evil-normal-state-map 'normal
+                                 ,default-to-states)
+     (general-create-vim-definer general-imap
+                                 'evil-insert-state-map 'insert
+                                 ,default-to-states)
+     (general-create-vim-definer general-vmap
+                                 'evil-visual-state-map 'visual
+                                 ,default-to-states)
+     (general-create-vim-definer general-rmap
+                                 'evil-replace-state-map 'replace
+                                 ,default-to-states)
+     (general-create-vim-definer general-omap
+                                 'evil-operator-state-map 'operator
+                                 ,default-to-states)
+     (general-create-vim-definer general-mmap
+                                 'evil-motion-state-map 'motion
+                                 ,default-to-states)
+     (general-create-vim-definer general-emap
+                                 'evil-emacs-state-map 'emacs
+                                 ,default-to-states)
+     ;; these two don't have corresponding states
+     (general-create-vim-definer general-otomap 'evil-outer-text-objects-map)
+     (general-create-vim-definer general-itomap 'evil-inner-text-objects-map)
+     (general-create-vim-definer general-nvmap
+                                 '(evil-normal-state-map
+                                   evil-visual-state-map)
+                                 '(normal visual)
+                                 ,default-to-states)
+     (general-create-vim-definer general-nvmmap
+                                 '(evil-normal-state-map
+                                   evil-visual-state-map
+                                   evil-motion-state-map)
+                                 '(normal visual motion)
+                                 ,default-to-states)
+     (general-create-vim-definer general-iemap
+                                 '(evil-insert-state-map
+                                   evil-emacs-state-map)
+                                 '(insert emacs)
+                                 ,default-to-states)
+     (general-create-definer general-tomap
+                             :keymaps '(evil-outer-text-objects-map
+                                        evil-inner-text-objects-map))
+     (when ,short-names
+       (defalias 'nmap 'general-nmap)
+       (defalias 'imap 'general-imap)
+       (defalias 'vmap 'general-vmap)
+       (defalias 'rmap 'general-rmap)
+       (defalias 'omap 'general-omap)
+       (defalias 'emap 'general-emap)
+       (defalias 'otomap 'general-otomap)
+       (defalias 'itomap 'general-itomap)
+       (defalias 'nvmap 'general-nvmap)
+       (defalias 'nvmmap 'general-nvmmap)
+       (defalias 'iemap 'general-iemap)
+       (defalias 'tomap 'general-tomap))))
 
 (provide 'general)
 ;;; general.el ends here
