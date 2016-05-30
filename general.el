@@ -469,7 +469,7 @@ same FALLBACK-COMMAND (e.g. `self-insert-command')."
                                        (eval fallback-command)))))
         ;; remove keyword arguments from maps
         (maps (cl-loop for (key value) on maps by 'cddr
-                       when (not (member key (list :name :docstring)))
+                       unless (keywordp key)
                        collect key
                        and collect value)))
     `(progn
