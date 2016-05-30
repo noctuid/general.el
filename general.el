@@ -615,5 +615,26 @@ aliases such as `nmap' for `general-nmap'."
        (defalias 'iemap #'general-iemap)
        (defalias 'tomap #'general-tomap))))
 
+;;; Use-package Integration
+(eval-after-load 'use-package
+  (lambda ()
+    (add-to-list 'use-package-keywords :general t)
+    (defun use-package-normalize/:general (_name _keyword args)
+      args)
+    (defun use-package-handler/:general (name _keyword arglists rest state)
+      (let ((commands (cl-loop for arglist in arglists
+                               append
+                               (cl-loop for (key command) on arglist by 'cddr
+                                        unless (keywordp key)
+                                        ;; since :commands expects them unqouted
+                                        collect (eval command)))))
+        (use-package-concat
+         (use-package-process-keywords name
+           (use-package-sort-keywords
+            (use-package-plist-maybe-put rest :defer t))
+           (use-package-plist-append state :commands commands))
+         `((ignore ,@(mapcar (lambda (arglist) `(general-define-key ,@arglist))
+                             arglists))))))))
+
 (provide 'general)
 ;;; general.el ends here
