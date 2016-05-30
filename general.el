@@ -625,7 +625,8 @@ aliases such as `nmap' for `general-nmap'."
       (let ((commands (cl-loop for arglist in arglists
                                append
                                (cl-loop for (key command) on arglist by 'cddr
-                                        unless (keywordp key)
+                                        unless (or (keywordp key)
+                                                   (not command))
                                         ;; since :commands expects them unqouted
                                         collect (eval command)))))
         (use-package-concat
