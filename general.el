@@ -733,10 +733,21 @@ aliases such as `nmap' for `general-nmap'."
       (let* ((sanitized-arglist
               ;; combine arglists into one without function names or
               ;; positional arguments
-              (let (result)
+              (let (result
+                    first)
                 (dolist (arglist arglists result)
-                  (while (not (or (keywordp (car arglist))
-                                  (stringp (car arglist))))
+                  ;; either should work
+                  ;; (while (and (setq first (car arglist))
+                  ;;             (not (or (stringp first)
+                  ;;                      (vectorp first)
+                  ;;                      (and (listp first)
+                  ;;                           (eq (car first) 'kbd)))))
+                  ;;   (setq arglist (cdr arglist)))
+                  (while (and (setq first (car arglist))
+                              (or (and (symbolp first)
+                                       (not (keywordp first)))
+                                  (and (listp first)
+                                       (eq (car first) 'quote))))
                     (setq arglist (cdr arglist)))
                   (setq result (append result arglist)))))
              (commands (cl-loop for (key command) on sanitized-arglist by 'cddr
