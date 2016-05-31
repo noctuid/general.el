@@ -617,7 +617,16 @@ aliases such as `nmap' for `general-nmap'."
 ;;; Use-package Integration
 (eval-after-load 'use-package
   (lambda ()
-    (add-to-list 'use-package-keywords :general t)
+    (setq use-package-keywords
+          ;; should go in the same location as :bind
+          ;; adding to end may not cause problems, but see issue #22
+          (cl-loop for item in use-package-keywords
+                   if (eq item :bind-keymap*)
+                   collect :bind-keymap* and collect :general
+                   else
+                   ;; don't add duplicates
+                   unless (eq item :general)
+                   collect item))
     (defun use-package-normalize/:general (_name _keyword args)
       args)
     (defun use-package-handler/:general (name _keyword arglists rest state)
