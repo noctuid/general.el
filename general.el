@@ -622,19 +622,31 @@ aliases such as `nmap' for `general-nmap'."
     (defun use-package-normalize/:general (_name _keyword args)
       args)
     (defun use-package-handler/:general (name _keyword arglists rest state)
-      (let ((commands (cl-loop for arglist in arglists
-                               append
-                               (cl-loop for (key command) on arglist by 'cddr
-                                        unless (or (keywordp key)
-                                                   (not command))
-                                        ;; since :commands expects them unqouted
-                                        collect (eval command)))))
+      (let* ((sanitized-arglist
+              ;; combine arglists into one without function names or
+              ;; positional arguments
+              (let (result)
+                (dolist (arglist arglists result)
+                  (while (not (or (keywordp (car arglist))
+                                  (stringp (car arglist))))
+                    (setq arglist (cdr arglist)))
+                  (setq result (append result arglist)))))
+             (commands (cl-loop for (key command) on sanitized-arglist by 'cddr
+                                unless (or (keywordp key)
+                                           (not command))
+                                ;; since :commands expects them unqouted
+                                collect (eval command))))
         (use-package-concat
          (use-package-process-keywords name
            (use-package-sort-keywords
             (use-package-plist-maybe-put rest :defer t))
            (use-package-plist-append state :commands commands))
-         `((ignore ,@(mapcar (lambda (arglist) `(general-define-key ,@arglist))
+         `((ignore ,@(mapcar (lambda (arglist)
+                               (let ((first (car arglist)))
+                                 (if (and (symbolp first)
+                                          (not (keywordp first)))
+                                     `(,@arglist)
+                                   `(general-define-key ,@arglist))))
                              arglists))))))))
 
 (provide 'general)

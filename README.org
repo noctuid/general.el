@@ -289,3 +289,30 @@ It can also be used to implement a command to always use a certain prefix withou
 #+end_src
 
 The user could also set ~general-default-prefix~, ~general-default-state~, or ~general-default-keymap~ to a different value within a function to achieve a similar effect.
+
+** Use-package Keyword
+General also optionally provides a use-package keyword. =:general= is similar to =:bind= in that it implies =:defer t= and will create autoloads for the bound commands (though this is usually not necessary). The keyword is followed by one or more lists containing arguments for ~general-define-key~; there is no difference in syntax:
+#+begin_src emacs-lisp
+(use-package org
+  :general
+  ("C-c c" 'org-capture)
+  (:keymaps 'org-mode-map
+   "TAB" 'org-cycle))
+#+end_src
+
+The =:general= keyword also supports using wrappers (including the wrappers that take positional arguments) by manually specifying them:
+#+begin_src emacs-lisp
+(use-package org
+  :general
+  (general-nmap "SPC c" 'org-capture)
+  (general-evil-define-key 'normal org-mode-map
+    "TAB" 'org-cycle))
+#+end_src
+
+One annoyance you may encounter is that the default function for indentation will indent a list starting with a keyword like a function:
+#+begin_src emacs-lisp
+(:keymaps 'org-mode-map
+          "TAB" 'org-cycle)
+#+end_src
+
+This is an annoyance you may have using other emacs packages as well and can be fixed by modifying =lisp-indent-function= (see [[http://emacs.stackexchange.com/q/10230/5278][this emacs stackexchange question]] and Fuco1's modified ~lisp-indent-function~ in one of the answers there).
