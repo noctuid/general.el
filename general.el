@@ -116,6 +116,10 @@ default keymaps. If 'states, set the default states."
           (const :tag "Default to setting :states" states)
           (const :tag "Use the initial default" nil)))
 
+(defvar general-keybindings nil
+  "Holds all the keybindings created with `general-define-key' (and wrappers).
+This is an alist of a keymap to an alist of a state to keybindings.")
+
 ;;; Helpers
 (defun general--apply-prefix-and-kbd (prefix maps)
   "Prepend the PREFIX sequence to all MAPS.
@@ -140,6 +144,19 @@ Adds a (kbd ...) if `general-implicit-kbd' is non-nil."
                                         (,maybe-command))))
               maybe-command))
           maps))
+
+(defun general--record-keybindings (keymap state maps)
+  "For KEYMAP and STATE, add MAPS to `general-keybindings'.
+For non-evil keybindings, STATE will be nil."
+  (unless (eq keymap 'local)
+    (unless (assq keymap general-keybindings)
+      (add-to-list 'general-keybindings (list keymap)))
+    (unless (assq state (assq keymap general-keybindings))
+      (setcdr (assq keymap general-keybindings)
+              (list (list state))))
+    (let ((state-cons (assq state (assq keymap general-keybindings))))
+      (setcdr (assq state (assq keymap general-keybindings))
+              (append (cdr state-cons) maps)))))
 
 ;; don't force non-evil user to require evil for one function (this is evil-delay)
 (defun general--delay (condition form hook &optional append local name)
@@ -260,7 +277,9 @@ useful for evil users.
 
 Unlike with normal key definitions functions, the keymaps in KEYMAPS should be
 quoted (this makes it easy to check if there is only one keymap instead of a
-list of keymaps)."
+list of keymaps).
+
+MAPS will be recorded for later use with `general-describe-keybindings'."
   (let (non-normal-prefix-maps
         global-prefix-maps)
     ;; remove keyword arguments from rest var
@@ -286,6 +305,10 @@ list of keymaps)."
     ;; last so not applying prefix twice
     (setq maps (general--apply-prefix-and-kbd prefix maps))
     (dolist (keymap keymaps)
+      (if states
+          (dolist (state states)
+            (general--record-keybindings keymap state maps))
+        (general--record-keybindings keymap nil maps))
       (general--delay `(or (eq ',keymap 'local)
                            (eq ',keymap 'global)
                            (and (boundp ',keymap)
@@ -365,6 +388,83 @@ keymap, it does not need to be quoted."
                        :keymaps (if (symbolp ',keymaps)
                                     ',keymaps
                                   ,keymaps)))
+;;; Displaying Keybindings
+(defun general--print-keybind-table (maps)
+  "Print an org table for MAPS."
+  (princ "|key|command|\n|-+-|\n")
+  (cl-loop for (key command) on maps by 'cddr
+           do (princ (format "|=%s=|~%s~|\n" (key-description key) command)))
+  (princ "\n"))
+
+(defun general--print-state-heading (state-cons)
+  "Print a table and possibly a heading for STATE-CONS."
+  (let ((state (car state-cons))
+        (maps (cdr state-cons)))
+    (unless (null state)
+      (princ (capitalize (concat "** " (symbol-name state) " State\n"))))
+    (general--print-keybind-table maps)))
+
+(defun general--print-keymap-heading (keymap-cons)
+  "Print headings and tables for KEYMAP-CONS."
+  (let ((keymap (car keymap-cons))
+        (state-conses (cdr keymap-cons)))
+    (princ (capitalize (concat "* " (symbol-name keymap) " Keybindings\n")))
+    (let ((no-evil-state-cons (assq nil state-conses)))
+      ;; non-evil keybindings go first
+      (when no-evil-state-cons
+        (general--print-state-heading no-evil-state-cons)
+        (setq state-conses (assq-delete-all nil state-conses)))
+      (dolist (state-cons state-conses)
+        (general--print-state-heading state-cons)))))
+
+;;;###autoload
+(defun general-describe-keybindings ()
+  "Show all keys that have been bound with general in an org buffer.
+Global keybindings will be shown first. Currently, local keybindings are not
+shown."
+  (interactive)
+  (with-output-to-temp-buffer "*General Keybindings*"
+    (let* ((keybindings (copy-alist general-keybindings))
+           (global-keybinds (assq 'global keybindings))
+           (global-evil-keymaps
+            '(evil-insert-state-map
+              evil-emacs-state-map
+              evil-normal-state-map
+              evil-visual-state-map
+              evil-motion-state-map
+              evil-operators-state-map
+              evil-outer-text-objects-map
+              evil-inner-text-objects-map
+              evil-replace-state-map
+              evil-ex-search-keymap
+              evil-ex-completion-map
+              evil-command-window-mode-map
+              evil-window-map))
+           (global-evil-keybinds
+            (cl-loop for keymap-cons in keybindings
+                     when (memq (car keymap-cons) global-evil-keymaps)
+                     append (list keymap-cons))))
+      (when global-keybinds
+        (general--print-keymap-heading global-keybinds)
+        (setq keybindings (assq-delete-all 'global keybindings)))
+      (when global-evil-keybinds
+        (dolist (keymap-cons global-evil-keybinds)
+          (general--print-keymap-heading keymap-cons)
+          (setq keybindings (assq-delete-all (car keymap-cons) keybindings))))
+      (dolist (keymap-cons keybindings)
+        (general--print-keymap-heading keymap-cons))))
+  (with-current-buffer "*General Keybindings*"
+    (let ((org-startup-folded 'showall))
+      (org-mode))
+    (read-only-mode -1)
+    (while (progn
+             (while (progn
+                      (forward-line)
+                      (org-at-heading-p)))
+             (org-table-align)
+             (outline-next-heading)))
+    (goto-char (point-min))
+    (read-only-mode)))
 
 ;;; Commands that Could Aid in Key Definition
 ;; https://emacs.stackexchange.com/questions/6037/emacs-bind-key-to-prefix/13432#13432
