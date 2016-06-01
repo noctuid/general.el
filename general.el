@@ -736,25 +736,24 @@ aliases such as `nmap' for `general-nmap'."
               (let (result
                     first)
                 (dolist (arglist arglists result)
-                  ;; either should work
-                  ;; (while (and (setq first (car arglist))
-                  ;;             (not (or (stringp first)
-                  ;;                      (vectorp first)
-                  ;;                      (and (listp first)
-                  ;;                           (eq (car first) 'kbd)))))
-                  ;;   (setq arglist (cdr arglist)))
-                  (while (and (setq first (car arglist))
-                              (or (and (symbolp first)
-                                       (not (keywordp first)))
-                                  (and (listp first)
-                                       (eq (car first) 'quote))))
-                    (setq arglist (cdr arglist)))
+                  (setq first (car arglist))
+                  (cond ((eq first 'general-evil-define-key)
+                         (setq arglist (cl-cdddr arglist)))
+                        ((eq first 'general-emacs-define-key)
+                         (setq arglist (cddr arglist)))
+                        ((cl-oddp (length arglist))
+                         ;; normal wrapper
+                         (setq arglist (cdr arglist))))
                   (setq result (append result arglist)))))
-             (commands (cl-loop for (key command) on sanitized-arglist by 'cddr
+             (commands (cl-loop for (key def) on sanitized-arglist by 'cddr
                                 unless (or (keywordp key)
-                                           (not command))
-                                ;; since :commands expects them unqouted
-                                collect (eval command))))
+                                           (null def)
+                                           ;; def can also be a string
+                                           (stringp def)
+                                           ;; or a keymap or variable
+                                           (symbolp def))
+                                ;; since :commands expects them unquoted
+                                collect (eval def))))
         (use-package-concat
          (use-package-process-keywords name
            (use-package-sort-keywords
@@ -762,8 +761,9 @@ aliases such as `nmap' for `general-nmap'."
            (use-package-plist-append state :commands commands))
          `((ignore ,@(mapcar (lambda (arglist)
                                (let ((first (car arglist)))
-                                 (if (and (symbolp first)
-                                          (not (keywordp first)))
+                                 (if (or (eq first 'general-emacs-define-key)
+                                         (eq first 'general-evil-define-key)
+                                         (cl-oddp (length arglist)))
                                      `(,@arglist)
                                    `(general-define-key ,@arglist))))
                              arglists))))))))

@@ -346,5 +346,24 @@ considered as part of the region."
   (should (string= (general-with "|one two three four" "zbgttzyx..")
                    "one two three |four")))
 
+(ert-deftest general-use-package-keyword ()
+  (let ((general-test-map (make-sparse-keymap))
+        (test-key "k")
+        (test-command #'k))
+    (use-package evil
+      :general
+      (:keymaps 'general-test-map
+       "j" #'j)
+      ("a" "b" :keymaps 'general-test-map)
+      (test-key test-command :keymaps 'general-test-map)
+      (general-emacs-define-key general-test-map "l" #'l)
+      (general-evil-define-key 'normal general-test-map "m" #'m))
+    (should (string= (lookup-key general-test-map "a") "b"))
+    (general-test-keys general-test-map
+      "j" #'j
+      "k" #'k
+      "l" #'l)
+    (general-test-evil-keys 'normal general-test-map "m" #'m)))
+
 (provide 'general-tests)
 ;;; general-tests.el ends here
