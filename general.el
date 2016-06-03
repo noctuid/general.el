@@ -454,8 +454,7 @@ keymap, it does not need to be quoted."
 ;;;###autoload
 (defun general-describe-keybindings ()
   "Show all keys that have been bound with general in an org buffer.
-Global keybindings will be shown first. Currently, local keybindings are not
-shown."
+Any local keybindings will be shown first followed by global keybindings."
   (interactive)
   (with-output-to-temp-buffer "*General Keybindings*"
     (let* ((keybindings (copy-alist general-keybindings))
@@ -723,12 +722,6 @@ aliases such as `nmap' for `general-nmap'."
                                    evil-visual-state-map)
                                  '(normal visual)
                                  ,default-to-states)
-     (general-create-vim-definer general-nvmmap
-                                 '(evil-normal-state-map
-                                   evil-visual-state-map
-                                   evil-motion-state-map)
-                                 '(normal visual motion)
-                                 ,default-to-states)
      (general-create-vim-definer general-iemap
                                  '(evil-insert-state-map
                                    evil-emacs-state-map)
@@ -743,11 +736,11 @@ aliases such as `nmap' for `general-nmap'."
        (defalias 'vmap #'general-vmap)
        (defalias 'rmap #'general-rmap)
        (defalias 'omap #'general-omap)
+       (defalias 'mmap #'general-mmap)
        (defalias 'emap #'general-emap)
        (defalias 'otomap #'general-otomap)
        (defalias 'itomap #'general-itomap)
        (defalias 'nvmap #'general-nvmap)
-       (defalias 'nvmmap #'general-nvmmap)
        (defalias 'iemap #'general-iemap)
        (defalias 'tomap #'general-tomap))))
 
