@@ -120,6 +120,11 @@ default keymaps. If 'states, set the default states."
   "Holds all the keybindings created with `general-define-key' (and wrappers).
 This is an alist of a keymap to an alist of a state to keybindings.")
 
+(defvar general-local-keybindings nil
+  "Holds all the local keybindings created with `general-define-key'.
+This is an alist of a state to keybindings.")
+(make-variable-buffer-local 'general-local-keybindings)
+
 ;;; Helpers
 (defun general--apply-prefix-and-kbd (prefix maps)
   "Prepend the PREFIX sequence to all MAPS.
@@ -145,18 +150,39 @@ Adds a (kbd ...) if `general-implicit-kbd' is non-nil."
               maybe-command))
           maps))
 
+(defun general--remove-keys (maps keys)
+  "Return a list of MAPS with the mappings for KEYS removed."
+  (cl-loop for (key def) on maps by 'cddr
+           unless (member key keys)
+           collect key
+           and collect def))
+
 (defun general--record-keybindings (keymap state maps)
   "For KEYMAP and STATE, add MAPS to `general-keybindings'.
-For non-evil keybindings, STATE will be nil."
-  (unless (eq keymap 'local)
-    (unless (assq keymap general-keybindings)
-      (add-to-list 'general-keybindings (list keymap)))
-    (unless (assq state (assq keymap general-keybindings))
-      (setcdr (assq keymap general-keybindings)
-              (list (list state))))
-    (let ((state-cons (assq state (assq keymap general-keybindings))))
-      (setcdr (assq state (assq keymap general-keybindings))
-              (append (cdr state-cons) maps)))))
+If KEYMAP is \"local\", add MAPS to `general-local-keybindings.' For non-evil
+keybindings, STATE will be nil. Duplicate keys will be replaced with the new
+ones."
+  (let ((keys (cl-loop for (key def) on maps by 'cddr
+                       collect key)))
+    (cond ((eq keymap 'local)
+           (unless (assq state general-local-keybindings)
+             (add-to-list 'general-local-keybindings (list state)))
+           (let ((state-cons (assq state general-local-keybindings)))
+             (setcdr state-cons
+                     (append
+                      ;; remove old duplicate keys
+                      (general--remove-keys (cdr state-cons) keys)
+                      maps))))
+          (t
+           (unless (assq keymap general-keybindings)
+             (add-to-list 'general-keybindings (list keymap)))
+           (unless (assq state (assq keymap general-keybindings))
+             (setcdr (assq keymap general-keybindings)
+                     (list (list state))))
+           (let ((state-cons (assq state (assq keymap general-keybindings))))
+             (setcdr state-cons
+                     (append (general--remove-keys (cdr state-cons) keys)
+                             maps)))))))
 
 ;; don't force non-evil user to require evil for one function (this is evil-delay)
 (defun general--delay (condition form hook &optional append local name)
@@ -305,10 +331,7 @@ MAPS will be recorded for later use with `general-describe-keybindings'."
     ;; last so not applying prefix twice
     (setq maps (general--apply-prefix-and-kbd prefix maps))
     (dolist (keymap keymaps)
-      (if states
-          (dolist (state states)
-            (general--record-keybindings keymap state maps))
-        (general--record-keybindings keymap nil maps))
+      ;; TODO make this less ugly
       (general--delay `(or (eq ',keymap 'local)
                            (eq ',keymap 'global)
                            (and (boundp ',keymap)
@@ -327,25 +350,36 @@ MAPS will be recorded for later use with `general-describe-keybindings'."
                                (member state '(insert emacs)))
                           (when ',non-normal-prefix-maps
                             (apply #'general--evil-define-key state keymap
-                                   ',non-normal-prefix-maps)))
+                                   ',non-normal-prefix-maps)
+                            (general--record-keybindings
+                             ',keymap state ',non-normal-prefix-maps)))
                          (t
                           (apply #'general--evil-define-key state keymap
-                                 ',maps)))
+                                 ',maps)
+                          (general--record-keybindings
+                           ',keymap state ',maps)))
                    (when ',global-prefix-maps
                      (apply #'general--evil-define-key state keymap
-                            ',global-prefix-maps)))
+                            ',global-prefix-maps)
+                     (general--record-keybindings
+                      ',keymap state ',global-prefix-maps)))
                (cond ((and (or ',non-normal-prefix-maps
                                ',global-prefix-maps)
                            (member ',keymap '(evil-insert-state-map
                                               evil-emacs-state-map)))
                       (when ',non-normal-prefix-maps
                         (apply #'general--emacs-define-key keymap
-                               ',non-normal-prefix-maps)))
+                               ',non-normal-prefix-maps)
+                        (general--record-keybindings
+                         ',keymap nil ',non-normal-prefix-maps)))
                      (t
-                      (apply #'general--emacs-define-key keymap ',maps)))
+                      (apply #'general--emacs-define-key keymap ',maps)
+                      (general--record-keybindings ',keymap nil ',maps)))
                (when ',global-prefix-maps
                  (apply #'general--emacs-define-key keymap
-                        ',global-prefix-maps))))
+                        ',global-prefix-maps)
+                 (general--record-keybindings
+                  ',keymap nil ',global-prefix-maps))))
         'after-load-functions t nil
         (format "general-define-key-in-%s" keymap)))))
 
@@ -443,7 +477,10 @@ shown."
            (global-evil-keybinds
             (cl-loop for keymap-cons in keybindings
                      when (memq (car keymap-cons) global-evil-keymaps)
-                     append (list keymap-cons))))
+                     append (list keymap-cons)))
+           (local-keybindings (copy-alist general-local-keybindings)))
+      (when local-keybindings
+        (general--print-keymap-heading (cons 'local local-keybindings)))
       (when global-keybinds
         (general--print-keymap-heading global-keybinds)
         (setq keybindings (assq-delete-all 'global keybindings)))
