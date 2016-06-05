@@ -203,6 +203,15 @@ the buffer-local value of HOOK is modified."
       (put fun 'permanent-local-hook t)
       (add-hook hook fun append local))))
 
+(defun general--evil-keymap-for-state (state &optional text-object)
+  "Return a symbol corresponding to the global evil keymap for STATE.
+If TEXT-OBJECT is non-nil, STATE should be 'inner or 'outer and a symbol for the
+corresponding global evil text object keymap will be returned."
+  (intern (concat "evil-" (symbol-name state)
+                  (if text-object
+                      "-text-objects-map"
+                    "-state-map"))))
+
 ;;; define-key and evil-define-key Wrappers
 ;; TODO better way to do this?
 ;; https://www.reddit.com/r/emacs/comments/1582uo/bufferlocalsetkey_set_a_key_in_one_buffer_only/
@@ -331,6 +340,10 @@ MAPS will be recorded for later use with `general-describe-keybindings'."
     ;; last so not applying prefix twice
     (setq maps (general--apply-prefix-and-kbd prefix maps))
     (dolist (keymap keymaps)
+      (when (memq keymap '(insert emacs normal visual operator motion replace))
+        (setq keymap (general--evil-keymap-for-state keymap)))
+      (when (memq keymap '(inner outer))
+        (setq keymap (general--evil-keymap-for-state keymap t)))
       ;; TODO make this less ugly
       (general--delay `(or (eq ',keymap 'local)
                            (eq ',keymap 'global)
@@ -687,61 +700,57 @@ When `general-vim-definer-default' is nil, default to setting %s.
                              (list :keymaps ,keymaps)))))))
 
 ;;;###autoload
+(defmacro general-create-dual-vim-definer
+    (name states &optional default-to-states)
+  "Like `general-create-vim-definer', create a \"vim definer\" called NAME.
+Only the short names in the STATES list need to be specified, but this will only
+work for valid evil states."
+  `(general-create-vim-definer
+    ,name
+    ',(if (listp states)
+          (mapcar #'general--evil-keymap-for-state states)
+        (general--evil-keymap-for-states states))
+    ,states
+    ,default-to-states))
+
+;;;###autoload
 (defmacro general-evil-setup (&optional short-names default-to-states)
   "Set up some basic equivalents for vim mapping functions.
 This creates global key definition functions for the evil states.
 Specifying SHORT-NAMES as non-nil will create non-prefixed function
 aliases such as `nmap' for `general-nmap'."
   `(progn
-     (general-create-vim-definer general-nmap
-                                 'evil-normal-state-map 'normal
-                                 ,default-to-states)
-     (general-create-vim-definer general-imap
-                                 'evil-insert-state-map 'insert
-                                 ,default-to-states)
-     (general-create-vim-definer general-vmap
-                                 'evil-visual-state-map 'visual
-                                 ,default-to-states)
-     (general-create-vim-definer general-rmap
-                                 'evil-replace-state-map 'replace
-                                 ,default-to-states)
-     (general-create-vim-definer general-omap
-                                 'evil-operator-state-map 'operator
-                                 ,default-to-states)
-     (general-create-vim-definer general-mmap
-                                 'evil-motion-state-map 'motion
-                                 ,default-to-states)
-     (general-create-vim-definer general-emap
-                                 'evil-emacs-state-map 'emacs
-                                 ,default-to-states)
+     (general-create-dual-vim-definer general-imap 'insert ,default-to-states)
+     (general-create-dual-vim-definer general-emap 'emacs ,default-to-states)
+     (general-create-dual-vim-definer general-nmap 'normal ,default-to-states)
+     (general-create-dual-vim-definer general-vmap 'visual ,default-to-states)
+     (general-create-dual-vim-definer general-omap 'operator ,default-to-states)
+     (general-create-dual-vim-definer general-mmap 'motion ,default-to-states)
+     (general-create-dual-vim-definer general-rmap 'replace ,default-to-states)
      ;; these two don't have corresponding states
      (general-create-vim-definer general-otomap 'evil-outer-text-objects-map)
      (general-create-vim-definer general-itomap 'evil-inner-text-objects-map)
-     (general-create-vim-definer general-nvmap
-                                 '(evil-normal-state-map
-                                   evil-visual-state-map)
-                                 '(normal visual)
-                                 ,default-to-states)
-     (general-create-vim-definer general-iemap
-                                 '(evil-insert-state-map
-                                   evil-emacs-state-map)
-                                 '(insert emacs)
-                                 ,default-to-states)
-     (general-create-definer general-tomap
-                             :keymaps '(evil-outer-text-objects-map
-                                        evil-inner-text-objects-map))
+     (general-create-dual-vim-definer general-iemap
+                                      '(insert emacs)
+                                      ,default-to-states)
+     (general-create-dual-vim-definer general-nvmap
+                                      '(normal visual)
+                                      ,default-to-states)
+     (general-create-vim-definer general-tomap
+                                 '(evil-outer-text-objects-map
+                                   evil-inner-text-objects-map))
      (when ,short-names
-       (defalias 'nmap #'general-nmap)
        (defalias 'imap #'general-imap)
+       (defalias 'emap #'general-emap)
+       (defalias 'nmap #'general-nmap)
        (defalias 'vmap #'general-vmap)
-       (defalias 'rmap #'general-rmap)
        (defalias 'omap #'general-omap)
        (defalias 'mmap #'general-mmap)
-       (defalias 'emap #'general-emap)
+       (defalias 'rmap #'general-rmap)
        (defalias 'otomap #'general-otomap)
        (defalias 'itomap #'general-itomap)
-       (defalias 'nvmap #'general-nvmap)
        (defalias 'iemap #'general-iemap)
+       (defalias 'nvmap #'general-nvmap)
        (defalias 'tomap #'general-tomap))))
 
 ;;; Use-package Integration

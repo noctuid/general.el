@@ -175,8 +175,7 @@ considered as part of the region."
     (general-test-evil-keys 'insert general-test2-map (kbd "C-t") #'c-t)))
 
 (ert-deftest general-create-vim-definer ()
-  (general-create-vim-definer general-nmap
-                              'evil-normal-state-map 'normal)
+  (general-create-dual-vim-definer general-nmap 'normal)
   (general-nmap "~" #'tilde)
   (general-test-keys evil-normal-state-map (kbd "~") #'tilde)
   (general-test-evil-keys 'normal (current-global-map) "~" nil)
@@ -186,9 +185,7 @@ considered as part of the region."
     (general-test-keys evil-normal-state-map (kbd "~") nil)
     (general-test-evil-keys 'normal (current-global-map) "~" #'tilde)
     (general-nmap "~" nil))
-  (general-create-vim-definer general-nmap
-                              'evil-normal-state-map 'normal
-                              t)
+  (general-create-dual-vim-definer general-nmap 'normal t)
   (general-nmap "~" #'tilde)
   (general-test-keys evil-normal-state-map (kbd "~") nil)
   (general-test-evil-keys 'normal (current-global-map) "~" #'tilde))

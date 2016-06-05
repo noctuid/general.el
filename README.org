@@ -176,6 +176,9 @@ The actual behavior of these two macros is the same as ~general-define-key~. You
   :prefix "SPC"
   "g" 'worf-goto)
 #+end_src
+
+As for ~global-set-key~ and ~global-evil-set-key~, wrappers are not needed. By default ~general-define-key~ acts like ~global-set-key~, and ~general-emacs-define-key~ can also act like ~global-evil-set-key~ using the symbols for evil's states.
+
 ** Notes for Evil Users
 When =:states= is specified (or ~general-default-states~ is non-nil), ~general-define-key~ will act as a wrapper around ~evil-define-key~. This means that the following are equivalent:
 #+begin_src emacs-lisp
@@ -199,31 +202,45 @@ These are the equivalents with general:
 #+begin_src emacs-lisp
 (general-define-key :keymaps '(evil-normal-state-map evil-visual-state-map)
                     "j" 'my-j)
-;; or
+;; using the shorthand symbols
+(general-define-key :keymaps '(normal visual)
+                    "j" 'my-j)
+;; using a vim definer
 (general-evil-setup)
 (general-nvmap "j" 'my-j)
 #+end_src
 
 Note that keybindings made for normal state in the global map will override keybindings made for =evil-normal-state-map=. The keybinding may not change immediately if you do this in a buffer though. For a potentially practical use for the former method, see [[https://github.com/noctuid/evil-guide#preventing-certain-keys-from-being-overridden][here]].
 
+** Global Evil Keymap Shorthand
+To prevent the need to type out something like =evil-inner-text-objects-map=, general provides shorthand symbols for the various evil states and text object maps to be used with =:keymaps=. This allows similar syntax to the state argument for ~evil-global-set-key~ or ~evil-define-key~:
+#+begin_src emacs-lisp
+(general-define-key :keymaps 'motion
+                    "j" 'evil-next-line)
+#+end_src
+Note that this is different from using =:states 'motion= (see [[#notes-for-evil-users][Notes for Evil Users]]).
+
+Besides the state keymaps, you can also use =inner= and =outer= in place of =evil-inner-text-objects-map= and =evil-outer-text-objects-map=.
+
 ** Vim-like Wrappers
 ~general-evil-setup~ is used to generate key definition functions that are named similarly to vim's. Currently, the following functions are created:
 
-- ~general-nmap~
 - ~general-imap~
-- ~general-vmap~
-- ~general-rmap~
-- ~general-omap~
 - ~general-emap~
+- ~general-nmap~
+- ~general-vmap~
+- ~general-omap~
+- ~general-mmap~
+- ~general-rmap~
 - ~general-otomap~
 - ~general-itomap~
-- ~general-nvmap~
 - ~general-iemap~
+- ~general-nvmap~
 - ~general-tomap~
 
-You can see the help text for each for a more specific description. ~general-evil-setup~ takes two optional arguments. If the first is non-nil, shorter aliases for these functions such as ~nmap~ will be created. If the second is non-nil, the function will default to setting ~:states~ and using the global map instead of ~:keymaps~ (see the previous section). This can be altered later by altering ~general-vim-definer-default~.
+You can see the help text for each for a more specific description. ~general-evil-setup~ takes two optional arguments. If the first is non-nil, shorter aliases for these functions such as ~nmap~ will be created. If the second is non-nil, the function will default to setting ~:states~ and using the global map instead of ~:keymaps~ (see [[#notes-for-evil-users][Notes for Evil Users]]). This can be altered later by altering ~general-vim-definer-default~.
 
-If there is some other combination you would like to use, you can use ~general-create-vim-definer~.
+If there is some other combination you would like to use, you can use ~general-create-vim-definer~ or ~general-create-dual-vim-definer~.
 
 ** Buffer Local Keybindings
 Specifying ~:keymaps 'local~ will bind keys in the current buffer alone, which may be useful in rare cases. This is not the same as using ~local-set-key~ (which will set the key for the current buffer's major mode). It uses ~evil-local-set-key~ when an evil state is given or a function that creates a minor mode for the current buffer otherwise.
@@ -307,6 +324,12 @@ The ~general-create-definer~ macro can create functions for more succinctly defi
 #+end_src
 
 The user could also set ~general-default-prefix~, ~general-default-state~, or ~general-default-keymap~ to a different value within a function to achieve a similar effect.
+
+As another example, one could make an extra vim definer using ~general-create-dual-vim-definer~:
+#+begin_src emacs-lisp
+(general-create-dual-vim-definer nviemap '(normal visual insert emacs))
+#+end_src
+As previously mentioned, how the newly created function creates keybindings can be altered by setting =general-vim-definer-default=. Unlike with ~general-create-definer~, you can't specify defaults for other keyword arguments with ~general-create-dual-vim-definer~. If anyone would like to be able to do this to, for example, set a default prefix for the created function, feel free to make an issue.
 
 ** Use-package Keyword
 General also optionally provides a use-package keyword. =:general= is similar to =:bind= in that it implies =:defer t= and will create autoloads for the bound commands (though this is usually not necessary). The keyword is followed by one or more lists containing arguments for ~general-define-key~; there is no difference in syntax:
