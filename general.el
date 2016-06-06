@@ -127,28 +127,34 @@ This is an alist of a state to keybindings.")
 
 ;;; Helpers
 (defun general--apply-prefix-and-kbd (prefix maps)
-  "Prepend the PREFIX sequence to all MAPS.
-Adds a (kbd ...) if `general-implicit-kbd' is non-nil."
-  (let ((prefix (or prefix "")))
-    (mapcar (lambda (elem)
-              (if (stringp elem)
-                  (if general-implicit-kbd
-                      (kbd (concat prefix " " elem))
-                    (concat prefix elem))
-                elem))
-            maps)))
+  "Prepend the PREFIX sequence to all the keys that are strings in MAPS.
+Also apply (kbd ...) to key and definition strings if `general-implicit-kbd' is
+non-nil."
+  (setq prefix (or prefix ""))
+  (cl-loop for (key def) on maps by 'cddr
+           collect (if (stringp key)
+                       (if general-implicit-kbd
+                           (kbd (concat prefix " " key))
+                         (concat prefix key))
+                     ;; don't touch vectors
+                     key)
+           and collect (if (and general-implicit-kbd
+                                (stringp def))
+                           (kbd def)
+                         def)))
 
 ;; http://endlessparentheses.com/define-context-aware-keys-in-emacs.html
 (defun general--apply-predicate (predicate maps)
   "Apply PREDICATE to the commands in MAPS."
-  (mapcar (lambda (maybe-command)
-            (if (not (stringp maybe-command))
-                `(menu-item "" nil
-                            :filter (lambda (&optional _)
-                                      (when ,predicate
-                                        (,maybe-command))))
-              maybe-command))
-          maps))
+  (cl-loop for (key def) on maps by 'cddr
+           collect key
+           and collect (if (symbolp def)
+                           `(menu-item
+                             "" nil
+                             :filter (lambda (&optional _)
+                                       (when ,predicate
+                                         (,def))))
+                         def)))
 
 (defun general--remove-keys (maps keys)
   "Return a list of MAPS with the mappings for KEYS removed."
