@@ -713,9 +713,11 @@ Only the short names in the STATES list need to be specified, but this will only
 work for valid evil states."
   `(general-create-vim-definer
     ,name
-    ',(if (listp states)
-          (mapcar #'general--evil-keymap-for-state states)
-        (general--evil-keymap-for-states states))
+    ;; could alternatively just do ,states (difference is the docstring)
+    ',(let ((states (eval states)))
+        (if (listp states)
+            (mapcar #'general--evil-keymap-for-state states)
+          (general--evil-keymap-for-state states)))
     ,states
     ,default-to-states))
 

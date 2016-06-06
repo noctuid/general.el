@@ -188,7 +188,11 @@ considered as part of the region."
   (general-create-dual-vim-definer general-nmap 'normal t)
   (general-nmap "~" #'tilde)
   (general-test-keys evil-normal-state-map (kbd "~") nil)
-  (general-test-evil-keys 'normal (current-global-map) "~" #'tilde))
+  (general-test-evil-keys 'normal (current-global-map) "~" #'tilde)
+  (general-create-dual-vim-definer general-iemap '(insert emacs))
+  (general-iemap "C-b" 'c-b)
+  (general-test-keys evil-insert-state-map (kbd "C-b") 'c-b)
+  (general-test-keys evil-emacs-state-map (kbd "C-b") 'c-b))
 
 (ert-deftest general-simulate-keys ()
   (let ((general-test-map (make-sparse-keymap)))
