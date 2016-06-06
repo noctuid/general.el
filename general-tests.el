@@ -64,6 +64,7 @@ considered as part of the region."
          (and (buffer-name temp-buffer)
               (kill-buffer temp-buffer))))))
 
+;; TODO split this up
 (ert-deftest general-define-key ()
   ;; test global keymap
   (general-define-key "a" #'a)
@@ -136,6 +137,22 @@ considered as part of the region."
   (should (not (boundp 'general-delay-map)))
   (require 'general-delay-test)
   (general-test-keys general-delay-map (kbd "C-t") #'c-t))
+
+(ert-deftest general-predicates ()
+  (let ((test-map (make-sparse-keymap)))
+    (general-define-key :keymaps 'test-map
+                        :predicate '(looking-at "\\'")
+                        "<right>" #'beginning-of-buffer)
+    (should (string= (general-with "a |b c"
+                       (set-transient-map test-map)
+                       (kbd "<right>"))
+                     "a b| c"))
+    (should (string= (general-with "a b c|"
+                       (set-transient-map test-map)
+                       (kbd "<right>"))
+                     ;; TODO why does "|" end up here for actions that go
+                     ;; to the beginning of the line
+                     "a| b c"))))
 
 (ert-deftest general-emacs-define-key ()
   (let ((general-test-map (make-sparse-keymap))
