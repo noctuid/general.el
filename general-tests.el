@@ -3,6 +3,8 @@
 ;;; Code:
 (require 'general)
 (require 'evil)
+(require 'use-package)
+(require 'which-key)
 
 (defun general-test-keys (keymap &rest maps)
   (declare (indent 1))
@@ -142,7 +144,7 @@ considered as part of the region."
   (let ((test-map (make-sparse-keymap)))
     (general-define-key :keymaps 'test-map
                         :predicate '(looking-at "\\'")
-                        "<right>" #'beginning-of-buffer)
+      "<right>" #'beginning-of-buffer)
     (should (string= (general-with "a |b c"
                        (set-transient-map test-map)
                        (kbd "<right>"))
@@ -152,7 +154,61 @@ considered as part of the region."
                        (kbd "<right>"))
                      ;; TODO why does "|" end up here for actions that go
                      ;; to the beginning of the line
+                     ;; this happens in emacs too
+                     "a| b c"))
+    ;; locally overriding predicate
+    (general-define-key :keymaps 'test-map
+                        :predicate '(not t)
+      "<right>" '(beginning-of-buffer :predicate (looking-at "\\'")))
+    (should (string= (general-with "a |b c"
+                       (set-transient-map test-map)
+                       (kbd "<right>"))
+                     "a b| c"))
+    (should (string= (general-with "a b c|"
+                       (set-transient-map test-map)
+                       (kbd "<right>"))
                      "a| b c"))))
+
+(ert-deftest general-extended-definitions ()
+  (let ((test-map (make-sparse-keymap)))
+    (general-define-key :keymaps 'test-map
+                        :prefix "C-c"
+      "" '(nil :which-key "prefix")
+      "g" '(:ignore t :which-key "git prefix"))
+    (general-test-keys test-map (kbd "C-c") nil)
+    ;; should not be bound
+    (should (= 1 (lookup-key test-map (kbd "C-c g"))))
+    (general-define-key :keymaps 'test-map
+      "C-c g a" #'ccga)
+    (should (keymapp (lookup-key test-map (kbd "C-c g"))))
+    (should (string=
+             (cdr
+              (assoc "C-c"
+                     which-key-key-based-description-replacement-alist))
+             "prefix"))
+    (should (string=
+             (cdr
+              (assoc "C-c g"
+                     which-key-key-based-description-replacement-alist))
+             "git prefix"))))
+
+(ert-deftest general-keymap-autoload ()
+  (should-error (general-define-key
+                 "C-b" '(:keymap general-test-map)))
+  (general-define-key "C-b" '(:keymap general-test-map :package does-not-exit))
+  (should-error (execute-kbd-macro (kbd "C-b")))
+  (general-define-key :package 'this-has-lower-precedence
+    "C-b" '(:keymap general-test-map :package general-keymap-autoload-test))
+  (should (not (eq (lookup-key (current-global-map) (kbd "C-b"))
+                   #'forward-char)))
+  (should (string= (general-with "a |b c" (evil-mode -1) (kbd "C-b c"))
+                   "a b| c"))
+
+  (general-test-keys (current-global-map) (kbd "C-b c") #'forward-char)
+  (general-define-key
+   "C-b" '(:keymap does-not-exis-map
+           :package general-keymap-autoload-test))
+  (should-error (execute-kbd-macro (kbd "C-b"))))
 
 (ert-deftest general-emacs-define-key ()
   (let ((general-test-map (make-sparse-keymap))
