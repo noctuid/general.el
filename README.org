@@ -119,6 +119,11 @@ General is flexible in allowing you to choose how you write things, so if the ab
 (my-normal-and-insert-define-key "/" 'swiper)
 #+end_src
 
+The =:infix= keyword can be used to sandwich keys in between all of the specified prefix keys and the keys in each mapping. This is mainly useful when using multiple prefix keywords and especially when using wrappers. For example, if you wanted to define several keys that were prefixed with =SPC g= in normal state and =M-SPC g= in insert state, you could use the previous wrapper with =:infix= instead of re-specifying both =:prefix= and =:non-normal-prefix=:
+#+begin_src emacs-lisp
+(my-normal-and-insert-define-key :infix "g" <maps...>)
+#+end_src
+
 There is also a =:predicate= keyword for giving a condition under which a map should be active.
 
 ** Displaying Keybindings

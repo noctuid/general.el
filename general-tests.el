@@ -140,6 +140,20 @@ considered as part of the region."
   (require 'general-delay-test)
   (general-test-keys general-delay-map (kbd "C-t") #'c-t))
 
+(ert-deftest general-infix ()
+  (let ((test-map (make-sparse-keymap)))
+    (general-define-key :prefix "SPC"
+                        :global-prefix "C-c"
+                        :infix "g"
+                        :keymaps 'test-map
+                        :states '(normal insert)
+      "a" #'git-add)
+    (general-test-evil-keys 'normal test-map
+      (kbd "C-c g a") #'git-add
+      (kbd "SPC g a") #'git-add)
+    (general-test-evil-keys 'insert test-map
+      (kbd "C-c g a") #'git-add)))
+
 (ert-deftest general-predicates ()
   (let ((test-map (make-sparse-keymap)))
     (general-define-key :keymaps 'test-map

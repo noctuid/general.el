@@ -126,6 +126,19 @@ This is an alist of a state to keybindings.")
 (make-variable-buffer-local 'general-local-keybindings)
 
 ;;; Helpers
+(defun general--concat (nokbd &rest keys)
+  "Concatenate the strings in KEYS.
+If `general-implicit-kbd' is non-nil, interleave the strings in KEYS with
+spaces; unless NOKBD is non-nil, apply (kbd ...) to the result. If
+`general-implicit-kbd' is nil, just concatenate the keys."
+  (setq keys (remove nil keys))
+  (if general-implicit-kbd
+      (let ((keys (mapconcat #'identity keys " ")))
+        (if nokbd
+            keys
+          (kbd keys)))
+    (apply #'concat keys)))
+
 (defun general--apply-prefix-and-kbd (prefix maps)
   "Prepend the PREFIX sequence to all the keys that are strings in MAPS.
 Also apply (kbd ...) to key and definition strings if `general-implicit-kbd' is
@@ -133,9 +146,7 @@ non-nil."
   (setq prefix (or prefix ""))
   (cl-loop for (key def) on maps by 'cddr
            collect (if (stringp key)
-                       (if general-implicit-kbd
-                           (kbd (concat prefix " " key))
-                         (concat prefix key))
+                       (general--concat nil prefix key)
                      ;; don't touch vectors
                      key)
            and collect (if (and general-implicit-kbd
@@ -402,9 +413,11 @@ to bind the keys with (depending on whether STATES is non-nil)."
 ;;; Functions With Keyword Arguments
 ;;;###autoload
 (cl-defun general-define-key
-    (&rest maps &key (prefix general-default-prefix)
+    (&rest maps &key
+           (prefix general-default-prefix)
            (non-normal-prefix general-default-non-normal-prefix)
            (global-prefix general-default-global-prefix)
+           (infix)
            (states general-default-states)
            (keymaps general-default-keymaps)
            (predicate)
@@ -430,6 +443,13 @@ used with PREFIX and/or NON-NORMAL-PREFIX to bind keys in all states under a
 specified prefix. Like with NON-NORMAL-PREFIX, GLOBAL-PREFIX will prevent PREFIX
 from applying to insert and emacs states. Note that these keywords are only
 useful for evil users.
+
+INFIX can be used to append a string to all of the specified prefixes. This is
+potentially useful when you are using GLOBAL-PREFIX and/or NON-NORMAL-PREFIX so
+that you can sandwich keys in between all the prefixes and the specified keys in
+MAPS. This may be particularly useful if you are using default prefixes in a
+wrapper so that you can add to them without needing to re-specify all of them.
+If none of the other prefix arguments are specified, INFIX will have no effect.
 
 Unlike with normal key definitions functions, the keymaps in KEYMAPS should be
 quoted (this makes it easy to check if there is only one keymap instead of a
@@ -458,12 +478,15 @@ MAPS will be recorded for later use with `general-describe-keybindings'."
       (setq keymaps (list keymaps)))
     (when non-normal-prefix
       (setq non-normal-prefix-maps
-            (general--apply-prefix-and-kbd non-normal-prefix maps)))
+            (general--apply-prefix-and-kbd
+             (general--concat t non-normal-prefix infix) maps)))
     (when global-prefix
       (setq global-prefix-maps
-            (general--apply-prefix-and-kbd global-prefix maps)))
+            (general--apply-prefix-and-kbd
+             (general--concat t global-prefix infix) maps)))
     ;; last so not applying prefix twice
-    (setq maps (general--apply-prefix-and-kbd prefix maps))
+    (setq maps (general--apply-prefix-and-kbd
+                (general--concat t prefix infix) maps))
     (dolist (keymap keymaps)
       (when (memq keymap '(insert emacs normal visual operator motion replace))
         (setq keymap (general--evil-keymap-for-state keymap)))
