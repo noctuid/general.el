@@ -237,9 +237,9 @@ corresponding global evil text object keymap will be returned."
 If :mode is specified in DEF, add the description for that major mode. KEY
 should not be in the kbd format (kbd should have already been run on it)."
   (eval-after-load 'which-key
-    '(let ((doc (cl-getf def :which-key))
-           (mode (cl-getf def :mode))
-           (key (key-description key)))
+    `(let ((doc (cl-getf ',def :which-key))
+           (mode (cl-getf ',def :mode))
+           (key (key-description ',key)))
        (if mode
            (which-key-add-major-mode-key-based-replacements mode
              key doc)
@@ -681,12 +681,12 @@ should not be quoted."
   "Modified version of `evil-repeat-keystrokes'.
 It will remove extra keys added in a general-dispatch-... command."
   (eval-after-load 'evil
-    '(cond ((eq flag 'pre)
+    `(cond ((eq ',flag 'pre)
             (when evil-this-register
               (evil-repeat-record
                `(set evil-this-register ,evil-this-register)))
             (setq evil-repeat-keys (this-command-keys)))
-           ((eq flag 'post)
+           ((eq ',flag 'post)
             (evil-repeat-record (if (zerop (length (this-command-keys)))
                                     evil-repeat-keys
                                   (this-command-keys)))
