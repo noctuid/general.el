@@ -186,23 +186,23 @@ considered as part of the region."
 (ert-deftest general-extended-definitions ()
   (let ((test-map (make-sparse-keymap)))
     (general-define-key :keymaps 'test-map
-                        :prefix "C-c"
+                        :prefix "SPC"
       "" '(nil :which-key "prefix")
       "g" '(:ignore t :which-key "git prefix"))
-    (general-test-keys test-map (kbd "C-c") nil)
+    (general-test-keys test-map (kbd "SPC") nil)
     ;; should not be bound
-    (should (= 1 (lookup-key test-map (kbd "C-c g"))))
+    (should (= 1 (lookup-key test-map (kbd "SPC g"))))
     (general-define-key :keymaps 'test-map
-      "C-c g a" #'ccga)
-    (should (keymapp (lookup-key test-map (kbd "C-c g"))))
+      "SPC g a" #'ccga)
+    (should (keymapp (lookup-key test-map (kbd "SPC g"))))
     (should (string=
              (cdr
-              (assoc "C-c"
+              (assoc "SPC"
                      which-key-key-based-description-replacement-alist))
              "prefix"))
     (should (string=
              (cdr
-              (assoc "C-c g"
+              (assoc "SPC g"
                      which-key-key-based-description-replacement-alist))
              "git prefix"))))
 

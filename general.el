@@ -234,11 +234,13 @@ corresponding global evil text object keymap will be returned."
 
 (defun general-extended-def-:which-key (_state _keymap key def _kargs)
   "Add a which-key description for KEY.
-If :mode is specified in DEF, add the description for that major mode."
-  (let ((doc (cl-getf def :which-key))
-        (mode (cl-getf def :mode)))
-    (eval-after-load 'which-key
-      '(if mode
+If :mode is specified in DEF, add the description for that major mode. KEY
+should not be in the kbd format (kbd should have already been run on it)."
+  (eval-after-load 'which-key
+    '(let ((doc (cl-getf def :which-key))
+           (mode (cl-getf def :mode))
+           (key (key-description key)))
+       (if mode
            (which-key-add-major-mode-key-based-replacements mode
              key doc)
          (which-key-add-key-based-replacements key doc)))))
