@@ -451,7 +451,17 @@ considered as part of the region."
       "j" #'j
       "k" #'k
       "l" #'l)
-    (general-test-evil-keys 'normal general-test-map "m" #'m)))
+    (general-test-evil-keys 'normal general-test-map "m" #'m))
+  (use-package general-keymap-autoload-2-test
+    :general ("C-b" '(:keymap general-test2-map)))
+  (should (functionp (lookup-key (current-global-map) (kbd "C-b"))))
+  (should (string= (general-with "a |b c"
+                     (evil-mode -1)
+                     ;; doesn't work
+                     ;; (set-transient-map general-test-map)
+                     (kbd "C-b z"))
+                   "a b| c"))
+  (general-test-keys (current-global-map) (kbd "C-b z") #'forward-char))
 
 (provide 'general-tests)
 ;;; general-tests.el ends here

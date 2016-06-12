@@ -896,15 +896,19 @@ aliases such as `nmap' for `general-nmap'."
                          ;; normal wrapper
                          (setq arglist (cdr arglist))))
                   (setq result (append result arglist)))))
-             (commands (cl-loop for (key def) on sanitized-arglist by 'cddr
-                                unless (or (keywordp key)
-                                           (null def)
-                                           ;; def can also be a string
-                                           (stringp def)
-                                           ;; or a keymap or variable
-                                           (symbolp def))
-                                ;; since :commands expects them unquoted
-                                collect (eval def))))
+             (commands
+              (cl-loop for (key def) on sanitized-arglist by 'cddr
+                       when (and (not (keywordp key))
+                                 (not (null def))
+                                 (ignore-errors
+                                   (setq def (eval def))
+                                   (or (symbolp def)
+                                       (when (and (symbolp (car def))
+                                                  (not (keywordp (car def)))
+                                                  (not (keymapp def)))
+                                         (setq def (car def)))
+                                       (setq def (cl-getf def :command)))))
+                       collect def)))
         (use-package-concat
          (use-package-process-keywords name
            (use-package-sort-keywords
@@ -915,8 +919,9 @@ aliases such as `nmap' for `general-nmap'."
                                  (if (or (eq first 'general-emacs-define-key)
                                          (eq first 'general-evil-define-key)
                                          (cl-oddp (length arglist)))
-                                     `(,@arglist)
-                                   `(general-define-key ,@arglist))))
+                                     `(,@arglist :package ',name)
+                                   `(general-define-key ,@arglist
+                                                        :package ',name))))
                              arglists))))))))
 
 (provide 'general)
