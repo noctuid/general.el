@@ -270,8 +270,11 @@ with :package). If the keymap already exists, it will simply be returned."
                (general-implicit-kbd nil))
            (general-define-key :states ',state
                                :keymaps ',keymap
-                               keys ,bind-to-keymap)
-           (setq unread-command-events (listify-key-sequence keys)))))))
+             keys ,bind-to-keymap)
+           (setq prefix-arg current-prefix-arg
+                 unread-command-events
+                 (mapcar (lambda (ev) (cons t ev))
+                         (listify-key-sequence keys))))))))
 
 (defun general--parse-def (state keymap key def kargs)
   "Rewrite DEF into a valid definition.
