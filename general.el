@@ -149,10 +149,7 @@ non-nil."
                        (general--concat nil prefix key)
                      ;; don't touch vectors
                      key)
-           and collect (if (and general-implicit-kbd
-                                (stringp def))
-                           (kbd def)
-                         def)))
+           and collect def))
 
 ;; http://endlessparentheses.com/define-context-aware-keys-in-emacs.html
 (defun general--maybe-apply-predicate (predicate def)
@@ -311,7 +308,10 @@ This includes possibly parsing extended definitions or applying a prefix."
            do (setq def (general--parse-def state keymap key def kargs))
            unless (eq def :ignore)
            collect key
-           and collect def))
+           and collect (if (and general-implicit-kbd
+                                (stringp def))
+                           (kbd def)
+                         def)))
 
 ;;; define-key and evil-define-key Wrappers
 ;; TODO better way to do this?
