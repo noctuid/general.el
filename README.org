@@ -363,3 +363,43 @@ One annoyance you may encounter is that the default function for indentation wil
 #+end_src
 
 This is an annoyance you may have using other emacs packages as well and can be fixed by modifying =lisp-indent-function= (see [[http://emacs.stackexchange.com/q/10230/5278][this emacs stackexchange question]] and Fuco1's modified ~lisp-indent-function~ in one of the answers there).
+
+** Extended Definition Syntax
+General supports some extra per-map keywords. As an example, an extended definition can be used to create an "autoload" for a keymap like use-package's =:bind-keymap= keyword does:
+#+begin_src emacs-lisp
+(general-define-key
+ "C-c p" '(:keymap projectile-command-map :package projectile))
+#+end_src
+
+Using this feature, a key can be bound to a keymap that does not exist yet and still work as expected. Projectile will be loaded when =C-c p= is used for the first time. This is done by using an intermediate function to load the package and rebind the keys.
+
+=:package= can be specified locally within the extended definition or globally. When using the use-package =:general= keyword, it will automatically be specified.
+
+=:keymap= must be specified in this case so that the unbound symbol can be distinguished as a keymap rather than a command. For other extended definitions, you can simply specify the definition as the first item in the list or explicitly use the =:command= keyword. The third "type" of extended definition is one where no binding is created, which can be done using =:ignore t=. In this case, the extended definition is used only for its side effects. This is potentially useful for the =:which-key= keyword that will add replacement strings for the bound keys:
+#+begin_src emacs-lisp
+(general-define-key :keymaps 'normal :prefix "SPC"
+  ;; unbind SPC and give it a description for which-key
+  "" '(nil :which-key "my prefix")
+  ;; bind nothing but give SPC f a description for which-key
+  "f" '(:ignore t :which-key "file prefix")
+  ...)
+#+end_src
+
+One potential benefit of using =:which-key= instead of ~which-key-add-key-based-replacements~ directly even for keys that won't be bound is that descriptions will be added for all key sequences (i.e. when =:non-normal-prefix= and/or =:global-prefix= are also specified). The =:which-key= keyword can also be used with the =:major-mode= keyword (locally or globally) to use ~which-key-add-major-mode-key-based-replacements~ instead of ~which-key-add-key-based-replacements~ to add the replacement strings.
+
+New keywords and functionality can be added by the user by adding a keyword to =general-extended-def-keywords= and creating a corresponding function named ~general-extended-def-:<keyword>~. This function will be passed in =state keymap key def kargs=. =state= and =keymap= are the state (nil if none) and keymap the =key= (kbd already used) is being bound in. =def= is the extended definition itself, and =kargs= is a list of all the keyword arguments given to the original ~general-define-key~. This could, for example, be used to do something like add a keyword that would create autoloads for commands (I could also add this functionality directly if anyone wants it). For an example, see ~general-extended-def-:which-key~.
+
+Here are the keywords currently available.
+
+"Type" specifiers:
+- =:command= - implicit; no special functionality
+- =:keymap= - for creating "autoloaded" keymaps with =:package=
+  - =:package= - the package to load (global or local)
+- =:ignore= - do not create a keybinding for the key def pair
+
+Which-key functionality:
+- =:which-key= - the replacement text
+- =:major-mode= - the mode to add the text for (optional; global or local)
+
+Global keywords that can be overridden locally:
+- =:predicate=

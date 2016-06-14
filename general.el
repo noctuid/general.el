@@ -238,10 +238,11 @@ If :mode is specified in DEF, add the description for that major mode. KEY
 should not be in the kbd format (kbd should have already been run on it)."
   (eval-after-load 'which-key
     `(let ((doc (cl-getf ',def :which-key))
-           (mode (cl-getf ',def :mode))
+           (major-mode (or (cl-getf ',def :major-mode)
+                           (cl-getf ',kargs :major-mode)))
            (key (key-description ',key)))
-       (if mode
-           (which-key-add-major-mode-key-based-replacements mode
+       (if major-mode
+           (which-key-add-major-mode-key-based-replacements major-mode
              key doc)
          (which-key-add-key-based-replacements key doc)))))
 
@@ -424,7 +425,9 @@ to bind the keys with (depending on whether STATES is non-nil)."
            (states general-default-states)
            (keymaps general-default-keymaps)
            (predicate)
+           ;; for extended definitions only
            (package)
+           (major-mode)
            &allow-other-keys)
   "The primary key definition function provided by general.
 
