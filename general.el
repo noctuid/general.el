@@ -229,9 +229,9 @@ corresponding global evil text object keymap will be returned."
 (defvar general-extended-def-keywords '(:which-key)
   "Extra keywords that are valid in an extended definition.")
 
-(defun general-extended-def-:which-key (_state _keymap key def _kargs)
+(defun general-extended-def-:which-key (_state _keymap key def kargs)
   "Add a which-key description for KEY.
-If :mode is specified in DEF, add the description for that major mode. KEY
+If :major-mode is specified in DEF, add the description for that major mode. KEY
 should not be in the kbd format (kbd should have already been run on it)."
   (eval-after-load 'which-key
     `(let ((doc (cl-getf ',def :which-key))
