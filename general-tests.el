@@ -207,22 +207,24 @@ considered as part of the region."
              "git prefix"))))
 
 (ert-deftest general-keymap-autoload ()
+  (general-define-key "C-b" nil)
   (should-error (general-define-key
-                 "C-b" '(:keymap general-test-map)))
-  (general-define-key "C-b" '(:keymap general-test-map :package does-not-exit))
-  (should-error (execute-kbd-macro (kbd "C-b")))
+                 "C-b SPC" '(:keymap general-test-map)))
+  (general-define-key
+   "C-b SPC" '(:keymap general-test-map :package does-not-exit))
+  (should-error (execute-kbd-macro (kbd "C-b SPC")))
   (general-define-key :package 'this-has-lower-precedence
-    "C-b" '(:keymap general-test-map :package general-keymap-autoload-test))
-  (should (not (eq (lookup-key (current-global-map) (kbd "C-b"))
+    "C-b SPC" '(:keymap general-test-map :package general-keymap-autoload-test))
+  (should (not (eq (lookup-key (current-global-map) (kbd "C-b SPC"))
                    #'forward-char)))
-  (should (string= (general-with "a |b c" (evil-mode -1) (kbd "C-b c"))
+  (should (string= (general-with "a |b c" (evil-mode -1) (kbd "C-b SPC c"))
                    "a b| c"))
 
-  (general-test-keys (current-global-map) (kbd "C-b c") #'forward-char)
+  (general-test-keys (current-global-map) (kbd "C-b SPC c") #'forward-char)
   (general-define-key
-   "C-b" '(:keymap does-not-exis-map
-           :package general-keymap-autoload-test))
-  (should-error (execute-kbd-macro (kbd "C-b"))))
+   "C-b SPC" '(:keymap does-not-exis-map
+               :package general-keymap-autoload-test))
+  (should-error (execute-kbd-macro (kbd "C-b SPC"))))
 
 (ert-deftest general-emacs-define-key ()
   (let ((general-test-map (make-sparse-keymap))

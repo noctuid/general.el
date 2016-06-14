@@ -268,7 +268,8 @@ with :package). If the keymap already exists, it will simply be returned."
                       (keymapp (symbol-value ',bind-to-keymap)))
            (error (format "A keymap called %s is not defined in the %s package"
                           ',bind-to-keymap ',package)))
-         (let ((keys (this-command-keys)))
+         (let ((keys (this-command-keys))
+               (general-implicit-kbd nil))
            (general-define-key :states ',state
                                :keymaps ',keymap
                                keys ,bind-to-keymap)
