@@ -392,16 +392,17 @@ definitions, add predicates when applicable, and then choose the base function
 to bind the keys with (depending on whether STATES is non-nil)."
   (cl-macrolet ((defkeys (maps)
                   `(let ((maps (general--parse-maps state keymap ,maps kargs))
-                         (keymap (cond ((eq keymap 'local)
-                                        'local)
-                                       ((eq keymap 'global)
-                                        (current-global-map))
-                                       (t
-                                        (symbol-value keymap)))))
+                         (keymap keymap))
+                     (general--record-keybindings keymap state maps)
+                     (setq keymap (cond ((eq keymap 'local)
+                                         'local)
+                                        ((eq keymap 'global)
+                                         (current-global-map))
+                                        (t
+                                         (symbol-value keymap))))
                      (if state
                          (apply #'general--evil-define-key state keymap maps)
-                       (apply #'general--emacs-define-key keymap maps))
-                     (general--record-keybindings ',keymap state maps)))
+                       (apply #'general--emacs-define-key keymap maps))))
                 (def-pick-maps (non-normal-p)
                   `(progn
                      (cond ((and non-normal-maps ,non-normal-p)
