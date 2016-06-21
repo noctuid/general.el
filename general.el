@@ -401,7 +401,7 @@ to bind the keys with (depending on whether STATES is non-nil)."
                      (if state
                          (apply #'general--evil-define-key state keymap maps)
                        (apply #'general--emacs-define-key keymap maps))
-                     (general--record-keybindings keymap state maps)))
+                     (general--record-keybindings ',keymap state maps)))
                 (def-pick-maps (non-normal-p)
                   `(progn
                      (cond ((and non-normal-maps ,non-normal-p)
