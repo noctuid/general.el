@@ -281,7 +281,8 @@ with :package). If the keymap already exists, it will simply be returned."
 This function will execute the actions specified in an extended definition and
 apply a predicate if there is one."
   (cond ((and (listp def)
-              (not (keymapp def)))
+              (not (keymapp def))
+              (not (functionp def)))
          (unless (keywordp (car def))
            (setq def (cons :command def)))
          (dolist (keyword general-extended-def-keywords)

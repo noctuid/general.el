@@ -140,6 +140,15 @@ considered as part of the region."
   (require 'general-delay-test)
   (general-test-keys general-delay-map (kbd "C-t") #'c-t))
 
+(ert-deftest general-lambda-def ()
+  (let ((test-map (make-sparse-keymap)))
+    (general-define-key :keymaps 'test-map
+      "C-c l" (lambda () (interactive) (forward-char 1)))
+    (let ((def (lookup-key test-map (kbd "C-c l"))))
+      ;; lambda should not be considered an extended definition
+      (should (not (eq def 'lambda)))
+      (should (functionp def)))))
+
 (ert-deftest general-string-def ()
   (let ((test-map (make-sparse-keymap)))
     (general-define-key :keymaps 'test-map
