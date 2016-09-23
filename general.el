@@ -346,25 +346,10 @@ KEYMAP determines which keymap the MAPS will be defined in. When KEYMAP is
 is 'local, the MAPS will be bound only in the current buffer. MAPS is any
 number of paired keys and commands"
   (declare (indent 1))
-  (let (key func)
-    (while (setq key (pop maps))
-      (setq func (pop maps))
-      (if (eq keymap 'local)
-          (general--emacs-local-set-key key func)
-        (define-key keymap key func)))))
-
-;; can't apply evil-define-key since it is a macro
-;; either need to use eval or splice (,@) with defmacro
-;; or not make use of evil-define-key's &rest and repeatedly call it
-
-;; (defmacro general-evil-define-key (prefix-key state keymap &rest maps)
-;;   ;; needs special indent
-;;   "A wrapper."
-;;   (declare (indent 3))
-;;   (setq prefix-key (or prefix-key ""))
-;;   (setq maps (--map-when (stringp it ) (concat prefix-key it) maps))
-;;   `(eval-after-load 'evil
-;;      (evil-define-key ,state ,keymap ,@maps)))
+  (while (not (cl-endp maps))
+    (if (eq keymap 'local)
+        (general--emacs-local-set-key (pop maps) (pop maps))
+      (define-key keymap (pop maps) (pop maps)))))
 
 (defun general--evil-define-key (state keymap &rest maps)
   "A wrapper for `evil-define-key' and `evil-local-set-key'.
@@ -374,15 +359,13 @@ KEYMAP is 'local. MAPS is any number of keys and commands to bind."
   (eval-after-load 'evil
     `(let ((maps ',maps)
            (keymap ',keymap)
-           (state ',state)
-           key
-           func)
-       (while (setq key (pop maps))
-         (setq func (pop maps))
+           (state ',state))
+       (while (not (cl-endp maps))
          (if (eq keymap 'local)
              ;; has no &rest
-             (evil-local-set-key state key func)
-           (evil-define-key state keymap key func))))))
+             (evil-local-set-key state (pop maps) (pop maps))
+           ;; TODO use evil-define-key* after it has been in evil for a while
+           (evil-define-key state keymap (pop maps) (pop maps)))))))
 
 (defun general--define-key
     (states keymap maps non-normal-maps global-maps kargs)
