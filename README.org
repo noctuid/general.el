@@ -364,6 +364,18 @@ One annoyance you may encounter is that the default function for indentation wil
 
 This is an annoyance you may have using other emacs packages as well and can be fixed by modifying =lisp-indent-function= (see [[http://emacs.stackexchange.com/q/10230/5278][this emacs stackexchange question]] and Fuco1's modified ~lisp-indent-function~ in one of the answers there).
 
+** Use with Key-chord
+General provides a simple function that will rewrite a string into a key-chord vector. This allows you to easily use general to create definitions for =key-chord.el=. The following are equivalent:
+
+#+begin_src emacs-lisp
+(key-chord-define evil-insert-state-map "jk" 'evil-normal-state)
+(general-define-key :keymaps 'evil-insert-state-map
+                    (general-chord "jk") 'evil-normal-state
+                    (general-chord "kj") 'evil-normal-state)
+#+end_src
+
+Note that the order of the keys does matter unlike with the default ~key-chord-define~.
+
 ** Extended Definition Syntax
 General supports some extra per-map keywords. As an example, an extended definition can be used to create an "autoload" for a keymap like use-package's =:bind-keymap= keyword does:
 #+begin_src emacs-lisp

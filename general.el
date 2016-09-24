@@ -916,5 +916,16 @@ aliases such as `nmap' for `general-nmap'."
                                                         :package ',name))))
                              arglists))))))))
 
+;;; Key-chord "Integration"
+(defun general-chord (keys)
+  "Rewrite the string KEYS into a valid key-chord vector."
+  ;; taken straight from key-chord.el
+  (if (/= 2 (length keys))
+      (error "Key-chord keys must have two elements"))
+  ;; Exotic chars in a string are >255 but define-key wants 128..255 for those
+  (let ((key1 (logand 255 (aref keys 0)))
+        (key2 (logand 255 (aref keys 1))))
+    (vector 'key-chord key1 key2)))
+
 (provide 'general)
 ;;; general.el ends here
