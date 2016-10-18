@@ -662,7 +662,9 @@ should not be quoted."
        (let ((keys (kbd ,keys))
              (command ,command))
          (setq prefix-arg current-prefix-arg)
-         (setq unread-command-events (listify-key-sequence keys))
+         (setq unread-command-events
+               (mapcar (lambda (ev) (cons t ev))
+                       (listify-key-sequence keys)))
          (when command
            (let ((this-command command))
              (call-interactively command)))))))
