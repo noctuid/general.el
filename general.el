@@ -155,7 +155,7 @@ non-nil."
 (defun general--maybe-apply-predicate (predicate def)
   "Apply PREDICATE to DEF.
 If PREDICATE is nil or DEF is not a function, just return DEF."
-  (if (and predicate (functionp def))
+  (if predicate
       `(menu-item
         "" nil
         :filter (lambda (&optional _)
