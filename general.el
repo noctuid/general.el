@@ -707,7 +707,7 @@ repeat is aborted when it should be."
 
 ;;;###autoload
 (cl-defmacro general-key-dispatch
-    (fallback-command &rest maps &key name docstring &allow-other-keys)
+    (fallback-command &rest maps &key timeout name docstring &allow-other-keys)
   "Create a function that will run FALLBACK-COMMAND or a command from MAPS.
 MAPS consists of <key> <command> pairs. If a key in MAPS is matched, the
 corresponding command will be run. Otherwise FALLBACK-COMMAND will be run
