@@ -744,19 +744,14 @@ same FALLBACK-COMMAND (e.g. `self-insert-command')."
                matched-command
                fallback
                char
-               start-time
                timed-out-p)
            (if general-implicit-kbd
                (general--emacs-define-key map
                  ,@(general--apply-prefix-and-kbd nil maps))
              (general--emacs-define-key map ,@maps))
            (while (progn
-                    (when timeout
-                      (setq start-time (float-time)))
-                    (setq char (concat char (char-to-string (read-char))))
-                    (when timeout
-                      (setq timed-out-p (> (- (float-time) start-time)
-                                           timeout)))
+                    (with-timeout (timeout (setq timed-out-p t))
+                      (setq char (concat char (char-to-string (read-char)))))
                     (and (not timed-out-p)
                          (keymapp (lookup-key map char)))))
            (setq prefix-arg current-prefix-arg)
