@@ -787,9 +787,11 @@ aborted when it should be."
            (invoked-keys (cl-getf general--last-dispatch :invoked-keys))
            (keys (cl-getf general--last-dispatch :keys))
            (reversed-repeat-info (reverse evil-repeat-info))
-           count)
+           count
+           next-repeat-item)
       ;; prevent double recording
-      (while (string-match "^[0-9]+$" (or (car reversed-repeat-info) ""))
+      (while (and (stringp (setq next-repeat-item (car reversed-repeat-info)))
+                  (string-match "^[0-9]+$" next-repeat-item))
         ;; evil counts will appear in last items, e.g. ("c3" "3" "3")
         ;; NOTE: this won't work if the user binds digits in the dispatch
         ;; command (though I can't imagine a situation where that would be
