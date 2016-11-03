@@ -740,19 +740,29 @@ same FALLBACK-COMMAND (e.g. `self-insert-command')."
          (interactive)
          (let ((map (make-sparse-keymap))
                (invoked-keys (this-command-keys))
+               (timeout ,timeout)
                matched-command
                fallback
-               char)
+               char
+               start-time
+               timed-out-p)
            (if general-implicit-kbd
                (general--emacs-define-key map
                  ,@(general--apply-prefix-and-kbd nil maps))
              (general--emacs-define-key map ,@maps))
            (while (progn
+                    (when timeout
+                      (setq start-time (float-time)))
                     (setq char (concat char (char-to-string (read-char))))
-                    (keymapp (lookup-key map char))))
+                    (when timeout
+                      (setq timed-out-p (> (- (float-time) start-time)
+                                           timeout)))
+                    (and (not timed-out-p)
+                         (keymapp (lookup-key map char)))))
            (setq prefix-arg current-prefix-arg)
            (cond
-            ((setq matched-command (lookup-key map char))
+            ((and (not timed-out-p)
+                  (setq matched-command (lookup-key map char)))
              ;; necessary for evil-this-operator checks because
              ;; evil-define-operator sets evil-this-operator to this-command
              (let ((this-command matched-command))
