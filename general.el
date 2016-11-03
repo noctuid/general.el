@@ -621,6 +621,10 @@ Any local keybindings will be shown first followed by global keybindings."
 ;; https://emacs.stackexchange.com/questions/6037/emacs-bind-key-to-prefix/13432#13432
 ;; altered to allow execution in a emacs state
 ;; and to create a named function with a docstring
+;; also properly handles more edge cases like correctly adding evil repeat info
+
+(defvar general--last-simulate nil)
+
 ;;;###autoload
 (defmacro general-simulate-keys (keys &optional emacs-state docstring name)
   "Create a function to simulate KEYS.
@@ -647,58 +651,59 @@ should not be quoted."
                             (replace-regexp-in-string " " "_" keys)
                             (when emacs-state
                               "-in-emacs-state"))))))
-    `(defun ,name
-         ()
-       ,(or docstring
-            (concat "Simulate '" keys "' in " (if emacs-state
-                                                  "emacs state."
-                                                "the current context.")))
-       (interactive)
-       (when ,emacs-state
-         ;; so don't have to redefine evil-stop-execute-in-emacs-state
-         (setq this-command #'evil-execute-in-emacs-state)
-         (let ((evil-no-display t))
-           (evil-execute-in-emacs-state)))
-       (let ((keys (kbd ,keys))
-             (command ,command))
-         (setq prefix-arg current-prefix-arg)
-         (setq unread-command-events
-               (mapcar (lambda (ev) (cons t ev))
-                       (listify-key-sequence keys)))
-         (when command
-           (let ((this-command command))
-             (call-interactively command)))))))
+    `(progn
+       (eval-after-load 'evil
+         '(evil-set-command-property #',name :repeat 'general--simulate-repeat))
+       (defun ,name
+           ()
+         ,(or docstring
+              (concat "Simulate '" keys "' in " (if emacs-state
+                                                    "emacs state."
+                                                  "the current context.")))
+         (interactive)
+         (when ,emacs-state
+           ;; so don't have to redefine evil-stop-execute-in-emacs-state
+           (setq this-command #'evil-execute-in-emacs-state)
+           (let ((evil-no-display t))
+             (evil-execute-in-emacs-state)))
+         (let ((command ,command)
+               (invoked-keys (this-command-keys))
+               (keys (kbd ,keys)))
+           (setq prefix-arg current-prefix-arg)
+           (setq unread-command-events
+                 (mapcar (lambda (ev) (cons t ev))
+                         (listify-key-sequence keys)))
+           (when command
+             (let ((this-command command))
+               (call-interactively command)))
+           (setq general--last-simulate `(:command ,(or command ',name)
+                                          :invoked-keys ,invoked-keys
+                                          :keys ,keys)))))))
+
+(defun general--repeat-abort-p (repeat-prop)
+  "Return t if repeat recording should be aborted based on REPEAT-PROP."
+  (or (memq repeat-prop (list nil 'abort 'ignore))
+      (and (eq repeat-prop 'motion)
+           (not (memq evil-state '(insert replace))))))
+
+(defun general--simulate-repeat (flag)
+  "Modified version of `evil-repeat-keystrokes'.
+It ensures that no simulated keys are recorded. Only the keys used to invoke the
+general-simulate-... command are recorded. This function also ensures that the
+repeat is aborted when it should be."
+  (when (eq flag 'post)
+    ;; remove simulated keys
+    (setq evil-repeat-info (butlast evil-repeat-info))
+    (let* ((command (cl-getf general--last-simulate :command))
+           (repeat-prop (evil-get-command-property command :repeat t))
+           (record-keys (cl-getf general--last-simulate :invoked-keys)))
+      (if (and command
+               (general--repeat-abort-p repeat-prop))
+          (evil-repeat-abort)
+        (evil-repeat-record record-keys)
+        (evil-clear-command-keys)))))
 
 (defvar general--last-dispatch nil)
-
-(defun general--fix-repeat (flag)
-  "Modified version of `evil-repeat-keystrokes'.
-It will remove extra keys added in a general-dispatch-... command."
-  (eval-after-load 'evil
-    `(cond ((eq ',flag 'pre)
-            (when evil-this-register
-              (evil-repeat-record
-               `(set evil-this-register ,evil-this-register)))
-            (setq evil-repeat-keys (this-command-keys)))
-           ((eq ',flag 'post)
-            (evil-repeat-record (if (zerop (length (this-command-keys)))
-                                    evil-repeat-keys
-                                  (this-command-keys)))
-            (evil-clear-command-keys)
-            (let* ((command (cl-getf general--last-dispatch :command))
-                   (repeat-prop (evil-get-command-property command :repeat t))
-                   (fallback (cl-getf general--last-dispatch :fallback))
-                   (invoked-keys (cl-getf general--last-dispatch :invoked-keys))
-                   (keys (cl-getf general--last-dispatch :keys)))
-              (if (or (memq repeat-prop (list nil 'abort 'ignore))
-                      (and (eq repeat-prop 'motion)
-                           (not (memq evil-state '(insert replace)))))
-                  (evil-repeat-abort)
-                (if fallback
-                    ;; may not know full key sequence
-                    (setcar evil-repeat-info invoked-keys)
-                  (setq evil-repeat-info
-                        (list (concat invoked-keys keys))))))))))
 
 ;;;###autoload
 (cl-defmacro general-key-dispatch
@@ -725,25 +730,26 @@ same FALLBACK-COMMAND (e.g. `self-insert-command')."
                        collect key
                        and collect value)))
     `(progn
-       (when (fboundp 'evil-set-command-property)
-         (evil-set-command-property #',name :repeat 'general--fix-repeat))
-       (defun ,name (char)
-         ,(or docstring (format "Run %s or something else based on CHAR."
+       (eval-after-load 'evil
+         '(evil-set-command-property #',name :repeat 'general--dispatch-repeat))
+       ;; TODO list all of the bound keys in the docstring
+       (defun ,name ()
+         ,(or docstring (format (concat "Run %s or something else based"
+                                        "on the next keypresses.")
                                 (eval fallback-command)))
-         ;; TODO maybe don't read in a char initially; rename char
-         (interactive "c")
-         (setq char (char-to-string char))
+         (interactive)
          (let ((map (make-sparse-keymap))
-               ;; remove read in char
-               (invoked-keys (substring (this-command-keys) 0 -1))
+               (invoked-keys (this-command-keys))
                matched-command
-               fallback)
+               fallback
+               char)
            (if general-implicit-kbd
                (general--emacs-define-key map
                  ,@(general--apply-prefix-and-kbd nil maps))
              (general--emacs-define-key map ,@maps))
-           (while (keymapp (lookup-key map char))
-             (setq char (concat char (char-to-string (read-char)))))
+           (while (progn
+                    (setq char (concat char (char-to-string (read-char))))
+                    (keymapp (lookup-key map char))))
            (setq prefix-arg current-prefix-arg)
            (cond
             ((setq matched-command (lookup-key map char))
@@ -758,11 +764,52 @@ same FALLBACK-COMMAND (e.g. `self-insert-command')."
              (setq unread-command-events (listify-key-sequence char))
              (let ((this-command ,fallback-command))
                (call-interactively ,fallback-command))))
-           (setq general--last-dispatch
-                 `(:command ,matched-command
-                            :invoked-keys ,invoked-keys
-                            :keys ,char
-                            :fallback ,fallback)))))))
+           (setq general--last-dispatch `(:command ,matched-command
+                                          :invoked-keys ,invoked-keys
+                                          :keys ,char
+                                          :fallback ,fallback)))))))
+
+(defun general--dispatch-repeat (flag)
+  "Modified version of `evil-repeat-keystrokes'.
+It will remove extra keys that would be added in a general-dispatch-... command
+with the default `evil-repeat-keystrokes' and ensures that the repeat is
+aborted when it should be."
+  (cond
+   ((eq flag 'pre)
+    (when evil-this-register
+      (evil-repeat-record
+       `(set evil-this-register ,evil-this-register)))
+    (setq evil-repeat-keys (this-command-keys)))
+   ((eq flag 'post)
+    (let* ((command (cl-getf general--last-dispatch :command))
+           (repeat-prop (evil-get-command-property command :repeat t))
+           (fallback (cl-getf general--last-dispatch :fallback))
+           (invoked-keys (cl-getf general--last-dispatch :invoked-keys))
+           (keys (cl-getf general--last-dispatch :keys))
+           (reversed-repeat-info (reverse evil-repeat-info))
+           count)
+      ;; prevent double recording
+      (while (string-match "^[0-9]+$" (or (car reversed-repeat-info) ""))
+        ;; evil counts will appear in last items, e.g. ("c3" "3" "3")
+        ;; NOTE: this won't work if the user binds digits in the dispatch
+        ;; command (though I can't imagine a situation where that would be
+        ;; useful)
+        (push (pop reversed-repeat-info) count))
+      (setq evil-repeat-info (if (= (length count) 0)
+                                 (butlast evil-repeat-info)
+                               (nreverse (cdr reversed-repeat-info))))
+      (if (general--repeat-abort-p repeat-prop)
+          (evil-repeat-abort)
+        (evil-repeat-record
+         (cond
+          ;; TODO is this ever needed anymore?
+          ;; ((zerop (length (this-command-keys)))
+          ;;  evil-repeat-keys)
+          (fallback
+           (concat invoked-keys (apply #'concat count) (this-command-keys)))
+          (t
+           (concat invoked-keys keys))))
+        (evil-clear-command-keys))))))
 
 ;;; Optional Setup
 ;;;###autoload

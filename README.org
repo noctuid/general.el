@@ -287,6 +287,8 @@ Also note that ~general-simulate-keys~ creates a named function with a docstring
 
 Make sure that you don't bind a key to simulate itself (e.g. ~(general-emap "C-n" (general-simulate-keys "C-n" t))~) as it wouldn't do anything (and would cause an infinite loop).
 
+Another thing to be aware of is that if a command name is not specified, the resulting ~general-simulate-...~ command will always be repeated with ~evil-repeat~ (since the name of the command that will end up running is not necessarily known). If you would like to change this, you can use ~evil-declare-not-repeat~ with the name of the resulting simulate command. On the other hand, if a command name is specified, the simulate command will be repeated depending on the repeat property of that command.
+
 *** Mapping Under Non-prefix Keys
 This functionality is mainly targeted at evil users, but it could potentially be useful for non-evil users as well. In vim you can bind something like =cow= without a problem. With evil, =c= is bound to ~evil-change~, so you can't bind directly to =cow=. A workaround for this case is to bind a key in ~evil-operator-state-map~, but this won't work, for example, if you wanted to bind =ctb= or =cw= to something special. I've come up with a more general workaround, ~general-key-dispatch~. Consider the following example:
 #+begin_src emacs-lisp
@@ -315,6 +317,8 @@ Another possible use is to emulate vim's =imap=. For example, you can recreate t
 #+end_src
 
 If you plan on using more than one of these with ~self-insert-command~, you'll need to use the =:name= keyword argument to prevent the newly created functions from clobbering each other.
+
+Like with ~general-simulate-keys~ used with a command name, the behavior of ~evil-repeat~ will depend on the command that ends up running. Having repeating work correctly requires handling a lot of edge cases, so please make an issue if you find any problems. Note that evil does not support repeating a count that comes before an operator currently, but repeating should work when the count follows the operator key (=3cc= vs =c3c=).
 
 Another thing to note is that commands created in this way will not time out, and =j= will only be inserted after the next keypress. For an alternate way to do this, you might want to look at [[https://github.com/vlevit/key-seq.el][key-seq.el]] and [[https://www.emacswiki.org/emacs/key-chord.el][key-chord.el]].
 
