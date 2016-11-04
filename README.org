@@ -12,6 +12,7 @@ A general is a leader. -- onioncheese
 - Does not depend on evil (these points apply to regular emacs keybindings)
 - Allows an arbitrary number of prefix keys or "leaders" of any length
 - Does not /require/ a prefix key
+- Does not require creating a named prefix keymap when using prefix keys (but allows it)
 - Allows choosing the specific evil state(s) and keymap(s) to map keys in
 - Allows deferring keybindings until the keymap exists (no need for ~eval-after-load~)
 - Allows for buffer local keybindings
@@ -19,6 +20,7 @@ A general is a leader. -- onioncheese
 - For evil, wraps ~evil-define-key~ instead of weirdly re-implementing half of it
 - Allows using a single function for all keybindings (with wrappers)
 - Allows displaying all bound keys
+- Allows simulating vim's ability to bind under non-prefix keys (with an optional timeout)
 
 * Basic Setup
 Since general provides variables for defaults to the various keyword arguments, you can use it in a very specific way. For example, you could set =general-default-prefix= to a prefix of your choosing and only use it for defining prefix keys. I personally don't change any of these variables and use it in a more general way for all my keybindings. The main advantage of using ~general-define-key~ (or a wrapper for it) even in cases where its extra functionality may be not used is that all keybindings are recorded and can be displayed later with ~general-describe-keybindings~.
@@ -111,6 +113,17 @@ Using a different prefix for the insert and emacs states can be done with =:non-
                     :keymaps 'text-mode-map
                     :prefix "SPC"
                     :non-normal-prefix "M-SPC"
+                    "/" 'swiper)
+#+end_src
+
+If you would like to create a named prefix keymap for your prefix keys, you can also specify =:prefix-command= which will be passed to ~define-prefix-command~. All prefix keys will then be bound to the prefix command in the correct keymaps. You can additionally specify =:prefix-map= and =:prefix-name= (which will be passed as the last two arguments to ~define-prefix-command~).
+#+begin_src emacs-lisp
+(general-define-key :states '(normal insert emacs)
+                    :keymaps 'text-mode-map
+                    :prefix "SPC"
+                    :non-normal-prefix "M-SPC"
+                    :prefix-command 'my-prefix-command
+                    :prefix-map 'my-prefix-map
                     "/" 'swiper)
 #+end_src
 
@@ -318,9 +331,28 @@ Another possible use is to emulate vim's =imap=. For example, you can recreate t
 
 If you plan on using more than one of these with ~self-insert-command~, you'll need to use the =:name= keyword argument to prevent the newly created functions from clobbering each other.
 
-Like with ~general-simulate-keys~ used with a command name, the behavior of ~evil-repeat~ will depend on the command that ends up running. Having repeating work correctly requires handling a lot of edge cases, so please make an issue if you find any problems. Note that evil does not support repeating a count that comes before an operator currently, but repeating should work when the count follows the operator key (=3cc= vs =c3c=).
+Commands created in this way now support an optional timeout, meaning you could still insert =jk= (without =C-q= / ~quoted-insert~) like with [[https://www.emacswiki.org/emacs/key-chord.el][key-chord.el]]:
+#+begin_src emacs-lisp
+(general-imap "j"
+              (general-key-dispatch 'self-insert-command
+                :timeout 0.25
+                "k" 'evil-normal-state))
+#+end_src
 
-Another thing to note is that commands created in this way will not time out, and =j= will only be inserted after the next keypress. For an alternate way to do this, you might want to look at [[https://github.com/vlevit/key-seq.el][key-seq.el]] and [[https://www.emacswiki.org/emacs/key-chord.el][key-chord.el]].
+If you are using ~general-key-dispatch~ with a timeout to mirror a prefix key's bindings in insert state, it may also be convenient to use the =:inherit-keymap= keyword. This allows using all your prefix keybindings without the need to re-specify them all in the ~general-key-dispatch~:
+#+begin_src emacs-lisp
+(general-nmap :prefix ","
+              :prefix-command 'my-prefix-map
+              "g" #'magit-status)
+
+(general-imap ","
+              (general-key-dispatch #'self-insert-command
+                :timeout 0.25
+                :inherit-keymap my-prefix-map))
+#+end_src
+If you bind more keys under your prefix later on in normal state, they will still be available when pressing the prefix in insert state without needing to re-evaluate the ~general-key-dispatch~.
+
+Like with ~general-simulate-keys~ used with a command name, the behavior of ~evil-repeat~ will depend on the command that ends up running. Having repeating work correctly requires handling a lot of edge cases, so please make an issue if you find any problems. Note that evil does not support repeating a count that comes before an operator currently, but repeating should work when the count follows the operator key (=3cc= vs =c3c=).
 
 ** Creating Extra Keybinding Functions
 The primary purpose of this package is to provide a single function for key definitions that is simple and flexible. Most users probably won't want to use this functionality (apart from ~general-evil-setup~). However, if you would like more specific keybinding functions for certain prefixes, evil states, or keymaps, this package provides macros to generate these functions.

@@ -409,13 +409,16 @@ to bind the keys with (depending on whether STATES is non-nil)."
            (prefix general-default-prefix)
            (non-normal-prefix general-default-non-normal-prefix)
            (global-prefix general-default-global-prefix)
-           (infix)
+           infix
+           prefix-command
+           prefix-map
+           prefix-name
            (states general-default-states)
            (keymaps general-default-keymaps)
-           (predicate)
+           predicate
            ;; for extended definitions only
-           (package)
-           (major-mode)
+           package
+           major-mode
            &allow-other-keys)
   "The primary key definition function provided by general.
 
@@ -445,6 +448,13 @@ MAPS. This may be particularly useful if you are using default prefixes in a
 wrapper so that you can add to them without needing to re-specify all of them.
 If none of the other prefix arguments are specified, INFIX will have no effect.
 
+If PREFIX-COMMAND is specified, a prefix keymap/command will be created using
+`define-prefix-command' as long as the symbol specified is not already bound (to
+ensure that an existing prefix keymap is not overwritten if the
+`general-define-key' function is re-evaluated). All prefixes will then be bound
+to PREFIX-COMMAND. PREFIX-MAP and PREFIX-NAME can additionally be specified and
+are used as the last two arguments to `define-prefix-command'.
+
 Unlike with normal key definitions functions, the keymaps in KEYMAPS should be
 quoted (this makes it easy to check if there is only one keymap instead of a
 list of keymaps).
@@ -470,17 +480,29 @@ MAPS will be recorded for later use with `general-describe-keybindings'."
       (setq states (list states)))
     (unless (listp keymaps)
       (setq keymaps (list keymaps)))
+    (when (and prefix-command
+               (not (boundp prefix-command)))
+      (define-prefix-command prefix-command prefix-map prefix-name))
     (when non-normal-prefix
       (setq non-normal-prefix-maps
             (general--apply-prefix-and-kbd
-             (general--concat t non-normal-prefix infix) maps)))
+             (general--concat t non-normal-prefix infix) maps))
+      (when prefix-command
+        (push prefix-command non-normal-prefix-maps)
+        (push non-normal-prefix non-normal-prefix-maps)))
     (when global-prefix
       (setq global-prefix-maps
             (general--apply-prefix-and-kbd
-             (general--concat t global-prefix infix) maps)))
+             (general--concat t global-prefix infix) maps))
+      (when prefix-command
+        (push prefix-command global-prefix-maps)
+        (push global-prefix global-prefix-maps)))
     ;; last so not applying prefix twice
     (setq maps (general--apply-prefix-and-kbd
                 (general--concat t prefix infix) maps))
+    (when prefix-command
+      (push prefix-command maps)
+      (push prefix maps))
     (dolist (keymap keymaps)
       (when (memq keymap '(insert emacs normal visual operator motion replace))
         (setq keymap (general--evil-keymap-for-state keymap)))
@@ -707,7 +729,9 @@ repeat is aborted when it should be."
 
 ;;;###autoload
 (cl-defmacro general-key-dispatch
-    (fallback-command &rest maps &key timeout name docstring &allow-other-keys)
+    (fallback-command &rest maps
+                      &key timeout inherit-keymap name docstring
+                      &allow-other-keys)
   "Create a function that will run FALLBACK-COMMAND or a command from MAPS.
 MAPS consists of <key> <command> pairs. If a key in MAPS is matched, the
 corresponding command will be run. Otherwise FALLBACK-COMMAND will be run
@@ -741,10 +765,13 @@ same FALLBACK-COMMAND (e.g. `self-insert-command')."
          (let ((map (make-sparse-keymap))
                (invoked-keys (this-command-keys))
                (timeout ,timeout)
+               (inherit-keymap ,inherit-keymap)
                matched-command
                fallback
                char
                timed-out-p)
+           (when inherit-keymap
+             (set-keymap-parent map inherit-keymap))
            (if general-implicit-kbd
                (general--emacs-define-key map
                  ,@(general--apply-prefix-and-kbd nil maps))
