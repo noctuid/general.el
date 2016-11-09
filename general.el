@@ -777,7 +777,9 @@ same FALLBACK-COMMAND (e.g. `self-insert-command')."
                  ,@(general--apply-prefix-and-kbd nil maps))
              (general--emacs-define-key map ,@maps))
            (while (progn
-                    (with-timeout (timeout (setq timed-out-p t))
+                    (if timeout
+                        (with-timeout (timeout (setq timed-out-p t))
+                          (setq char (concat char (char-to-string (read-char)))))
                       (setq char (concat char (char-to-string (read-char)))))
                     (and (not timed-out-p)
                          (keymapp (lookup-key map char)))))
