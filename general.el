@@ -735,17 +735,23 @@ repeat is aborted when it should be."
                       &allow-other-keys)
   "Create a function that will run FALLBACK-COMMAND or a command from MAPS.
 MAPS consists of <key> <command> pairs. If a key in MAPS is matched, the
-corresponding command will be run. Otherwise FALLBACK-COMMAND will be run
-with the unmatched keys. So, for example, if \"ab\" was pressed, and \"ab\" is
-not one of the key sequences from MAPS, the FALLBACK-COMMAND will be run
-followed by the simulated keypresses of \"ab\". Prefix arguments will still work
-regardless of which command is run. This is useful for binding under non-prefix
-keys. For example, this can be used to redefine a sequence like \"cw\" or
-\"cow\" in evil but still have \"c\" work as `evil-change'. LAMBDA, NAME, and
-DOCSTRING are optional keyword arguments. They can be used to replace the
-automatically generated name and docstring for the created function and are
+corresponding command will be run. Otherwise FALLBACK-COMMAND will be run with
+the unmatched keys. So, for example, if \"ab\" was pressed, and \"ab\" is not
+one of the key sequences from MAPS, the FALLBACK-COMMAND will be run followed by
+the simulated keypresses of \"ab\". Prefix arguments will still work regardless
+of which command is run. This is useful for binding under non-prefix keys. For
+example, this can be used to redefine a sequence like \"cw\" or \"cow\" in evil
+but still have \"c\" work as `evil-change'. If TIMEOUT is specified,
+FALLBACK-COMMAND will also be run in the case that the user does not press the
+next key within the TIMEOUT (e.g. 0.5).
+
+NAME and DOCSTRING are optional keyword arguments. They can be used to replace
+the automatically generated name and docstring for the created function and are
 potentially useful if you want to create multiple, different commands using the
 same FALLBACK-COMMAND (e.g. `self-insert-command').
+
+When INHERIT-KEYMAP is specified, all the keybindings from that keymap will be
+inherited in MAPS.
 
 WHICH-KEY can also be specified, in which case the description WHICH-KEY will
 replace the command name in the which-key popup. Note that this requires a
