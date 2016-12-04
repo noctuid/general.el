@@ -731,6 +731,7 @@ repeat is aborted when it should be."
 (cl-defmacro general-key-dispatch
     (fallback-command &rest maps
                       &key timeout inherit-keymap name docstring
+                      which-key
                       &allow-other-keys)
   "Create a function that will run FALLBACK-COMMAND or a command from MAPS.
 MAPS consists of <key> <command> pairs. If a key in MAPS is matched, the
@@ -744,7 +745,11 @@ keys. For example, this can be used to redefine a sequence like \"cw\" or
 DOCSTRING are optional keyword arguments. They can be used to replace the
 automatically generated name and docstring for the created function and are
 potentially useful if you want to create multiple, different commands using the
-same FALLBACK-COMMAND (e.g. `self-insert-command')."
+same FALLBACK-COMMAND (e.g. `self-insert-command').
+
+WHICH-KEY can also be specified, in which case the description WHICH-KEY will
+replace the command name in the which-key popup. Note that this requires a
+version of which-key from after 2016-11-21."
   (declare (indent 1))
   (let ((name (or name (intern (format "general-dispatch-%s"
                                        (eval fallback-command)))))
@@ -756,6 +761,13 @@ same FALLBACK-COMMAND (e.g. `self-insert-command')."
     `(progn
        (eval-after-load 'evil
          '(evil-set-command-property #',name :repeat 'general--dispatch-repeat))
+       (when ,which-key
+         (eval-after-load 'which-key
+           (lambda ()
+             (when (boundp 'which-key-replacement-alist)
+               (push '((nil . ,(symbol-name name))
+                       nil . ,which-key)
+                     which-key-replacement-alist)))))
        ;; TODO list all of the bound keys in the docstring
        (defun ,name ()
          ,(or docstring (format (concat "Run %s or something else based"
