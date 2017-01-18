@@ -459,6 +459,13 @@ considered as part of the region."
   (should (string= (general-with "|one two three four" "zbgttzyx..")
                    "one two three |four")))
 
+(ert-deftest general-dispatch-operator ()
+  (general-emacs-define-key evil-normal-state-map
+    "d" (general-key-dispatch #'evil-delete
+          "d" #'evil-delete))
+  (should (string= (general-with "|a b c" "ddaw.")
+                   "|c")))
+
 (ert-deftest general-use-package-keyword ()
   (let ((general-test-map (make-sparse-keymap))
         (test-key "k")
