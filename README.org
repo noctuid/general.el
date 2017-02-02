@@ -20,7 +20,10 @@ A general is a leader. -- onioncheese
 - For evil, wraps ~evil-define-key~ instead of weirdly re-implementing half of it
 - Allows using a single function for all keybindings (with wrappers)
 - Allows displaying all bound keys
-- Allows simulating vim's ability to bind under non-prefix keys (with an optional timeout)
+- Provides other helpers for keybindings:
+  - A potentially better way to simulate keypresses (works with prefix args and for incomplete key sequences, e.g. a key bound to a keymap)
+  - A method for binding under non-prefix keys with an optional timeout (like in vim; e.g. bind =jk= in insert mode without losing =j=)
+  - A helper to create a menu item to dispatch to different definitions based on predicates
 
 * Basic Setup
 Since general provides variables for defaults to the various keyword arguments, you can use it in a very specific way. For example, you could set =general-default-prefix= to a prefix of your choosing and only use it for defining prefix keys. I personally don't change any of these variables and use it in a more general way for all my keybindings. The main advantage of using ~general-define-key~ (or a wrapper for it) even in cases where its extra functionality may be not used is that all keybindings are recorded and can be displayed later with ~general-describe-keybindings~.
@@ -267,16 +270,15 @@ Specifying ~:keymaps 'local~ will bind keys in the current buffer alone, which m
 The user can use the ~:predicate~ keyword to specify a condition under which the map(s) should be active. For example:
 #+begin_src emacs-lisp
 (general-define-key :keymaps 'local
-                    ;; \\' is the buffer end
-                    :predicate '(looking-at "\\'")
+                    :predicate '(eobp)
                     "<right>" 'beginning-of-buffer)
 #+end_src
 
-~<right>~ will now behave normally except at the end of the buffer where it will jump to the beginning of the buffer. Note that with ~:predicate~, you can still only have a key bound once in a single keymap. If you want to have a key take a lot of different actions depending on conditions in a single keymap, you'll want to put those conditions directly in the command or use something like [[https://github.com/yuutayamada/mykie-el][mykie]] instead.
+~<right>~ will now behave normally except at the end of the buffer where it will jump to the beginning of the buffer. Note that with ~:predicate~, you can still only have a key bound once in a single keymap. If you want to have a key take different actions depending on conditions in a single keymap, see [[#choosing-definitions-based-on-predicates][Choosing Definition Based on Predicates]].
 
 See [[http://endlessparentheses.com/define-context-aware-keys-in-emacs.html][this post]] for more information about how this works.
 
-** Functions to Help With Key Definition
+** Functions/Macros to Aid Key Definition
 *** Simulating Keypresses
 General provides a macro called ~general-simulate-keys~ that can be used to simulate a key sequence. In some cases, this can be used similarly to a keyboard macro, but it has some advantages. Unlike with a keyboard macro, prefix arguments will work for the command the key simulates. The key simulated does not have to correspond to the full key sequence for a command. In these cases [[https://github.com/justbur/emacs-which-key][which-key]] will show the keys bound under the simulated prefix. For example:
 #+begin_src emacs-lisp
@@ -353,6 +355,22 @@ If you are using ~general-key-dispatch~ with a timeout to mirror a prefix key's 
 If you bind more keys under your prefix later on in normal state, they will still be available when pressing the prefix in insert state without needing to re-evaluate the ~general-key-dispatch~.
 
 Like with ~general-simulate-keys~ used with a command name, the behavior of ~evil-repeat~ will depend on the command that ends up running. Having repeating work correctly requires handling a lot of edge cases, so please make an issue if you find any problems. Note that evil does not support repeating a count that comes before an operator currently, but repeating should work when the count follows the operator key (=3cc= vs =c3c=).
+
+*** Choosing Definitions Based on Predicates
+:PROPERTIES:
+:CUSTOM_ID: choosing-definitions-based-on-predicates
+:END:
+
+~general-predicate-dispatch~ can be used to generate a ~menu-item~ that will behave differently based on the provided predicates. It takes a fallback definition as the first argument and then a list of predicates and alternate definitions (which can be commands, keymaps, etc.). Predicates are checked in order. If no predicate is matched and the fallback command is nil, then the mapping will be ignored (the keymap with the next highest precedence, if one exists, will be checked for the pressed key(s)).
+
+#+begin_src emacs-lisp
+(general-define-key "<right>"
+                    (general-predicate-dispatch 'right-char
+                      ;; pred def ...
+                      (eolp) 'beginning-of-line))
+#+end_src
+
+The =:docstring= keyword can be specified to add a description to the menu-item.
 
 ** Creating Extra Keybinding Functions
 The primary purpose of this package is to provide a single function for key definitions that is simple and flexible. Most users probably won't want to use this functionality (apart from ~general-evil-setup~). However, if you would like more specific keybinding functions for certain prefixes, evil states, or keymaps, this package provides macros to generate these functions.

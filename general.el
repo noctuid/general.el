@@ -282,7 +282,9 @@ This function will execute the actions specified in an extended definition and
 apply a predicate if there is one."
   (cond ((and (listp def)
               (not (keymapp def))
-              (not (functionp def)))
+              ;; lambda
+              (not (functionp def))
+              (not (eq (car def) 'menu-item)))
          (unless (keywordp (car def))
            (setq def (cons :command def)))
          (dolist (keyword general-extended-def-keywords)
@@ -639,7 +641,7 @@ Any local keybindings will be shown first followed by global keybindings."
     (goto-char (point-min))
     (read-only-mode)))
 
-;;; Commands that Could Aid in Key Definition
+;;; Functions/Macros to Aid Key Definition
 ;; https://emacs.stackexchange.com/questions/6037/emacs-bind-key-to-prefix/13432#13432
 ;; altered to allow execution in a emacs state
 ;; and to create a named function with a docstring
@@ -876,6 +878,30 @@ aborted when it should be."
                      (concat count (this-command-keys)))))))
         (evil-clear-command-keys))))))
 
+(cl-defmacro general-predicate-dispatch
+    (fallback-def &rest defs
+                  &key docstring
+                  &allow-other-keys)
+  (declare (indent 1))
+  "Create a menu item that will run FALLBACK-DEF or a definition from DEFS.
+DEFS consists of <predicate> <definition> pairs. Binding this menu-item to a key
+will cause that key to act as the corresponding definition (a command, keymap,
+etc) for the first matched predicate. If no predicate is matched FALLBACK-DEF
+will be run. When FALLBACK-DEF is nil and no predicates are matched, the keymap
+with the next highest precedence for the pressed key will be checked. DOCSTRING
+can be specified as a description for the menu item."
+  ;; remove keyword arguments from defs
+  (let ((defs (cl-loop for (key value) on defs by 'cddr
+                       unless (keywordp key)
+                       collect (list key value))))
+    `'(menu-item
+       ,(or docstring "") nil
+       :filter (lambda (&optional _)
+                 (cond ,@(mapcar (lambda (pred-def)
+                                   `(,(car pred-def) ,(cadr pred-def)))
+                                 defs)
+                       (t ,fallback-def))))))
+
 ;;; Optional Setup
 ;;;###autoload
 (defmacro general-create-vim-definer
@@ -1011,6 +1037,9 @@ aliases such as `nmap' for `general-nmap'."
                                    (or (symbolp def)
                                        (when (and (symbolp (car def))
                                                   (not (keywordp (car def)))
+                                                  (not (memq
+                                                        (car def)
+                                                        '(menu-item lambda)))
                                                   (not (keymapp def)))
                                          (setq def (car def)))
                                        (setq def (cl-getf def :command)))))

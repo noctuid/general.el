@@ -466,6 +466,21 @@ considered as part of the region."
   (should (string= (general-with "|a b c" "ddaw.")
                    "|c")))
 
+(ert-deftest general-predicate-dispatch ()
+  ;; TODO undo keybinding changes
+  (general-define-key "<right>"
+                      (general-predicate-dispatch 'right-char
+                        :docstring "Move right or to the bol."
+                        (eolp) 'beginning-of-line))
+  (should (string= (general-with "|a b"
+                     (evil-mode -1)
+                     (kbd "<right>"))
+                   "a| b"))
+  (should (string= (general-with "a b|"
+                     (evil-mode -1)
+                     (kbd "<right>"))
+                   "|a b")))
+
 (ert-deftest general-use-package-keyword ()
   (let ((general-test-map (make-sparse-keymap))
         (test-key "k")
