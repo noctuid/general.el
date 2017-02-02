@@ -821,7 +821,7 @@ version of which-key from after 2016-11-21."
                                           :keys ,char
                                           :fallback ,fallback)))))))
 
-(defvar lispyville--repeat-info nil
+(defvar general--repeat-info nil
   "Used for debugging repeat behavior for `general-key-dispatch'.")
 
 (defun general--dispatch-repeat (flag)
@@ -855,7 +855,7 @@ aborted when it should be."
                                  (butlast evil-repeat-info)
                                (nreverse (cdr reversed-repeat-info))))
       ;; for debugging purposes only
-      (setq lispyville--repeat-info
+      (setq general--repeat-info
             (list invoked-keys keys (this-command-keys)
                   (cl-copy-list evil-repeat-info) count))
       (if (general--repeat-abort-p repeat-prop)
