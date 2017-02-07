@@ -130,7 +130,7 @@ If you would like to create a named prefix keymap for your prefix keys, you can 
                     "/" 'swiper)
 #+end_src
 
-General is flexible in allowing you to choose how you write things, so if the above would be something you'd use often, you could create a function with the above state and prefix keyword arguments as defaults using ~evil-general-create-definer~ and write the definition like this:
+General is flexible in allowing you to choose how you write things, so if the above would be something you'd use often, you could create a function with the above state and prefix keyword arguments as defaults using ~general-create-definer~ and write the definition like this:
 #+begin_src emacs-lisp
 (my-normal-and-insert-define-key "/" 'swiper)
 #+end_src
