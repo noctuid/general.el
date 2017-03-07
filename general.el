@@ -842,6 +842,7 @@ aborted when it should be."
            (fallback (cl-getf general--last-dispatch :fallback))
            (invoked-keys (cl-getf general--last-dispatch :invoked-keys))
            (keys (cl-getf general--last-dispatch :keys))
+           (old-repeat-info (cl-copy-list evil-repeat-info))
            (reversed-repeat-info (reverse evil-repeat-info))
            count
            next-repeat-item)
@@ -858,8 +859,11 @@ aborted when it should be."
                                (nreverse (cdr reversed-repeat-info))))
       ;; for debugging purposes only
       (setq general--repeat-info
-            (list invoked-keys keys (this-command-keys)
-                  (cl-copy-list evil-repeat-info) count))
+            (list :invoked-keys invoked-keys :keys keys
+                  :this-command-keys (this-command-keys)
+                  :old-evil-repeat-info old-repeat-info
+                  :evil-repeat-info (cl-copy-list evil-repeat-info)
+                  :count count))
       (if (general--repeat-abort-p repeat-prop)
           (evil-repeat-abort)
         (evil-repeat-record
