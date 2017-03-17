@@ -154,13 +154,13 @@ non-nil."
 ;; http://endlessparentheses.com/define-context-aware-keys-in-emacs.html
 (defun general--maybe-apply-predicate (predicate def)
   "Apply PREDICATE to DEF.
-If PREDICATE is nil or DEF is not a function, just return DEF."
+If PREDICATE is nil just return DEF."
   (if predicate
       `(menu-item
         "" nil
         :filter (lambda (&optional _)
                   (when ,predicate
-                    (,def))))
+                    ',def)))
     def))
 
 (defun general--remove-keys (maps keys)

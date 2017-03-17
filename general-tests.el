@@ -176,10 +176,14 @@ considered as part of the region."
       (kbd "C-c g a") #'git-add)))
 
 (ert-deftest general-predicates ()
-  (let ((test-map (make-sparse-keymap)))
+  (let ((test-map (make-sparse-keymap))
+        (test2-map (make-sparse-keymap)))
     (general-define-key :keymaps 'test-map
                         :predicate '(looking-at "\\'")
+      "<left>" test2-map
       "<right>" #'beginning-of-buffer)
+    (general-define-key :keymaps 'test2-map
+      "a" #'beginning-of-line)
     (should (string= (general-with "a |b c"
                        (set-transient-map test-map)
                        (kbd "<right>"))
@@ -187,10 +191,11 @@ considered as part of the region."
     (should (string= (general-with "a b c|"
                        (set-transient-map test-map)
                        (kbd "<right>"))
-                     ;; TODO why does "|" end up here for actions that go
-                     ;; to the beginning of the line
-                     ;; this happens in emacs too
-                     "a| b c"))
+                     "|a b c"))
+    (should (string= (general-with "a b c|"
+                       (set-transient-map test-map)
+                       (kbd "<left> a"))
+                     "|a b c"))
     ;; locally overriding predicate
     (general-define-key :keymaps 'test-map
                         :predicate '(not t)
@@ -202,7 +207,7 @@ considered as part of the region."
     (should (string= (general-with "a b c|"
                        (set-transient-map test-map)
                        (kbd "<right>"))
-                     "a| b c"))))
+                     "|a b c"))))
 
 (ert-deftest general-extended-definitions ()
   (let ((test-map (make-sparse-keymap)))
