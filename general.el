@@ -768,7 +768,12 @@ KEYS should be a string given in `kbd' notation. It can also be a list of a
 single command followed by a string of the keys to simulate after calling that
 command. If DOCSTRING is given, it will replace the automatically generated
 docstring. If NAME is given, it will replace the automatically generated
-function name. NAME should not be quoted."
+function name. NAME should not be quoted.
+
+The advantages of this over a keyboard macro are as follows:
+- The user can control the context in which the keys are simulated
+- The user can simulate both a command and keys
+- The user can simulate a partial key sequence (e.g. for a keymap)"
   (let* ((command (when (listp keys)
                     (car keys)))
          (keys (if (listp keys)
