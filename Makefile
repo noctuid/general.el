@@ -8,7 +8,8 @@ cask:
 
 test:
 	@echo "Using $(shell which $(emacs))..."
-	$(BEMACS) -l general-tests.el $(LOAD) -f ert-run-tests-batch-and-exit
+	$(CASK) exec buttercup -L .
+	# $(BEMACS) -l general-tests.el $(LOAD) -f ert-run-tests-batch-and-exit
 
 clean:
 	rm -f *.elc
