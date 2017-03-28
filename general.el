@@ -362,12 +362,11 @@ KEYMAP is 'local. MAPS is any number of keys and commands to bind."
     `(let ((maps ',maps)
            (keymap ',keymap)
            (state ',state))
-       (while (not (cl-endp maps))
+       (while maps
          (if (eq keymap 'local)
              ;; has no &rest
              (evil-local-set-key state (pop maps) (pop maps))
-           ;; TODO use evil-define-key* after it has been in evil for a while
-           (evil-define-key state keymap (pop maps) (pop maps)))))))
+           (evil-define-key* state keymap (pop maps) (pop maps)))))))
 
 (defun general--define-key
     (states keymap maps non-normal-maps global-maps kargs)
