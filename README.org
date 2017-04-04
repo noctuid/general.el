@@ -536,3 +536,6 @@ If you are wondering why you might want to use ~evil-define-minor-mode-key~, see
 
 *** Lispy Integration/ Wrapping ~lispy-define-key~
 To use ~lispy-define-key~ to make the definitions, =:definer 'lispy= can be specified. =:lispy-plist= can be specified globally or in an extended definition to set the last argument to ~lispy-define-key~.
+
+*** Worf Integration/ Wrapping ~worf-define-key~
+To use ~worf-define-key~ to make the definitions, =:definer 'worf= can be specified. =:worf-plist= can be specified globally or in an extended definition to set the last argument to ~worf-define-key~.

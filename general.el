@@ -471,6 +471,13 @@ KEYMAP is 'local."
             (keymap (general--parse-keymap keymap)))
        (lispy-define-key keymap ',key ',def plist))))
 
+(defun general-worf-define-key (_state keymap key def orig-def kargs)
+  "Wrapper for `worf-define-key'."
+  (eval-after-load 'worf
+    `(let* ((keymap ',keymap)
+            (plist (general--getf ',orig-def ',kargs :worf-plist))
+            (keymap (general--parse-keymap keymap)))
+       (worf-define-key keymap ',key ',def plist))))
 
 (defun general--define-key-dispatch (state keymap maps kargs)
   "In STATE (if non-nil) and KEYMAP, bind MAPS.
@@ -539,6 +546,9 @@ to bind the keys with `general--define-key-dispatch'."
            wk-no-match-keys
            wk-no-match-binding
            (wk-full-keys t)
+           ;; for custom key definers
+           lispy-plist
+           worf-plist
            &allow-other-keys)
   "The primary key definition function provided by general.
 
@@ -584,7 +594,10 @@ more information.
 
 MAJOR-MODE, WK-NO-MATCH-KEYS, WK-NO-MATCH-BINDINGS, and WK-FULL-KEYS are the
 corresponding global versions of extended definition keywords. See the section
-on extended definitions in the README for more information."
+on extended definitions in the README for more information.
+
+LISPY-PLIST and WORF-PLIST are the corresponding global versions of extended
+definition keywords that are used for the corresponding custom DEFINER"
   (let (non-normal-prefix-maps
         global-prefix-maps
         kargs)
