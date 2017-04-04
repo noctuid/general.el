@@ -528,3 +528,8 @@ Alternate definers can be used by specifying the =:definer= keyword (globally or
 #+end_src
 
 The user-created function should be named ~general-<definer>-define-key~. It will be passed =state keymap key def orig-def kargs=. These arguments are the same as for extended definition functions except for =def= and =orig-def=. =def= is the transformed definition, whereas =orig-def= is the original definition (an extended definition or the same as =def=).
+
+*** Wrapping ~evil-define-minor-mode-key~
+If you want to use ~evil-define-minor-mode-key~ instead of ~evil-define-key*~, you can use =:definer 'minor-mode=. This will simply repurpose =:keymaps= to specify minor mode names instead.
+
+If you are wondering why you might want to use ~evil-define-minor-mode-key~, see [[https://github.com/noctuid/evil-guide#why-dont-keys-defined-with-evil-define-key-work-immediately][here]].

@@ -433,6 +433,10 @@ KEYMAP is 'local."
            (evil-local-set-key state key def)
          (evil-define-key* state keymap key def)))))
 
+(defun general-minor-mode-define-key (state mode key def _orig-def _kargs)
+  "Wrapper for `evil-define-minor-mode-key'."
+  (evil-define-minor-mode-key state mode key def))
+
 (defun general--define-key-dispatch (state keymap maps kargs)
   "In STATE (if non-nil) and KEYMAP, bind MAPS.
 MAPS is composed of triplets of (key parsed-def original-def). This function
