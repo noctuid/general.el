@@ -268,9 +268,10 @@ corresponding global evil text object keymap will be returned."
 
 (defun general--getf (def fallback-plist keyword &optional verify-extended-p)
   "From DEF or FALLBACK-PLIST get the corresponding value for KEYWORD.
-If VERIFY-EXTENDED-P is non-nil, check that DEF is a general extended
-definition, and if it isn't, only check in FALLBACK-PLIST. Otherwise assume that
-DEF is a valid plist."
+FALLBACK-PLIST will be checked when KEYWORD does not exist in DEF (not in cases
+where it is explicitly specified as nil). If VERIFY-EXTENDED-P is non-nil, check
+that DEF is a general extended definition, and if it isn't, only check in
+FALLBACK-PLIST. Otherwise assume that DEF is a valid plist."
   (if (or (not verify-extended-p)
           (general--extended-def-p def))
       (cl-getf def keyword
@@ -365,12 +366,12 @@ should not be in the kbd format (kbd should have already been run on it)."
                                 wk)))
             (match/replacement
              (cons
-              (cons (unless (general--getf def kargs :wk-no-match-keys)
+              (cons (when (general--getf def kargs :wk-match-keys)
                       keys-regexp)
-                    (unless (or (general--getf def kargs :wk-no-match-binding)
-                                ;; TODO what does which-key match besides
-                                ;; command names?
-                                (not (commandp binding)))
+                    (when (and (general--getf def kargs :wk-match-binding)
+                               ;; TODO what does which-key match besides
+                               ;; command names?
+                               (commandp binding))
                       (symbol-name binding)))
               replacement)))
        (general--add-which-key-replacement major-mode match/replacement)
@@ -588,8 +589,8 @@ to bind the keys with `general--define-key-dispatch'."
            ;; for extended definitions only
            package
            major-mode
-           wk-no-match-keys
-           wk-no-match-binding
+           (wk-match-keys t)
+           (wk-match-binding t)
            (wk-full-keys t)
            ;; for custom key definers
            lispy-plist
@@ -644,7 +645,7 @@ are used as the last two arguments to `define-prefix-command'.
 If DEFINER is specified, a custom key definer will be used. See the README for
 more information.
 
-MAJOR-MODE, WK-NO-MATCH-KEYS, WK-NO-MATCH-BINDINGS, and WK-FULL-KEYS are the
+MAJOR-MODE, WK-MATCH-KEYS, WK-MATCH-BINDINGS, and WK-FULL-KEYS are the
 corresponding global versions of which-key extended definition keywords. They
 will only have an effect for extended definitions that specify :which-key
 or :wk. See the section on extended definitions in the README for more

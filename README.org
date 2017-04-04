@@ -447,8 +447,8 @@ Here are the keywords currently available by default:
 Which-key functionality (see below for more details):
 - =:which-key= or =:wk= - The replacement text (or cons or function)
   - =:major-mode= - The major mode to add the text for (optional; also global)
-  - =:wk-no-match-keys= - Whether to include the keys in the match cons (also global)
-  - =:wk-no-match-binding= - Whether to include the binding in the match cons (also global)
+  - =:wk-match-keys= - Whether to include the keys in the match cons (defaults to t; also global)
+  - =:wk-match-binding= - Whether to include the binding in the match cons (defaults to t; also global)
   - =:wk-full-keys= - Whether the bound keys correspond to the full sequence to match (defaults to =t= globally)
 
 Global keywords that can be overridden locally:
@@ -480,7 +480,7 @@ The argument supplied to =:which-key= or =:wk= is equivalent to the REPLACEMENT 
 
 The =:which-key= keyword can be used with the =:major-mode= keyword (locally or globally) which can be compared to using ~which-key-add-major-mode-key-based-replacements~.
 
-=:wk-no-match-keys=, =:wk-no-match-binding=, and =:wk-full-keys= can be used to customize the match cons. Generally these will not need to be adjusted. The binding is only included in the match cons if one is available, and =:wk-full-keys= only needs to be specified as =nil= if you are binding keys in a prefix map.
+=:wk-match-keys=, =:wk-match-binding=, and =:wk-full-keys= can be used to customize the match cons. Generally these will not need to be adjusted. The binding is only included in the match cons if one is available, and =:wk-full-keys= only needs to be specified as =nil= if you are binding keys in a prefix map.
 
 Here are some examples:
 #+begin_src emacs-lisp
