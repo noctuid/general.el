@@ -242,6 +242,18 @@ DEF is a valid plist."
   (or (cl-getf plist keyword1)
       (cl-getf plist keyword2)))
 
+(defun general--parse-keymap (keymap)
+  "Transform the symbol KEYMAP into the appropriate symbol or keymap.
+'local    - Return symbol 'local
+'global   - Return (current-global-map)
+otherwise - Return (symbol-value keymap)"
+  (cond ((eq keymap 'local)
+         'local)
+        ((eq keymap 'global)
+         (current-global-map))
+        (t
+         (symbol-value keymap))))
+
 ;; * Extended Key Definition Language
 (defvar general-extended-def-keywords '(:which-key :wk)
   "Extra keywords that are valid in an extended definition.")
@@ -452,7 +464,8 @@ KEYMAP is 'local."
 
 (defun general-lispy-define-key (_state keymap key def orig-def kargs)
   "Wrapper for `lispy-define-key'."
-  (let ((plist (general--getf orig-def kargs :lispy-plist)))
+  (let ((plist (general--getf orig-def kargs :lispy-plist))
+        (keymap (general--parse-keymap keymap)))
     (lispy-define-key keymap key def plist)))
 
 (defun general--define-key-dispatch (state keymap maps kargs)
@@ -465,14 +478,14 @@ is present in original-def or KARGS or whether STATE is non-nil."
            (def (pop maps))
            (orig-def (pop maps))
            (definer (general--getf orig-def kargs :definer t)))
-      (cond (definer
-              (funcall (intern (format "general-%s-define-key"
-                                       (symbol-name definer)))
-                       state keymap key def orig-def kargs))
-            (state
-             (general--evil-define-key state (symbol-value keymap) key def))
-            (t
-             (general--emacs-define-key (symbol-value keymap) key def))))))
+      (if definer
+          (funcall (intern (format "general-%s-define-key"
+                                   (symbol-name definer)))
+                   state keymap key def orig-def kargs)
+        (let ((keymap (general--parse-keymap keymap)))
+          (if state
+              (general--evil-define-key state keymap key def)
+            (general--emacs-define-key keymap key def)))))))
 
 (defun general--define-key
     (states keymap maps non-normal-maps global-maps kargs)
@@ -485,12 +498,6 @@ to bind the keys with `general--define-key-dispatch'."
                   `(let ((maps (general--parse-maps state keymap ,maps kargs))
                          (keymap keymap))
                      (general--record-keybindings keymap state maps)
-                     (setq keymap (cond ((eq keymap 'local)
-                                         'local)
-                                        ((eq keymap 'global)
-                                         (current-global-map))
-                                        (t
-                                         keymap)))
                      (general--define-key-dispatch state keymap maps kargs)))
                 (def-pick-maps (non-normal-p)
                   `(progn
