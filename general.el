@@ -410,14 +410,16 @@ All alterations to the definitions are done starting with this function."
 ;; (use-local-map (copy-keymap (current-local-map)))
 ;; (local-set-key (kbd "C-c y") 'helm-apropos)
 
-(defun general--emacs-define-key (keymap key def)
+(defun general--emacs-define-key (keymap &rest maps)
   "Wrapper for `define-key' and general's `general--emacs-local-set-key'.
-KEYMAP determines which keymap the KEY and DEF will be defined in. When KEYMAP
-is 'local, the KEY will be bound only in the current buffer."
+KEYMAP determines which keymap the MAPS will be defined in. When KEYMAP is
+is 'local, the MAPS will be bound only in the current buffer. MAPS is any
+number of paired keys and commands"
   (declare (indent 1))
-  (if (eq keymap 'local)
-      (general--emacs-local-set-key key def)
-    (define-key keymap key def)))
+  (while maps
+    (if (eq keymap 'local)
+        (general--emacs-local-set-key (pop maps) (pop maps))
+      (define-key keymap (pop maps) (pop maps)))))
 
 (defun general--evil-define-key (state keymap key def)
   "Wrapper for `evil-define-key' and `evil-local-set-key'.
