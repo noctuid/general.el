@@ -1180,7 +1180,56 @@ can be specified as a description for the menu item."
                                  defs)
                        (t ,fallback-def))))))
 
-;;; Optional Setup
+;; * Functions/Macros to Aid Other Configuration
+(defun general-add-hook (hooks functions &optional append local)
+  "A drop-in replacement for `add-hook'.
+HOOKS and FUNCTIONS can be single items or lists."
+  (unless (listp hooks)
+    (setq hooks (list hooks)))
+  (unless (listp functions)
+    (setq functions (list functions)))
+  (dolist (hook hooks)
+    (dolist (func functions)
+      (add-hook hook func append local))))
+
+(defun general-remove-hook (hooks functions &optional local)
+  "A drop-in replacement for `remove-hook'.
+HOOKS and FUNCTIONS can be single items or lists."
+  (unless (listp hooks)
+    (setq hooks (list hooks)))
+  (unless (listp functions)
+    (setq functions (list functions)))
+  (dolist (hook hooks)
+    (dolist (func functions)
+      (remove-hook hook func local))))
+
+(defun general-add-advice (symbols where functions &optional props)
+  "A drop-in replacement for `advice-add'.
+SYMBOLS and FUNCTIONS can be single items or lists."
+  (unless (listp symbols)
+    (setq symbols (list symbols)))
+  (unless (listp functions)
+    (setq functions (list functions)))
+  (dolist (symbol symbols)
+    (dolist (func functions)
+      (advice-add symbol where func props))))
+
+(defalias 'general-advice-add #'general-add-advice)
+
+(defun general-remove-advice (symbols functions)
+  "A drop-in replacement for `advice-remove'.
+SYMBOLS and FUNCTIONS can be single items or lists."
+  (unless (listp symbols)
+    (setq symbols (list symbols)))
+  (unless (listp functions)
+    (setq functions (list functions)))
+  (dolist (symbol symbols)
+    (dolist (func functions)
+      (advice-remove symbol func))))
+
+(defalias 'general-advice-remove #'general-remove-advice)
+
+;; * Optional Setup
 ;;;###autoload
 (defmacro general-create-vim-definer
     (name keymaps &optional states default-to-states)
