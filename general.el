@@ -449,7 +449,7 @@ All alterations to the definitions are done starting with this function."
 ;; (local-set-key (kbd "C-c y") 'helm-apropos)
 
 (defun general--emacs-define-key (keymap &rest maps)
-  "Wrapper for `define-key' and general's `general--emacs-local-set-key'.
+  "A wrapper for `define-key' and general's `general--emacs-local-set-key'.
 KEYMAP determines which keymap the MAPS will be defined in. When KEYMAP is
 is 'local, the MAPS will be bound only in the current buffer. MAPS is any
 number of paired keys and commands"
@@ -460,7 +460,7 @@ number of paired keys and commands"
       (define-key keymap (pop maps) (pop maps)))))
 
 (defun general--evil-define-key (state keymap key def)
-  "Wrapper for `evil-define-key' and `evil-local-set-key'.
+  "A wrapper for `evil-define-key' and `evil-local-set-key'.
 In STATE and KEYMAP, bind KEY to DEF. `evil-local-set-key' is used when
 KEYMAP is 'local."
   (declare (indent defun))
@@ -474,24 +474,22 @@ KEYMAP is 'local."
          (evil-define-key* state keymap key def)))))
 
 (defun general-minor-mode-define-key (state mode key def _orig-def _kargs)
-  "Wrapper for `evil-define-minor-mode-key'."
+  "A wrapper for `evil-define-minor-mode-key'."
   (eval-after-load 'evil
     `(evil-define-minor-mode-key ',state ',mode ',key ',def)))
 
 (defun general-lispy-define-key (_state keymap key def orig-def kargs)
-  "Wrapper for `lispy-define-key'."
+  "A wrapper for `lispy-define-key'."
   (eval-after-load 'lispy
-    `(let* ((keymap ',keymap)
-            (plist (general--getf ',orig-def ',kargs :lispy-plist))
-            (keymap (general--parse-keymap keymap)))
+    `(let* ((keymap (general--parse-keymap ',keymap))
+            (plist (general--getf ',orig-def ',kargs :lispy-plist)))
        (lispy-define-key keymap ',key ',def plist))))
 
 (defun general-worf-define-key (_state keymap key def orig-def kargs)
-  "Wrapper for `worf-define-key'."
+  "A wrapper for `worf-define-key'."
   (eval-after-load 'worf
-    `(let* ((keymap ',keymap)
-            (plist (general--getf ',orig-def ',kargs :worf-plist))
-            (keymap (general--parse-keymap keymap)))
+    `(let* ((keymap (general--parse-keymap ',keymap))
+            (plist (general--getf ',orig-def ',kargs :worf-plist)))
        (worf-define-key keymap ',key ',def plist))))
 
 (defun general--define-key-dispatch (state keymap maps kargs)
