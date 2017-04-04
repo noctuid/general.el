@@ -254,6 +254,20 @@ otherwise - Return (symbol-value keymap)"
         (t
          (symbol-value keymap))))
 
+(defun general--remove-keyword-args (rest)
+  "Remove all keyword arguments from the list REST.
+Return a list of the altered REST list and a list of the removed keyword
+arguments. The order of the keyword arguments will be preserved."
+  (let (kargs)
+    (list (cl-loop for (key value) on rest by 'cddr
+                   if (keywordp key)
+                   do (progn (push key kargs)
+                             (push value kargs))
+                   else
+                   collect key
+                   and collect value)
+          (nreverse kargs))))
+
 ;; * Extended Key Definition Language
 (defvar general-extended-def-keywords '(:which-key :wk)
   "Extra keywords that are valid in an extended definition.")
@@ -602,15 +616,10 @@ definition keywords that are used for the corresponding custom DEFINER"
         global-prefix-maps
         kargs)
     ;; remove keyword arguments from rest var
-    (setq maps
-          (cl-loop for (key value) on maps by 'cddr
-                   if (keywordp key)
-                   do (progn (push key kargs)
-                             (push value kargs))
-                   else
-                   collect key
-                   and collect value))
-    ;; order matters for duplicates
+    (let ((split-maps (general--remove-keyword-args maps)))
+      (setq maps (car split-maps)
+            ;; order will be preserved; matters for duplicates
+            kargs (cadr split-maps)))
     (setq kargs (nreverse kargs))
     ;; don't force the user to wrap a single state or keymap in a list
     ;; luckily nil is a list
@@ -1028,10 +1037,7 @@ version of which-key from after 2016-11-21."
   (let ((name (or name (intern (format "general-dispatch-%s"
                                        (eval fallback-command)))))
         ;; remove keyword arguments from maps
-        (maps (cl-loop for (key value) on maps by 'cddr
-                       unless (keywordp key)
-                       collect key
-                       and collect value)))
+        (maps (car (general--remove-keyword-args maps))))
     `(progn
        (eval-after-load 'evil
          '(evil-set-command-property #',name :repeat 'general--dispatch-repeat))
@@ -1162,7 +1168,7 @@ etc) for the first matched predicate. If no predicate is matched FALLBACK-DEF
 will be run. When FALLBACK-DEF is nil and no predicates are matched, the keymap
 with the next highest precedence for the pressed key will be checked. DOCSTRING
 can be specified as a description for the menu item."
-  ;; remove keyword arguments from defs
+  ;; remove keyword arguments from defs and sort defs into pairs
   (let ((defs (cl-loop for (key value) on defs by 'cddr
                        unless (keywordp key)
                        collect (list key value))))
