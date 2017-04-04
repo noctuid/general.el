@@ -431,7 +431,33 @@ General provides a simple function that will rewrite a string into a key-chord v
 Note that the order of the keys does matter unlike with the default ~key-chord-define~.
 
 ** Extended Definition Syntax
-General supports some extra per-map keywords. As an example, an extended definition can be used to create an "autoload" for a keymap like use-package's =:bind-keymap= keyword does:
+General.el supports some extra per-definition keywords. It has "type" keywords that give general.el some extra information to use to create the definition (=:prefix-command= and =:keymap=) and other keywords that will alter or ignore the definition (=:predicate= and =:ignore=). There is also a system to allow users to support their own keywords. Note that anything done with external user functions can have side effects but cannot alter the definition directly. As an example, the which-key functionality described later in this section does not need to alter the definition, so it is implemented just as user-defined keyword would be.
+
+Here are the keywords currently available by default:
+
+"Type" specifiers:
+- =:command= - Implicit; for any non-keymap definition
+- =:prefix-command= - The same as =:command= but will create a prefix command
+  - =:prefix-map= The corresponding prefix map (2nd arg to ~define-prefix-command~; global value never considered)
+  - =:prefix-name= The prefix name (2nd arg to ~define-prefix-command~; global value never considered)
+- =:keymap= - For keymaps; if the keymap is not defined, will create an "autoloaded" keymap for =:package=
+  - =:package= - The package to load (also global)
+- =:ignore= - Do not create a keybinding for the key def pair
+
+Which-key functionality (see below for more details):
+- =:which-key= or =:wk= - The replacement text (or cons or function)
+  - =:major-mode= - The major mode to add the text for (optional; also global)
+  - =:wk-no-match-keys= - Whether to include the keys in the match cons (also global)
+  - =:wk-no-match-binding= - Whether to include the binding in the match cons (also global)
+  - =:wk-full-keys= - Whether the bound keys correspond to the full sequence to match (defaults to =t= globally)
+
+Global keywords that can be overridden locally:
+- =:predicate=
+
+The default value for a keyword is =nil= unless otherwise specified.
+
+*** "Autoloaded" Keymaps
+As the first example, an extended definition can be used to create an "autoload" for a keymap like use-package's =:bind-keymap= keyword does:
 #+begin_src emacs-lisp
 (general-define-key
  "C-c p" '(:keymap projectile-command-map :package projectile))
@@ -441,31 +467,50 @@ Using this feature, a key can be bound to a keymap that does not exist yet and s
 
 =:package= can be specified locally within the extended definition or globally. When using the use-package =:general= keyword, it will automatically be specified.
 
-=:keymap= must be specified in this case so that the unbound symbol can be distinguished as a keymap rather than a command. For other extended definitions, you can simply specify the definition as the first item in the list or explicitly use the =:command= keyword. The third "type" of extended definition is one where no binding is created, which can be done using =:ignore t=. In this case, the extended definition is used only for its side effects. This is potentially useful for the =:which-key= keyword that will add replacement strings for the bound keys:
+=:keymap= must be specified in this case so that the unbound symbol can be distinguished as a keymap rather than a command. For other extended definitions, you can simply specify the definition as the first item in the list or explicitly use the =:command= keyword.
+
+*** Which Key Integration
+If you are not already familiar with which-key's replacement system, please see the docstring for ~which-key-replacement-alist~ if you don't understand any of the examples or information here.
+
+There are several benefits to using general.el to add which-key replacements. The main benefit is that because the keys and definition are already specified, general.el can automatically assemble the match cons. This reuse of information saves a little space since it is not necessary to make an additional call to ~which-key-add-key-based-replacements~ with the key information. It is also useful since which-key does not currently provide any convenience function for creating a replacement that matches a binding (you have to manually add to ~which-key-replacement-alist~).
+
+Another related benefit of using =:which-key= instead of ~which-key-add-key-based-replacements~ directly even for keys that won't be bound is that replacements will be added for all prefix combinations (i.e. when =:non-normal-prefix= and/or =:global-prefix= are also specified).
+
+The argument supplied to =:which-key= or =:wk= is equivalent to the REPLACEMENT argument in ~which-key-add-key-based-replacements~. It can be a full replacement cons of =(KEY . BINDING)= or just a string (which will be used as the BINDING and serve as the new description). Additionally it can be a function that will return a replacement cons (see the docstring for ~which-key-replacements-alist~ or the which-key README).
+
+The =:which-key= keyword can be used with the =:major-mode= keyword (locally or globally) which can be compared to using ~which-key-add-major-mode-key-based-replacements~.
+
+=:wk-no-match-keys=, =:wk-no-match-binding=, and =:wk-full-keys= can be used to customize the match cons. Generally these will not need to be adjusted. The binding is only included in the match cons if one is available, and =:wk-full-keys= only needs to be specified as =nil= if you are binding keys in a prefix map.
+
+Here are some examples:
 #+begin_src emacs-lisp
 (general-define-key :keymaps 'normal :prefix "SPC"
-  ;; unbind SPC and give it a description for which-key
-  "" '(nil :which-key "my prefix")
+  ;; unbind SPC and give it a title for which-key (see echo area)
+  "" '(nil :which-key "my lieutenant general prefix")
   ;; bind nothing but give SPC f a description for which-key
   "f" '(:ignore t :which-key "file prefix")
+  ;; use a cons as a replacement
+  "g" '(:ignore t :wk ("g-key" . "git prefix"))
+  ;; for a keymap, only the keys will be matched;
+  ;; :no-match-binding is not necessary
+  "p" '(:keymap projectile-command-map :wk "projectile prefix")
   ...)
+
+(general-define-key :keymaps 'help-map
+  ;; allow keys before bound keys in match
+  ;; since binding in a prefix map
+  :wk-full-keys nil
+  ;; make a prefix-command and add description
+  "A" '(:prefix-command apropos-prefix-map :which-key "apropos"))
+
+;; an equivalent of the above
+(general-define-key :keymaps 'help-map
+  :wk-full-keys nil
+  :prefix "A"
+  :prefix-command 'apropos-prefix-map
+  ;; make a prefix-command and add description
+  "" '(:ignore t :which-key "apropos"))
 #+end_src
 
-One potential benefit of using =:which-key= instead of ~which-key-add-key-based-replacements~ directly even for keys that won't be bound is that descriptions will be added for all key sequences (i.e. when =:non-normal-prefix= and/or =:global-prefix= are also specified). The =:which-key= keyword can also be used with the =:major-mode= keyword (locally or globally) to use ~which-key-add-major-mode-key-based-replacements~ instead of ~which-key-add-key-based-replacements~ to add the replacement strings.
-
-New keywords and functionality can be added by the user by adding a keyword to =general-extended-def-keywords= and creating a corresponding function named ~general-extended-def-:<keyword>~. This function will be passed in =state keymap key def kargs=. =state= and =keymap= are the state (nil if none) and keymap the =key= (kbd already used) is being bound in. =def= is the extended definition itself, and =kargs= is a list of all the keyword arguments given to the original ~general-define-key~. This could, for example, be used to do something like add a keyword that would create autoloads for commands (I could also add this functionality directly if anyone wants it). For an example, see ~general-extended-def-:which-key~.
-
-Here are the keywords currently available.
-
-"Type" specifiers:
-- =:command= - implicit; no special functionality
-- =:keymap= - for creating "autoloaded" keymaps with =:package=
-  - =:package= - the package to load (global or local)
-- =:ignore= - do not create a keybinding for the key def pair
-
-Which-key functionality:
-- =:which-key= - the replacement text
-- =:major-mode= - the mode to add the text for (optional; global or local)
-
-Global keywords that can be overridden locally:
-- =:predicate=
+*** User-defined Extended Definition Keywords
+New keywords and functionality can be added by the user by adding a keyword to =general-extended-def-keywords= and creating a corresponding function named ~general-extended-def-:<keyword>~. This function will be passed in =state keymap key def kargs=. =state= and =keymap= are the evil state (nil if none) and keymap the =key= (kbd already used) is being bound in. =def= is the extended definition itself, and =kargs= is a list of all the keyword arguments given to the original ~general-define-key~. This could, for example, be used to do something like add a keyword that would create autoloads for commands (I could also add this functionality directly if anyone wants it). For an example, see ~general-extended-def-:which-key~.

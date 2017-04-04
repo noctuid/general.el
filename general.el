@@ -227,22 +227,79 @@ corresponding global evil text object keymap will be returned."
                     "-state-map"))))
 
 ;;; Extended Key Definition Language
-(defvar general-extended-def-keywords '(:which-key)
+(defvar general-extended-def-keywords '(:which-key :wk)
   "Extra keywords that are valid in an extended definition.")
 
-(defun general-extended-def-:which-key (_state _keymap key def kargs)
+(defun general--add-which-key-replacement (major-mode replacement)
+  (let* ((mode-match (assq major-mode which-key-replacement-alist))
+         (mode-alist (cdr mode-match)))
+    (cond (major-mode
+           (push replacement mode-alist)
+           (if mode-match
+               (setcdr mode-match mode-alist)
+             (push (cons major-mode mode-alist)
+                   which-key-replacement-alist)))
+          (t
+           (push replacement which-key-replacement-alist)))))
+
+(defun general--add-which-key-title-prefix (major-mode keys title-prefix)
+  (let* ((mode-match (assq major-mode which-key--prefix-title-alist))
+         (title-mode-alist (cdr mode-match))
+         (title-cons (cons keys title-prefix)))
+    (cond (major-mode
+           (push title-cons title-mode-alist)
+           (if mode-match
+               (setcdr mode-match
+                       title-mode-alist)
+             (push (cons major-mode title-mode-alist)
+                   which-key--prefix-title-alist)))
+          (t
+           (push title-cons which-key--prefix-title-alist)))))
+
+
+(defun general-extended-def-:which-key (_state _keymap keys def kargs)
   "Add a which-key description for KEY.
 If :major-mode is specified in DEF, add the description for that major mode. KEY
 should not be in the kbd format (kbd should have already been run on it)."
   (eval-after-load 'which-key
-    `(let ((doc (cl-getf ',def :which-key))
-           (major-mode (or (cl-getf ',def :major-mode)
-                           (cl-getf ',kargs :major-mode)))
-           (key (key-description ',key)))
-       (if major-mode
-           (which-key-add-major-mode-key-based-replacements major-mode
-             key doc)
-         (which-key-add-key-based-replacements key doc)))))
+    `(let* ((def ',def)
+            (kargs ',kargs)
+            (wk (or (cl-getf def :which-key)
+                    (cl-getf def :wk)))
+            (major-mode (cl-getf def :major-mode
+                                 (cl-getf kargs :major-mode)))
+            (keys (key-description ',keys))
+            (keys-regexp (concat (when (cl-getf def :wk-full-keys
+                                                (cl-getf kargs :wk-full-keys))
+                                   "\\`")
+                                 keys
+                                 "\\'"))
+            (binding (or (cl-getf def :command)
+                         (cl-getf def :prefix-command)
+                         (when (string= keys "")
+                           (cl-getf kargs :prefix-command))))
+            (replacement (cond ((stringp wk)
+                                (cons nil wk))
+                               (t
+                                wk)))
+            (match/replacement
+             (cons
+              (cons (unless (cl-getf def :wk-no-match-keys
+                                     (cl-getf kargs :wk-no-match-keys))
+                      keys-regexp)
+                    (unless (or (cl-getf def :wk-no-match-binding
+                                         (cl-getf kargs :wk-no-match-binding))
+                                ;; TODO what does which-key match besides
+                                ;; command names?
+                                (not (commandp binding)))
+                      (symbol-name binding)))
+              replacement)))
+       (general--add-which-key-replacement major-mode match/replacement)
+       (unless (functionp replacement)
+         (general--add-which-key-title-prefix
+          major-mode keys (cdr replacement))))))
+
+(defalias 'general-extended-def-:wk #'general-extended-def-:which-key)
 
 (defun general--maybe-autoload-keymap (state keymap def kargs)
   "Return either a keymap or a function that serves as an \"autoloaded\" keymap.
@@ -301,9 +358,16 @@ apply a predicate if there is one."
                 ;; bind or autoload
                 (general--maybe-autoload-keymap state keymap def kargs))
                (t
-                (general--maybe-apply-predicate (or (cl-getf def :predicate)
-                                                    (cl-getf kargs :predicate))
-                                                (cl-getf def :command)))))
+                (let ((it (cl-getf def :prefix-command)))
+                  (when it
+                    (define-prefix-command it
+                      (cl-getf def :prefix-map)
+                      (cl-getf def :prefix-name))))
+                (general--maybe-apply-predicate
+                 (or (cl-getf def :predicate)
+                     (cl-getf kargs :predicate))
+                 (or (cl-getf def :command)
+                     (cl-getf def :prefix-command))))))
         (t
          ;; not and extended definition
          (general--maybe-apply-predicate (cl-getf kargs :predicate) def))))
@@ -421,6 +485,9 @@ to bind the keys with (depending on whether STATES is non-nil)."
            ;; for extended definitions only
            package
            major-mode
+           wk-no-match-keys
+           wk-no-match-binding
+           (wk-full-keys t)
            &allow-other-keys)
   "The primary key definition function provided by general.
 
@@ -461,7 +528,9 @@ Unlike with normal key definitions functions, the keymaps in KEYMAPS should be
 quoted (this makes it easy to check if there is only one keymap instead of a
 list of keymaps).
 
-MAPS will be recorded for later use with `general-describe-keybindings'."
+MAJOR-MODE, WK-NO-MATCH-KEYS, WK-NO-MATCH-BINDINGS, and WK-FULL-KEYS are the
+corresponding global versions of extended definition keywords. See the section
+on extended definitions in the README for more information."
   (let (non-normal-prefix-maps
         global-prefix-maps
         kargs)
