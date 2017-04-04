@@ -226,7 +226,23 @@ corresponding global evil text object keymap will be returned."
                       "-text-objects-map"
                     "-state-map"))))
 
-;;; Extended Key Definition Language
+(defun general--getf (def fallback-plist keyword &optional verify-extended-p)
+  "From DEF or FALLBACK-PLIST get the corresponding value for KEYWORD.
+If VERIFY-EXTENDED-P is non-nil, check that DEF is a general extended
+definition, and if it isn't, only check in FALLBACK-PLIST. Otherwise assume that
+DEF is a valid plist."
+  (if (or (not verify-extended-p)
+          (general--extended-def-p def))
+      (cl-getf def keyword
+               (cl-getf fallback-plist keyword))
+    (cl-getf fallback-plist keyword)))
+
+(defun general--getf2 (plist keyword1 keyword2)
+  "Check in PLIST for either KEYWORD1 or KEYWORD2."
+  (or (cl-getf plist keyword1)
+      (cl-getf plist keyword2)))
+
+;; * Extended Key Definition Language
 (defvar general-extended-def-keywords '(:which-key :wk)
   "Extra keywords that are valid in an extended definition.")
 
@@ -264,18 +280,14 @@ should not be in the kbd format (kbd should have already been run on it)."
   (eval-after-load 'which-key
     `(let* ((def ',def)
             (kargs ',kargs)
-            (wk (or (cl-getf def :which-key)
-                    (cl-getf def :wk)))
-            (major-mode (cl-getf def :major-mode
-                                 (cl-getf kargs :major-mode)))
+            (wk (general--getf2 def :which-key :wk))
+            (major-mode (general--getf def kargs :major-mode))
             (keys (key-description ',keys))
-            (keys-regexp (concat (when (cl-getf def :wk-full-keys
-                                                (cl-getf kargs :wk-full-keys))
+            (keys-regexp (concat (when (general--getf def kargs :wk-full-keys)
                                    "\\`")
                                  keys
                                  "\\'"))
-            (binding (or (cl-getf def :command)
-                         (cl-getf def :prefix-command)
+            (binding (or (general--getf2 def :command :prefix-command)
                          (when (string= keys "")
                            (cl-getf kargs :prefix-command))))
             (replacement (cond ((stringp wk)
@@ -284,11 +296,9 @@ should not be in the kbd format (kbd should have already been run on it)."
                                 wk)))
             (match/replacement
              (cons
-              (cons (unless (cl-getf def :wk-no-match-keys
-                                     (cl-getf kargs :wk-no-match-keys))
+              (cons (unless (general--getf def kargs :wk-no-match-keys)
                       keys-regexp)
-                    (unless (or (cl-getf def :wk-no-match-binding
-                                         (cl-getf kargs :wk-no-match-binding))
+                    (unless (or (general--getf def kargs :wk-no-match-binding)
                                 ;; TODO what does which-key match besides
                                 ;; command names?
                                 (not (commandp binding)))
@@ -309,8 +319,7 @@ bound to that keymap (subsequent keys will be looked up in the keymap). KARGS or
 DEF should contain the package in which the keymap is created (as specified
 with :package). If the keymap already exists, it will simply be returned."
   (let ((bind-to-keymap (cl-getf def :keymap))
-        (package (or (cl-getf def :package)
-                     (cl-getf kargs :package))))
+        (package (general--getf def kargs :package)))
     (if (boundp bind-to-keymap)
         (symbol-value bind-to-keymap)
       (unless package
@@ -334,15 +343,19 @@ with :package). If the keymap already exists, it will simply be returned."
                  (mapcar (lambda (ev) (cons t ev))
                          (listify-key-sequence keys))))))))
 
+(defun general--extended-def-p (def)
+  "Return whether DEF is an extended definition."
+  (and (listp def)
+       (not (keymapp def))
+       ;; lambda
+       (not (functionp def))
+       (not (eq (car def) 'menu-item))))
+
 (defun general--parse-def (state keymap key def kargs)
   "Rewrite DEF into a valid definition.
 This function will execute the actions specified in an extended definition and
 apply a predicate if there is one."
-  (cond ((and (listp def)
-              (not (keymapp def))
-              ;; lambda
-              (not (functionp def))
-              (not (eq (car def) 'menu-item)))
+  (cond ((general--extended-def-p def)
          (unless (keywordp (car def))
            (setq def (cons :command def)))
          (dolist (keyword general-extended-def-keywords)
@@ -364,10 +377,8 @@ apply a predicate if there is one."
                       (cl-getf def :prefix-map)
                       (cl-getf def :prefix-name))))
                 (general--maybe-apply-predicate
-                 (or (cl-getf def :predicate)
-                     (cl-getf kargs :predicate))
-                 (or (cl-getf def :command)
-                     (cl-getf def :prefix-command))))))
+                 (general--getf def kargs :predicate)
+                 (general--getf2 def :command :prefix-command)))))
         (t
          ;; not and extended definition
          (general--maybe-apply-predicate (cl-getf kargs :predicate) def))))
@@ -439,6 +450,11 @@ KEYMAP is 'local."
   "Wrapper for `evil-define-minor-mode-key'."
   (evil-define-minor-mode-key state mode key def))
 
+(defun general-lispy-define-key (_state keymap key def orig-def kargs)
+  "Wrapper for `lispy-define-key'."
+  (let ((plist (general--getf orig-def kargs :lispy-plist)))
+    (lispy-define-key keymap key def plist)))
+
 (defun general--define-key-dispatch (state keymap maps kargs)
   "In STATE (if non-nil) and KEYMAP, bind MAPS.
 MAPS is composed of triplets of (key parsed-def original-def). This function
@@ -448,10 +464,7 @@ is present in original-def or KARGS or whether STATE is non-nil."
     (let* ((key (pop maps))
            (def (pop maps))
            (orig-def (pop maps))
-           (definer (if (listp orig-def)
-                        (cl-getf orig-def :definer
-                                 (cl-getf kargs :definer))
-                      (cl-getf kargs :definer))))
+           (definer (general--getf orig-def kargs :definer t)))
       (cond (definer
               (funcall (intern (format "general-%s-define-key"
                                        (symbol-name definer)))
