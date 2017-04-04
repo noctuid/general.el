@@ -375,7 +375,8 @@ with :package). If the keymap already exists, it will simply be returned."
        (not (keymapp def))
        ;; lambda
        (not (functionp def))
-       (not (eq (car def) 'menu-item))))
+       (not (eq (car def) 'menu-item))
+       (cl-some #'keywordp def)))
 
 (defun general--parse-def (state keymap key def kargs)
   "Rewrite DEF into a valid definition.
