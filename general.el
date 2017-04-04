@@ -240,7 +240,9 @@ ones."
   "Execute FORM when CONDITION becomes true, checking with HOOK.
 NAME specifies the name of the entry added to HOOK. If APPEND is
 non-nil, the entry is appended to the hook. If LOCAL is non-nil,
-the buffer-local value of HOOK is modified."
+the buffer-local value of HOOK is modified.
+
+This is `evil-delay'."
   (declare (indent 2))
   (if (and (not (booleanp condition)) (eval condition))
       (eval form)
