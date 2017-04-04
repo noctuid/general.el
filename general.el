@@ -125,7 +125,44 @@ This is an alist of a keymap to an alist of a state to keybindings.")
 This is an alist of a state to keybindings.")
 (make-variable-buffer-local 'general-local-keybindings)
 
-;;; Helpers
+;; * Minor Modes
+(defvar general-override-mode-map (make-sparse-keymap)
+  "A keymap that will take priority over other minor mode keymaps.
+This is only for non-evil keybindings (it won't override keys bound with
+`evil-define-key'.")
+
+(define-minor-mode general-override-mode
+  "A global minor mode used for key definitions that should override others."
+  :lighter ""
+  :global t
+  :keymap general-override-mode-map)
+
+(defvar-local general-override-local-mode-map (make-sparse-keymap)
+  "A keymap that will take priority over other minor mode keymaps.
+This keymap is buffer-local and will take precedence over
+`general-override-mode-map'. General uses this keymap when creating non-evil
+local keybindings.")
+
+(define-minor-mode general-override-local-mode
+  "A local minor mode used for key definitions that should override others."
+  :lighter ""
+  :keymap general-override-local-mode-map)
+
+(defvar general-maps-alist
+  "Holds the (mode . keymap) pairs for general's override modes."
+  `((general-override-local-mode . ,general-override-local-mode-map)
+    (general-override-mode . ,general-override-mode-map)))
+
+(setq emulation-mode-map-alists
+      (cl-union '(general-maps-alist)
+                emulation-mode-map-alists))
+
+;; * Helpers
+(defun general--evil-p ()
+  "Whether `evil-mode' or `evil-local-mode' are in use."
+  (or (bound-and-true-p evil-mode)
+      (bound-and-true-p evil-local-mode)))
+
 (defun general--concat (nokbd &rest keys)
   "Concatenate the strings in KEYS.
 If `general-implicit-kbd' is non-nil, interleave the strings in KEYS with
@@ -425,28 +462,12 @@ All alterations to the definitions are done starting with this function."
                            def2)
              and collect def)))
 
-;;; define-key and evil-define-key Wrappers
-;; TODO better way to do this?
-;; https://www.reddit.com/r/emacs/comments/1582uo/bufferlocalsetkey_set_a_key_in_one_buffer_only/
-(defvar general--blm nil)
-
-(defun general--generate-keymap-name (sym)
-  "Generate a map name from SYM."
-  (symbol-value (intern (concat (symbol-name sym) "-map"))))
-
+;; * Helper Key Definers
 (defun general--emacs-local-set-key (key func)
-  "Bind KEY to FUNC for the current buffer only using a minor mode."
-  (if general--blm
-      (define-key (general--generate-keymap-name general--blm) key func)
-    (let* ((mode-name-loc (cl-gensym "general-blm")))
-      (eval `(define-minor-mode ,mode-name-loc nil nil nil (make-sparse-keymap)))
-      (setq-local general--blm mode-name-loc)
-      (funcall mode-name-loc 1)
-      (define-key (general--generate-keymap-name general--blm) key func))))
-
-;; this works but will make it so that keys defined for the major mode will no longer affect
-;; (use-local-map (copy-keymap (current-local-map)))
-;; (local-set-key (kbd "C-c y") 'helm-apropos)
+  "Bind KEY to FUNC for only the current buffer.
+This will automatically turn on `general-override-local-mode'."
+  (general-override-local-mode)
+  (define-key general-override-local-mode-map key func))
 
 (defun general--emacs-define-key (keymap &rest maps)
   "A wrapper for `define-key' and general's `general--emacs-local-set-key'.
