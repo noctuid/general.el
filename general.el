@@ -281,13 +281,16 @@ DEF is a valid plist."
   (or (cl-getf plist keyword1)
       (cl-getf plist keyword2)))
 
-(defun general--parse-keymap (keymap)
+(cl-defun general--parse-keymap (keymap &optional (alter-local-p t))
   "Transform the symbol KEYMAP into the appropriate symbol or keymap.
-'local    - Return symbol 'local
+'local    - Return general-override-local-map or 'local
+            (based on ALTER-LOCAL-P)
 'global   - Return (current-global-map)
 otherwise - Return (symbol-value keymap)"
   (cond ((eq keymap 'local)
-         'local)
+         (if alter-local-p
+             general-override-local-mode-map
+           'local))
         ((eq keymap 'global)
          (current-global-map))
         (t
@@ -459,7 +462,7 @@ All alterations to the definitions are done starting with this function."
              unless (eq def2 :ignore)
              collect key
              and collect (if (and general-implicit-kbd
-                                  (stringp def))
+                                  (stringp def2))
                              (kbd def2)
                            def2)
              and collect def)))
@@ -505,15 +508,17 @@ KEYMAP is 'local."
   "A wrapper for `lispy-define-key'."
   (eval-after-load 'lispy
     `(let* ((keymap (general--parse-keymap ',keymap))
+            (key (key-description ',key))
             (plist (general--getf ',orig-def ',kargs :lispy-plist)))
-       (lispy-define-key keymap ',key ',def plist))))
+       (lispy-define-key keymap key ',def plist))))
 
 (defun general-worf-define-key (_state keymap key def orig-def kargs)
   "A wrapper for `worf-define-key'."
   (eval-after-load 'worf
     `(let* ((keymap (general--parse-keymap ',keymap))
+            (key (key-description ',key))
             (plist (general--getf ',orig-def ',kargs :worf-plist)))
-       (worf-define-key keymap ',key ',def plist))))
+       (worf-define-key keymap key ',def plist))))
 
 (defun general--define-key-dispatch (state keymap maps kargs)
   "In STATE (if non-nil) and KEYMAP, bind MAPS.
@@ -590,13 +595,24 @@ to bind the keys with `general--define-key-dispatch'."
 
 PREFIX corresponds to a prefix key and defaults to none. STATES corresponds to
 the evil state(s) to bind the keys in. Non-evil users should not set STATES.
-When STATES is non-nil, `evil-define-key' will be used. Otherwise `define-key'
-will be used. Evil users may also want to leave STATES nil and set KEYMAPS to
-a keymap such as `evil-normal-state-map' for global mappings. KEYMAPS defaults
-to `global-map'. Note that STATES and KEYMAPS can either be a list or a single
-symbol. If any keymap does not exist, the keybindings will be deferred until
-the keymap does exist, so using `eval-after-load' is not necessary with this
-function.
+When STATES is non-nil, `evil-define-key*' will be used; otherwise `define-key'
+will be used (unless DEFINER is specified). Evil users may also want to leave
+STATES nil and set KEYMAPS to a keymap such as `evil-normal-state-map' for
+global mappings. KEYMAPS defaults to 'global (`general-default-keymaps' and
+`general-default-states' can be changed by the user). There is also 'local,
+which create buffer-local keybindings for both evil and non-evil keybindings.
+There are other special \"shorthand\" hand symbols for evil keymaps (insert,
+emacs, normal, visual, operator, motion, replace, inner, and outer).
+'global-override will expand to `general-override-mode-map'.
+
+Unlike with normal key definitions functions, the keymaps in KEYMAPS should be
+quoted (this allows using the keymap name for other purposes, e.g. deferment).
+Note that STATES and KEYMAPS can either be a list or a single symbol. If any
+keymap does not exist, those keybindings will be deferred until the keymap does
+exist, so using `eval-after-load' is not necessary with this function.
+
+MAPS consists of paired keys and definitions. Each pair (if not ignored) will be
+recorded for later use with `general-describe-keybindings'.
 
 If NON-NORMAL-PREFIX is specified, this prefix will be used for emacs and insert
 state keybindings instead of PREFIX. This argument will only have an effect if
@@ -621,16 +637,14 @@ ensure that an existing prefix keymap is not overwritten if the
 to PREFIX-COMMAND. PREFIX-MAP and PREFIX-NAME can additionally be specified and
 are used as the last two arguments to `define-prefix-command'.
 
-Unlike with normal key definitions functions, the keymaps in KEYMAPS should be
-quoted (this makes it easy to check if there is only one keymap instead of a
-list of keymaps).
-
 If DEFINER is specified, a custom key definer will be used. See the README for
 more information.
 
 MAJOR-MODE, WK-NO-MATCH-KEYS, WK-NO-MATCH-BINDINGS, and WK-FULL-KEYS are the
-corresponding global versions of extended definition keywords. See the section
-on extended definitions in the README for more information.
+corresponding global versions of which-key extended definition keywords. They
+will only have an effect for extended definitions that specify :which-key
+or :wk. See the section on extended definitions in the README for more
+information.
 
 LISPY-PLIST and WORF-PLIST are the corresponding global versions of extended
 definition keywords that are used for the corresponding custom DEFINER"
@@ -687,7 +701,10 @@ definition keywords that are used for the corresponding custom DEFINER"
         (setq keymap (general--evil-keymap-for-state keymap)))
       (when (memq keymap '(inner outer))
         (setq keymap (general--evil-keymap-for-state keymap t)))
+      (when (eq keymap 'global-override)
+        (setq keymap 'general-override-mode-map))
       (general--delay `(or (memq ',keymap '(local global))
+                           (eq ',definer 'minor-mode)
                            (and (boundp ',keymap)
                                 (keymapp ,keymap)))
           `(general--define-key ',states
