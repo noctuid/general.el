@@ -460,13 +460,17 @@ KEYMAP is 'local."
 
 (defun general-minor-mode-define-key (state mode key def _orig-def _kargs)
   "Wrapper for `evil-define-minor-mode-key'."
-  (evil-define-minor-mode-key state mode key def))
+  (eval-after-load 'evil
+    `(evil-define-minor-mode-key ',state ',mode ',key ',def)))
 
 (defun general-lispy-define-key (_state keymap key def orig-def kargs)
   "Wrapper for `lispy-define-key'."
-  (let ((plist (general--getf orig-def kargs :lispy-plist))
-        (keymap (general--parse-keymap keymap)))
-    (lispy-define-key keymap key def plist)))
+  (eval-after-load 'lispy
+    `(let* ((keymap ',keymap)
+            (plist (general--getf ',orig-def ',kargs :lispy-plist))
+            (keymap (general--parse-keymap keymap)))
+       (lispy-define-key keymap ',key ',def plist))))
+
 
 (defun general--define-key-dispatch (state keymap maps kargs)
   "In STATE (if non-nil) and KEYMAP, bind MAPS.
