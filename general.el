@@ -36,6 +36,7 @@
 ;;; Code:
 (require 'cl-lib)
 
+;; * Settings
 (defgroup general nil
   "Gives convenient wrappers for key definitions."
   :group 'convenience
@@ -449,7 +450,7 @@ apply a predicate if there is one."
                  (general--getf def kargs :predicate)
                  (general--getf2 def :command :prefix-command)))))
         (t
-         ;; not and extended definition
+         ;; not an extended definition
          (general--maybe-apply-predicate (cl-getf kargs :predicate) def))))
 
 (defun general--parse-maps (state keymap maps kargs)
@@ -485,6 +486,7 @@ number of paired keys and commands"
         (general--emacs-local-set-key (pop maps) (pop maps))
       (define-key keymap (pop maps) (pop maps)))))
 
+;; TODO is this ugly (un)quoting the only way to do this?
 (defun general--evil-define-key (state keymap key def)
   "A wrapper for `evil-define-key' and `evil-local-set-key'.
 In STATE and KEYMAP, bind KEY to DEF. `evil-local-set-key' is used when
@@ -546,6 +548,8 @@ Choose based on STATES and KEYMAP which of MAPS, NON-NORMAL-MAPS, and
 GLOBAL-MAPS to use for the keybindings. This function will rewrite extended
 definitions, add predicates when applicable, and then choose the base function
 to bind the keys with `general--define-key-dispatch'."
+  ;; TODO is it actually necessary to use macros here? could I use free
+  ;; variables in functions without issues?
   (cl-macrolet ((defkeys (maps)
                   `(let ((maps (general--parse-maps state keymap ,maps kargs))
                          (keymap keymap))
@@ -566,7 +570,7 @@ to bind the keys with `general--define-key-dispatch'."
         (def-pick-maps (memq keymap '(evil-insert-state-map
                                       evil-emacs-state-map)))))))
 
-;;; Functions With Keyword Arguments
+;; * Functions With Keyword Arguments
 ;;;###autoload
 (cl-defun general-define-key
     (&rest maps &key
@@ -755,7 +759,7 @@ keymap, it does not need to be quoted."
                        :keymaps (if (symbolp ',keymaps)
                                     ',keymaps
                                   ,keymaps)))
-;;; Displaying Keybindings
+;; * Displaying Keybindings
 (defun general--print-keybind-table (maps)
   "Print an org table for MAPS."
   (princ "|key|command|\n|-+-|\n")
@@ -835,7 +839,7 @@ Any local keybindings will be shown first followed by global keybindings."
     (goto-char (point-min))
     (read-only-mode)))
 
-;;; * Functions/Macros to Aid Key Definition
+;; * Functions/Macros to Aid Key Definition
 ;; https://emacs.stackexchange.com/questions/6037/emacs-bind-key-to-prefix/13432#13432
 ;; altered to
 ;; - allow execution in an arbitrary state and keymap
@@ -1363,7 +1367,7 @@ aliases such as `nmap' for `general-nmap'."
        (defalias 'nvmap #'general-nvmap)
        (defalias 'tomap #'general-tomap))))
 
-;;; Use-package Integration
+;; * Use-package Integration
 (eval-after-load 'use-package
   (lambda ()
     (setq use-package-keywords
@@ -1425,7 +1429,7 @@ aliases such as `nmap' for `general-nmap'."
                                                         :package ',name))))
                              arglists))))))))
 
-;;; Key-chord "Integration"
+;; * Key-chord "Integration"
 (defun general-chord (keys)
   "Rewrite the string KEYS into a valid key-chord vector."
   ;; taken straight from key-chord.el
