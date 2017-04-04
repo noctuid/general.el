@@ -374,15 +374,18 @@ apply a predicate if there is one."
 
 (defun general--parse-maps (state keymap maps kargs)
   "Rewrite MAPS so that the definitions are bindable.
-This includes possibly parsing extended definitions or applying a prefix."
-  (cl-loop for (key def) on maps by 'cddr
-           do (setq def (general--parse-def state keymap key def kargs))
-           unless (eq def :ignore)
-           collect key
-           and collect (if (and general-implicit-kbd
-                                (stringp def))
-                           (kbd def)
-                         def)))
+This includes possibly parsing extended definitions or applying a prefix.
+All alterations to the definitions are done starting with this function."
+  (let (def2)
+    (cl-loop for (key def) on maps by 'cddr
+             do (setq def2 (general--parse-def state keymap key def kargs))
+             unless (eq def2 :ignore)
+             collect key
+             and collect (if (and general-implicit-kbd
+                                  (stringp def))
+                             (kbd def2)
+                           def2)
+             and collect def)))
 
 ;;; define-key and evil-define-key Wrappers
 ;; TODO better way to do this?
@@ -407,31 +410,50 @@ This includes possibly parsing extended definitions or applying a prefix."
 ;; (use-local-map (copy-keymap (current-local-map)))
 ;; (local-set-key (kbd "C-c y") 'helm-apropos)
 
-(defun general--emacs-define-key (keymap &rest maps)
+(defun general--emacs-define-key (keymap key def)
   "Wrapper for `define-key' and general's `general--emacs-local-set-key'.
-KEYMAP determines which keymap the MAPS will be defined in. When KEYMAP is
-is 'local, the MAPS will be bound only in the current buffer. MAPS is any
-number of paired keys and commands"
+KEYMAP determines which keymap the KEY and DEF will be defined in. When KEYMAP
+is 'local, the KEY will be bound only in the current buffer."
   (declare (indent 1))
-  (while (not (cl-endp maps))
-    (if (eq keymap 'local)
-        (general--emacs-local-set-key (pop maps) (pop maps))
-      (define-key keymap (pop maps) (pop maps)))))
+  (if (eq keymap 'local)
+      (general--emacs-local-set-key key def)
+    (define-key keymap key def)))
 
-(defun general--evil-define-key (state keymap &rest maps)
-  "A wrapper for `evil-define-key' and `evil-local-set-key'.
-STATE is the evil state to bind the keys in. `evil-local-set-key' is used when
-KEYMAP is 'local. MAPS is any number of keys and commands to bind."
+(defun general--evil-define-key (state keymap key def)
+  "Wrapper for `evil-define-key' and `evil-local-set-key'.
+In STATE and KEYMAP, bind KEY to DEF. `evil-local-set-key' is used when
+KEYMAP is 'local."
   (declare (indent defun))
   (eval-after-load 'evil
-    `(let ((maps ',maps)
-           (keymap ',keymap)
-           (state ',state))
-       (while maps
-         (if (eq keymap 'local)
-             ;; has no &rest
-             (evil-local-set-key state (pop maps) (pop maps))
-           (evil-define-key* state keymap (pop maps) (pop maps)))))))
+    `(let ((state ',state)
+           (keymap ',keymap)))))
+           (key ',key)
+           (def ',def))
+       (if (eq keymap 'local)
+           (evil-local-set-key state key def)
+         (evil-define-key* state keymap key def)))))
+
+(defun general--define-key-dispatch (state keymap maps kargs)
+  "In STATE (if non-nil) and KEYMAP, bind MAPS.
+MAPS is composed of triplets of (key parsed-def original-def). This function
+determines the appropriate base definer function to use based whether :definer
+is present in original-def or KARGS or whether STATE is non-nil."
+  (while maps
+    (let* ((key (pop maps))
+           (def (pop maps))
+           (orig-def (pop maps))
+           (definer (if (listp orig-def)
+                        (cl-getf orig-def :definer
+                                 (cl-getf kargs :definer))
+                      (cl-getf kargs :definer))))
+      (cond (definer
+              (funcall (intern (format "general-%s-define-key"
+                                       (symbol-name definer)))
+                       state keymap key def orig-def kargs))
+            (state
+             (general--evil-define-key state (symbol-value keymap) key def))
+            (t
+             (general--emacs-define-key (symbol-value keymap) key def))))))
 
 (defun general--define-key
     (states keymap maps non-normal-maps global-maps kargs)
@@ -439,7 +461,7 @@ KEYMAP is 'local. MAPS is any number of keys and commands to bind."
 Choose based on STATES and KEYMAP which of MAPS, NON-NORMAL-MAPS, and
 GLOBAL-MAPS to use for the keybindings. This function will rewrite extended
 definitions, add predicates when applicable, and then choose the base function
-to bind the keys with (depending on whether STATES is non-nil)."
+to bind the keys with `general--define-key-dispatch'."
   (cl-macrolet ((defkeys (maps)
                   `(let ((maps (general--parse-maps state keymap ,maps kargs))
                          (keymap keymap))
@@ -449,10 +471,8 @@ to bind the keys with (depending on whether STATES is non-nil)."
                                         ((eq keymap 'global)
                                          (current-global-map))
                                         (t
-                                         (symbol-value keymap))))
-                     (if state
-                         (apply #'general--evil-define-key state keymap maps)
-                       (apply #'general--emacs-define-key keymap maps))))
+                                         keymap)))
+                     (general--define-key-dispatch state keymap maps kargs)))
                 (def-pick-maps (non-normal-p)
                   `(progn
                      (cond ((and non-normal-maps ,non-normal-p)
@@ -482,6 +502,7 @@ to bind the keys with (depending on whether STATES is non-nil)."
            (states general-default-states)
            (keymaps general-default-keymaps)
            predicate
+           definer
            ;; for extended definitions only
            package
            major-mode
@@ -527,6 +548,9 @@ are used as the last two arguments to `define-prefix-command'.
 Unlike with normal key definitions functions, the keymaps in KEYMAPS should be
 quoted (this makes it easy to check if there is only one keymap instead of a
 list of keymaps).
+
+If DEFINER is specified, a custom key definer will be used. See the README for
+more information.
 
 MAJOR-MODE, WK-NO-MATCH-KEYS, WK-NO-MATCH-BINDINGS, and WK-FULL-KEYS are the
 corresponding global versions of extended definition keywords. See the section
