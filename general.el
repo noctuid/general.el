@@ -1,4 +1,4 @@
-;;; general.el --- Convenience wrappers for keybindings.
+;;; general.el --- Convenience wrappers for keybindings. -*- lexical-binding: t -*-
 
 ;; Author: Fox Kiester <noct@openmailbox.org>
 ;; URL: https://github.com/noctuid/general.el
