@@ -301,16 +301,15 @@ otherwise - Return (symbol-value keymap)"
 (defun general--remove-keyword-args (rest)
   "Remove all keyword arguments from the list REST.
 Return a list of the altered REST list and a list of the removed keyword
-arguments. The order of the keyword arguments will be preserved."
-  (let (kargs)
-    (list (cl-loop for (key value) on rest by 'cddr
-                   if (keywordp key)
-                   do (progn (push key kargs)
-                             (push value kargs))
-                   else
-                   collect key
-                   and collect value)
-          (nreverse kargs))))
+arguments. The order of arguments will be preserved."
+  (cl-loop for (key value) on rest by 'cddr
+           if (keywordp key)
+           collect key into kargs
+           and collect value into kargs
+           else
+           collect key into args
+           and collect value into args
+           finally (return (list args kargs))))
 
 ;; * Extended Key Definition Language
 (defvar general-extended-def-keywords '(:which-key :wk)
@@ -661,7 +660,6 @@ definition keywords that are used for the corresponding custom DEFINER"
       (setq maps (car split-maps)
             ;; order will be preserved; matters for duplicates
             kargs (cadr split-maps)))
-    (setq kargs (nreverse kargs))
     ;; don't force the user to wrap a single state or keymap in a list
     ;; luckily nil is a list
     (unless (listp states)
