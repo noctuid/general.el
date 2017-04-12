@@ -494,8 +494,8 @@ KEYMAP is 'local."
   (declare (indent defun))
   (eval-after-load 'evil
     `(let ((state ',state)
-           (keymap ',keymap)))))
-           (key ',key)
+           (keymap ',keymap)
+           (key ,key)
            (def ',def))
        (if (eq keymap 'local)
            (evil-local-set-key state key def)
@@ -510,16 +510,16 @@ KEYMAP is 'local."
   "A wrapper for `lispy-define-key'."
   (eval-after-load 'lispy
     `(let* ((keymap (general--parse-keymap ',keymap))
-            (key (key-description ',key))
-            (plist (general--getf ',orig-def ',kargs :lispy-plist)))
+            (key (key-description ,key))
+            (plist (general--getf ',orig-def ',kargs :lispy-plist t)))
        (lispy-define-key keymap key ',def plist))))
 
 (defun general-worf-define-key (_state keymap key def orig-def kargs)
   "A wrapper for `worf-define-key'."
   (eval-after-load 'worf
     `(let* ((keymap (general--parse-keymap ',keymap))
-            (key (key-description ',key))
-            (plist (general--getf ',orig-def ',kargs :worf-plist)))
+            (key (key-description ,key))
+            (plist (general--getf ',orig-def ',kargs :worf-plist t)))
        (worf-define-key keymap key ',def plist))))
 
 (defun general--define-key-dispatch (state keymap maps kargs)
