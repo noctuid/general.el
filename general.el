@@ -758,6 +758,28 @@ keymap, it does not need to be quoted."
                        :keymaps (if (symbolp ',keymaps)
                                     ',keymaps
                                   ,keymaps)))
+
+;;;###autoload
+(defmacro general-def (&rest args)
+  "General definer that takes a variable number of positional arguments in ARGS.
+This macro will act as `general-define-key', `general-emacs-define-key', or
+`general-evil-define-key' based on how many of the initial arguments do not
+correspond to keybindings."
+  (declare (indent defun))
+  (let ((pos-args 0))
+    (while (let ((it (nth pos-args args)))
+             (and it
+                  (or (symbolp it) (listp it))
+                  (not (keywordp it))))
+      (cl-incf pos-args))
+    (cl-case pos-args
+      (0
+       `(general-define-key ,@args))
+      (1
+       `(general-emacs-define-key ,@args))
+      (2
+       `(general-evil-define-key ,@args)))))
+
 ;; * Displaying Keybindings
 (defun general--print-keybind-table (maps)
   "Print an org table for MAPS."

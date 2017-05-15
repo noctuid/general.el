@@ -200,6 +200,27 @@ The actual behavior of these two macros is the same as ~general-define-key~. You
 
 As for ~global-set-key~ and ~global-evil-set-key~, wrappers are not needed. By default ~general-define-key~ acts like ~global-set-key~, and ~general-emacs-define-key~ can also act like ~global-evil-set-key~ using the symbols for evil's states.
 
+A third macro, ~general-def~, is provided for those who would prefer to use a single, succinctly named definer for all of the previous cases. It will act the same as ~general-define-key~, ~general-emacs-define-key~, or ~general-evil-define-key~ depending on the number of positional arguments.
+#+begin_src emacs-lisp
+;; use general-define-key
+(general-def
+  "key" 'def
+  ...)
+
+;; use general-emacs-define-key
+(general-def org-mode-map
+  "key" 'def
+  ...)
+(general-def 'normal
+  "key" 'def
+  ...)
+
+;; use general-evil-define-key
+(general-def 'normal org-mode-map
+  "key" 'def
+  ...)
+#+end_src
+
 ** Notes for Evil Users
 When =:states= is specified (or ~general-default-states~ is non-nil), ~general-define-key~ will act as a wrapper around ~evil-define-key~. This means that the following are equivalent:
 #+begin_src emacs-lisp
