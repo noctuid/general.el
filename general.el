@@ -257,14 +257,26 @@ This is `evil-delay'."
       (put fun 'permanent-local-hook t)
       (add-hook hook fun append local))))
 
-(defun general--evil-keymap-for-state (state &optional text-object)
-  "Return a symbol corresponding to the global evil keymap for STATE.
-If TEXT-OBJECT is non-nil, STATE should be 'inner or 'outer and a symbol for the
-corresponding global evil text object keymap will be returned."
-  (intern (concat "evil-" (symbol-name state)
-                  (if text-object
-                      "-text-objects-map"
-                    "-state-map"))))
+(defun general--evil-keymap-for-state (state)
+  "Return a symbol corresponding to the global evil keymap for STATE."
+  (cl-case state
+    (i (setq state 'insert))
+    (e (setq state 'emacs))
+    (n (setq state 'normal))
+    (v (setq state 'visual))
+    (o (setq state 'operator))
+    (m (setq state 'motion))
+    (r (setq state 'replace))
+    (in (setq state 'inner))
+    (out (setq state 'outer)))
+  (cl-case state
+    ((insert emacs normal visual operator motion replace)
+     (setq state (intern (concat "evil-" (symbol-name state) "-state-map"))))
+    ((inner outer)
+     (setq state (intern (concat "evil-"
+                                 (symbol-name state)
+                                 "-text-objects-map")))))
+  state)
 
 (defun general--getf (def fallback-plist keyword &optional verify-extended-p)
   "From DEF or FALLBACK-PLIST get the corresponding value for KEYWORD.
@@ -700,7 +712,9 @@ definition keywords that are used for the corresponding custom DEFINER"
               prefix)
             maps))
     (dolist (keymap keymaps)
-      (when (memq keymap '(insert emacs normal visual operator motion replace))
+      (when (memq keymap '(i e n v o m r in out
+                             insert emacs normal visual operator motion replace
+                             inner outer))
         (setq keymap (general--evil-keymap-for-state keymap)))
       (when (memq keymap '(inner outer))
         (setq keymap (general--evil-keymap-for-state keymap t)))

@@ -262,7 +262,14 @@ To prevent the need to type out something like =evil-inner-text-objects-map=, ge
 #+end_src
 Note that this is different from using =:states 'motion= (see [[#notes-for-evil-users][Notes for Evil Users]]).
 
-Besides the state keymaps, you can also use =inner= and =outer= in place of =evil-inner-text-objects-map= and =evil-outer-text-objects-map=.
+Besides the state keymaps, you can also use =inner= and =outer= in place of =evil-inner-text-objects-map= and =evil-outer-text-objects-map=. All states have shorter one-letter abbreviations as well (or =in= and =out= in the case of the text object keymaps):
+#+begin_src emacs-lisp
+(general-define-key :keymaps 'v
+                    ...)
+
+(general-define-key :keymaps '(in out)
+                    ...)
+#+end_src
 
 ** Vim-like Wrappers
 ~general-evil-setup~ is used to generate key definition functions that are named similarly to vim's. Currently, the following functions are created:
