@@ -484,26 +484,36 @@ MAPS will be recorded for later use with `general-describe-keybindings'."
     (when (and prefix-command
                (not (boundp prefix-command)))
       (define-prefix-command prefix-command prefix-map prefix-name))
+    ;; TODO reduce code reduction here
     (when non-normal-prefix
       (setq non-normal-prefix-maps
             (general--apply-prefix-and-kbd
              (general--concat t non-normal-prefix infix) maps))
       (when prefix-command
         (push prefix-command non-normal-prefix-maps)
-        (push non-normal-prefix non-normal-prefix-maps)))
+        (push (if general-implicit-kbd
+                  (kbd non-normal-prefix)
+                non-normal-prefix)
+              non-normal-prefix-maps)))
     (when global-prefix
       (setq global-prefix-maps
             (general--apply-prefix-and-kbd
              (general--concat t global-prefix infix) maps))
       (when prefix-command
         (push prefix-command global-prefix-maps)
-        (push global-prefix global-prefix-maps)))
+        (push (if general-implicit-kbd
+                  (kbd global-prefix)
+                global-prefix)
+              global-prefix-maps)))
     ;; last so not applying prefix twice
     (setq maps (general--apply-prefix-and-kbd
                 (general--concat t prefix infix) maps))
     (when prefix-command
       (push prefix-command maps)
-      (push prefix maps))
+      (push (if general-implicit-kbd
+                (kbd prefix)
+              prefix)
+            maps))
     (dolist (keymap keymaps)
       (when (memq keymap '(insert emacs normal visual operator motion replace))
         (setq keymap (general--evil-keymap-for-state keymap)))
