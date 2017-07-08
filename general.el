@@ -201,29 +201,37 @@ If PREDICATE is nil just return DEF."
                     ',def)))
     def))
 
-(defun general--remove-keys (maps keys)
-  "Return a list of MAPS with the mappings for KEYS removed."
-  (cl-loop for (key def) on maps by 'cddr
-           unless (member key keys)
-           collect key
-           and collect def))
+(defun general--lookup-key (state keymap key &optional minor-mode-p)
+  "Return the current definition for STATE, KEYMAP, and KEY."
+  (when key
+    (let ((keymap (general--parse-keymap state keymap minor-mode-p)))
+      (when keymap
+        (let ((def (lookup-key keymap key)))
+          (if (and (numberp def) (= def 1))
+              nil
+            def))))))
 
-(defun general--record-keybindings (keymap state maps)
+(defun general--record-keybindings (keymap state maps &optional minor-mode-p)
   "For KEYMAP and STATE, add MAPS to `general-keybindings'.
 If KEYMAP is \"local\", add MAPS to `general-local-keybindings.' For non-evil
 keybindings, STATE will be nil. Duplicate keys will be replaced with the new
 ones."
-  (let ((keys (cl-loop for (key def) on maps by 'cddr
-                       collect key)))
+  (let* (keys
+         (maps (cl-loop
+                for (key def _orig-def) on maps by 'cdddr
+                collect
+                (list key
+                      def
+                      (general--lookup-key state keymap key minor-mode-p))
+                do (push key keys))))
     (cond ((eq keymap 'local)
            (unless (assq state general-local-keybindings)
              (add-to-list 'general-local-keybindings (list state)))
            (let ((state-cons (assq state general-local-keybindings)))
              (setcdr state-cons
-                     (append
-                      ;; remove old duplicate keys
-                      (general--remove-keys (cdr state-cons) keys)
-                      maps))))
+                     ;; remove old duplicate keys
+                     (cl-remove-duplicates (append (cdr state-cons) maps)
+                                           :key #'car))))
           (t
            (unless (assq keymap general-keybindings)
              (add-to-list 'general-keybindings (list keymap)))
@@ -233,8 +241,8 @@ ones."
                              (list (list state)))))
            (let ((state-cons (assq state (assq keymap general-keybindings))))
              (setcdr state-cons
-                     (append (general--remove-keys (cdr state-cons) keys)
-                             maps)))))))
+                     (cl-remove-duplicates (append (cdr state-cons) maps)
+                                           :key #'car)))))))
 
 ;; don't force non-evil user to require evil for one function (this is evil-delay)
 (defun general--delay (condition form hook &optional append local name)
@@ -295,20 +303,28 @@ FALLBACK-PLIST. Otherwise assume that DEF is a valid plist."
   (or (cl-getf plist keyword1)
       (cl-getf plist keyword2)))
 
-(cl-defun general--parse-keymap (keymap &optional (alter-local-p t))
-  "Transform the symbol KEYMAP into the appropriate symbol or keymap.
-'local    - Return general-override-local-map or 'local
-            (based on ALTER-LOCAL-P)
-'global   - Return (current-global-map)
-otherwise - Return (symbol-value keymap)"
-  (cond ((eq keymap 'local)
-         (if alter-local-p
-             general-override-local-mode-map
-           'local))
-        ((eq keymap 'global)
-         (current-global-map))
-        (t
-         (symbol-value keymap))))
+;; TODO this uses evil functions (eval-after-load)
+(cl-defun general--parse-keymap (state keymap &optional minor-mode-p)
+  "Transform STATE and the symbol KEYMAP into the appropriate keymap.
+'local  - Return general-override-local-map or the evil local keymap
+'global - Return (current-global-map) or the corresponding evil auxiliary map
+else    - Return (symbol-value keymap) or the corresponding evil auxiliary map"
+  (setq keymap (cl-case keymap
+                 (global (current-global-map))
+                 (local 'local)
+                 (t (symbol-value keymap))))
+  (if state
+      (cond (minor-mode-p
+             (evil-get-minor-mode-keymap state keymap))
+            ((eq keymap 'local)
+             (evil-state-property state :local-keymap t))
+            (t
+             ;; NOTE: this differs from `evil-define-key*'
+             ;; https://github.com/emacs-evil/evil/issues/709
+             (evil-get-auxiliary-keymap keymap state t t)))
+    (if (eq keymap 'local)
+        general-override-local-mode-map
+      keymap)))
 
 (defun general--remove-keyword-args (rest)
   "Remove all keyword arguments from the list REST.
@@ -467,8 +483,10 @@ apply a predicate if there is one."
 
 (defun general--parse-maps (state keymap maps kargs)
   "Rewrite MAPS so that the definitions are bindable.
-This includes possibly parsing extended definitions or applying a prefix.
-All alterations to the definitions are done starting with this function."
+This includes possibly parsing extended definitions. MAPS will be altered to
+turn key binding pairs into triples in the form of (key parsed-def original-def)
+where parsed-def is the bindable form and original-def is the unaltered
+form (e.g. an extended definition)."
   (let (def2)
     (cl-loop for (key def) on maps by 'cddr
              do (setq def2 (general--parse-def state keymap key def kargs))
@@ -521,7 +539,7 @@ KEYMAP is 'local."
 (defun general-lispy-define-key (_state keymap key def orig-def kargs)
   "A wrapper for `lispy-define-key'."
   (eval-after-load 'lispy
-    `(let* ((keymap (general--parse-keymap ',keymap))
+    `(let* ((keymap (general--parse-keymap nil ',keymap))
             (key (key-description ,key))
             (plist (general--getf ',orig-def ',kargs :lispy-plist t)))
        (lispy-define-key keymap key ',def plist))))
@@ -529,7 +547,7 @@ KEYMAP is 'local."
 (defun general-worf-define-key (_state keymap key def orig-def kargs)
   "A wrapper for `worf-define-key'."
   (eval-after-load 'worf
-    `(let* ((keymap (general--parse-keymap ',keymap))
+    `(let* ((keymap (general--parse-keymap nil ',keymap))
             (key (key-description ,key))
             (plist (general--getf ',orig-def ',kargs :worf-plist t)))
        (worf-define-key keymap key ',def plist))))
@@ -548,7 +566,12 @@ is present in original-def or KARGS or whether STATE is non-nil."
           (funcall (intern (format "general-%s-define-key"
                                    (symbol-name definer)))
                    state keymap key def orig-def kargs)
-        (let ((keymap (general--parse-keymap keymap)))
+        ;; purposely keeping state nil for now
+        ;; TODO could potentially eliminate --(emacs|evil)-define-key in the
+        ;; future; evil-define-key* (keymap prompt) and --emacs-local-set-key
+        ;; (turning on minor mode) do additional things that would need to be
+        ;; replicated
+        (let ((keymap (general--parse-keymap nil keymap)))
           (if state
               (general--evil-define-key state keymap key def)
             (general--emacs-define-key keymap key def)))))))
@@ -565,7 +588,10 @@ to bind the keys with `general--define-key-dispatch'."
   (cl-macrolet ((defkeys (maps)
                   `(let ((maps (general--parse-maps state keymap ,maps kargs))
                          (keymap keymap))
-                     (general--record-keybindings keymap state maps)
+                     ;; NOTE: minor-mode is not a definition-local definer
+                     (general--record-keybindings keymap state maps
+                                                  (eq (cl-getf kargs :definer)
+                                                      'minor-mode))
                      (general--define-key-dispatch state keymap maps kargs)))
                 (def-pick-maps (non-normal-p)
                   `(progn
@@ -797,9 +823,13 @@ correspond to keybindings."
 ;; * Displaying Keybindings
 (defun general--print-keybind-table (maps)
   "Print an org table for MAPS."
-  (princ "|key|command|\n|-+-|\n")
-  (cl-loop for (key command) on maps by 'cddr
-           do (princ (format "|=%s=|~%s~|\n" (key-description key) command)))
+  (princ "|key|command|previous|\n|-+-|\n")
+  (dolist (map maps)
+    (cl-destructuring-bind (key command previous) map
+      (princ (format "|=%s=|~%s~|~%s~|\n"
+                     (key-description key)
+                     command
+                     previous))))
   (princ "\n"))
 
 (defun general--print-state-heading (state-cons)

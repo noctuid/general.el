@@ -152,6 +152,8 @@ General keeps track of all your keybindings and allows presenting them as tables
 
 Within these categories keymaps, states, and keybindings will be presented in the order they were created in.
 
+For each keybinding created, this command will display the key, the definition, and the previous definition.
+
 ** Positional Argument Wrappers
 When you're defining keys in specific keymaps and states, using positional arguments can be shorter. General has two macros that can basically act as drop-in replacements for ~define-key~ and ~evil-define-key~. They are ~general-emacs-define-key~ and ~general-evil-define-key~. These are simply wrappers for ~general-define-key~ that pass the positional arguments to the corresponding keywords. However, for compatibility with ~define-key~ and ~evil-define-key~, it is not necessary to quote a single keymap. When you specify multiple keymaps, the list should still be quoted.
 
