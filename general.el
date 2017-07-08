@@ -742,8 +742,6 @@ definition keywords that are used for the corresponding custom DEFINER"
                              insert emacs normal visual operator motion replace
                              inner outer))
         (setq keymap (general--evil-keymap-for-state keymap)))
-      (when (memq keymap '(inner outer))
-        (setq keymap (general--evil-keymap-for-state keymap t)))
       (when (eq keymap 'global-override)
         (setq keymap 'general-override-mode-map))
       (general--delay `(or (memq ',keymap '(local global))
