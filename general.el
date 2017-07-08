@@ -191,7 +191,8 @@ ones."
              (add-to-list 'general-keybindings (list keymap)))
            (unless (assq state (assq keymap general-keybindings))
              (setcdr (assq keymap general-keybindings)
-                     (list (list state))))
+                     (append (cdr (assq keymap general-keybindings))
+                             (list (list state)))))
            (let ((state-cons (assq state (assq keymap general-keybindings))))
              (setcdr state-cons
                      (append (general--remove-keys (cdr state-cons) keys)
