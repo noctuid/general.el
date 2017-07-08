@@ -231,7 +231,8 @@ ones."
              (setcdr state-cons
                      ;; remove old duplicate keys
                      (cl-remove-duplicates (append (cdr state-cons) maps)
-                                           :key #'car))))
+                                           :key #'car
+                                           :test #'equal))))
           (t
            (unless (assq keymap general-keybindings)
              (add-to-list 'general-keybindings (list keymap)))
@@ -242,7 +243,8 @@ ones."
            (let ((state-cons (assq state (assq keymap general-keybindings))))
              (setcdr state-cons
                      (cl-remove-duplicates (append (cdr state-cons) maps)
-                                           :key #'car)))))))
+                                           :key #'car
+                                           :test #'equal)))))))
 
 ;; don't force non-evil user to require evil for one function (this is evil-delay)
 (defun general--delay (condition form hook &optional append local name)
