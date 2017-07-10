@@ -700,7 +700,10 @@ definition keywords that are used for the corresponding custom DEFINER"
     (let ((split-maps (general--remove-keyword-args maps)))
       (setq maps (car split-maps)
             ;; order will be preserved; matters for duplicates
-            kargs (cadr split-maps)))
+            kargs (append (cadr split-maps)
+                          (list :wk-match-keys wk-match-keys
+                                :wk-match-binding wk-match-binding
+                                :wk-full-keys wk-full-keys))))
     ;; don't force the user to wrap a single state or keymap in a list
     ;; luckily nil is a list
     (unless (listp states)
