@@ -215,7 +215,8 @@ If PREDICATE is nil just return DEF."
   "For KEYMAP and STATE, add MAPS to `general-keybindings'.
 If KEYMAP is \"local\", add MAPS to `general-local-keybindings.' For non-evil
 keybindings, STATE will be nil. Duplicate keys will be replaced with the new
-ones."
+ones. MINOR-MODE-P should be non-nil when keymap corresponds to a minor-mode
+name (as used with `evil-define-minor-mode-key') as opposed to a keymap name."
   (let* (keys
          (maps (cl-loop
                 for (key def _orig-def) on maps by 'cdddr
