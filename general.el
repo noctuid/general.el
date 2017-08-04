@@ -574,7 +574,9 @@ is present in original-def or KARGS or whether STATE is non-nil."
         ;; future; evil-define-key* (keymap prompt) and --emacs-local-set-key
         ;; (turning on minor mode) do additional things that would need to be
         ;; replicated
-        (let ((keymap (general--parse-keymap nil keymap)))
+        (let ((keymap (if (and state (eq keymap 'local))
+                          'local
+                        (general--parse-keymap nil keymap))))
           (if state
               (general--evil-define-key state keymap key def)
             (general--emacs-define-key keymap key def)))))))
