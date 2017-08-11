@@ -219,7 +219,7 @@ ones. MINOR-MODE-P should be non-nil when keymap corresponds to a minor-mode
 name (as used with `evil-define-minor-mode-key') as opposed to a keymap name."
   (let* (keys
          (maps (cl-loop
-                for (key def _orig-def) on maps by 'cdddr
+                for (key def _orig-def) on maps by 'cl-cdddr
                 collect
                 (list key
                       def
