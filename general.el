@@ -680,9 +680,10 @@ If none of the other prefix arguments are specified, INFIX will have no effect.
 If PREFIX-COMMAND is specified, a prefix keymap/command will be created using
 `define-prefix-command' as long as the symbol specified is not already bound (to
 ensure that an existing prefix keymap is not overwritten if the
-`general-define-key' function is re-evaluated). All prefixes will then be bound
-to PREFIX-COMMAND. PREFIX-MAP and PREFIX-NAME can additionally be specified and
-are used as the last two arguments to `define-prefix-command'.
+`general-define-key' function is re-evaluated). All prefixes (including the
+INFIX key, if specified) will then be bound to PREFIX-COMMAND. PREFIX-MAP and
+PREFIX-NAME can additionally be specified and are used as the last two arguments
+to `define-prefix-command'.
 
 If DEFINER is specified, a custom key definer will be used. See the README for
 more information.
@@ -715,36 +716,27 @@ definition keywords that are used for the corresponding custom DEFINER"
     (when (and prefix-command
                (not (boundp prefix-command)))
       (define-prefix-command prefix-command prefix-map prefix-name))
-    ;; TODO reduce code reduction here
+    ;; TODO reduce code duplication here
     (when non-normal-prefix
       (setq non-normal-prefix-maps
             (general--apply-prefix-and-kbd
-             (general--concat t non-normal-prefix infix) maps))
-      (when prefix-command
-        (push prefix-command non-normal-prefix-maps)
-        (push (if general-implicit-kbd
-                  (kbd non-normal-prefix)
-                non-normal-prefix)
-              non-normal-prefix-maps)))
+             (general--concat t non-normal-prefix infix)
+             (append (when prefix-command
+                       (list "" prefix-command))
+                     maps))))
     (when global-prefix
       (setq global-prefix-maps
             (general--apply-prefix-and-kbd
-             (general--concat t global-prefix infix) maps))
-      (when prefix-command
-        (push prefix-command global-prefix-maps)
-        (push (if general-implicit-kbd
-                  (kbd global-prefix)
-                global-prefix)
-              global-prefix-maps)))
+             (general--concat t global-prefix infix)
+             (append (when prefix-command
+                       (list "" prefix-command))
+                     maps))))
     ;; last so not applying prefix twice
     (setq maps (general--apply-prefix-and-kbd
-                (general--concat t prefix infix) maps))
-    (when prefix-command
-      (push prefix-command maps)
-      (push (if general-implicit-kbd
-                (kbd prefix)
-              prefix)
-            maps))
+                (general--concat t prefix infix)
+                (append (when prefix-command
+                          (list "" prefix-command))
+                        maps)))
     (dolist (keymap keymaps)
       (when (memq keymap '(i e n v o m r in out
                              insert emacs normal visual operator motion replace
