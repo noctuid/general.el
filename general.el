@@ -910,8 +910,7 @@ Any local keybindings will be shown first followed by global keybindings."
 ;; - handle more edge cases like correctly adding evil repeat info
 
 ;; ** Key Simulation
-(defvar general--last-simulate nil
-  "Holds information about the last key/command simulation.")
+(defvar general--last-simulate nil)
 
 (defun general--key-lookup (state keymap &optional keys)
   "In the keymap for STATE and KEYMAP, look up KEYS.
@@ -989,19 +988,15 @@ should be recorded."
     (when keys
       ;; only set prefix-arg when keys (otherwise will also affect next command)
       (setq prefix-arg current-prefix-arg)
-      (setq unread-command-events
-            (listify-key-sequence keys)
-            ;; TODO previously used this
-            ;; adds to this-command-keys, breaking repeating
-            ;; if can get which-key to popup after set-transient-map,
-            ;; this will no longer be needed; add an option otherwise
-            ;; (mapcar (lambda (ev) (cons t ev))
-            ;;         (listify-key-sequence keys))
-            ))
+      (unless executing-kbd-macro
+        ;; keys are incorrectly saved as this-command-keys when recording macros
+        ;; the same applies with evil repeat
+        ;; these keys will be played back, so don't simulate them
+        (setq unread-command-events (listify-key-sequence keys))))
     (when command
       (let ((this-command command))
         (call-interactively command)))
-    (setq general--last-simulate `(:command ,command))))
+    (setq general--last-simulate command)))
 
 ;;;###autoload
 (cl-defmacro general-simulate-keys (keys &optional state keymap
@@ -1085,27 +1080,22 @@ The advantages of this over a keyboard macro are as follows:
       (and (eq repeat-prop 'motion)
            (not (memq evil-state '(insert replace))))))
 
-(defvar general--simulate-repeat-info nil
-  "Used for debugging repeat behavior for `general-simulate-keys'.")
-
 (defun general--simulate-repeat (flag)
   "Modified version of `evil-repeat-keystrokes'.
 It behaves as normal but will check the repeat property of a simulated command
 to determine whether to abort recording."
-  (when (eq flag 'post)
-    (setq general--simulate-repeat-info
-          (list :evil-repeat-info (cl-copy-list evil-repeat-info)
-                :this-command this-command
-                :evil-this-command-keys (evil-this-command-keys t)
-            ;; :prefix (general--prefix-arg-as-keys)
-            ))
-    (let* ((command (cl-getf general--last-simulate :command))
-           (repeat-prop (evil-get-command-property command :repeat t)))
-      (if (and command (general--repeat-abort-p repeat-prop))
-          (evil-repeat-abort)
-        (evil-repeat-record
-         (evil-this-command-keys t)))
-      (evil-clear-command-keys))))
+  (cond ((eq flag 'pre)
+         (when evil-this-register
+           (evil-repeat-record
+            `(set evil-this-register ,evil-this-register))))
+        ((eq flag 'post)
+         (let* ((command (cl-getf general--last-simulate :command))
+                (repeat-prop (evil-get-command-property command :repeat t)))
+           (if (and command (general--repeat-abort-p repeat-prop))
+               (evil-repeat-abort)
+             (evil-repeat-record
+              (evil-this-command-keys t))
+             (evil-clear-command-keys))))))
 
 ;; ** Key Dispatch
 (defvar general--last-dispatch nil)
@@ -1192,74 +1182,24 @@ version of which-key from after 2016-11-21."
             (t
              (setq fallback t
                    matched-command ,fallback-command)
-             ;; have to do this in "reverse" order (call command 2nd)
-             (setq unread-command-events (listify-key-sequence char))
-             (let ((this-command ,fallback-command))
-               (call-interactively ,fallback-command))))
-           (setq general--last-dispatch `(:command ,matched-command
-                                          :invoked-keys ,invoked-keys
-                                          :keys ,char
-                                          :fallback ,fallback)))))))
-
-(defvar general--repeat-info nil
-  "Used for debugging repeat behavior for `general-key-dispatch'.")
+             (general--simulate-keys ,fallback-command char)))
+           (setq general--last-dispatch matched-command))))))
 
 (defun general--dispatch-repeat (flag)
   "Modified version of `evil-repeat-keystrokes'.
-It will remove extra keys that would be added in a general-dispatch-... command
-with the default `evil-repeat-keystrokes' and ensures that the repeat is
-aborted when it should be."
-  (cond
-   ((eq flag 'pre)
-    (when evil-this-register
-      (evil-repeat-record
-       `(set evil-this-register ,evil-this-register))))
-   ((eq flag 'post)
-    (let* ((command (cl-getf general--last-dispatch :command))
-           (repeat-prop (evil-get-command-property command :repeat t))
-           (fallback (cl-getf general--last-dispatch :fallback))
-           (invoked-keys (cl-getf general--last-dispatch :invoked-keys))
-           (keys (cl-getf general--last-dispatch :keys))
-           (old-repeat-info (cl-copy-list evil-repeat-info))
-           (reversed-repeat-info (reverse evil-repeat-info))
-           count
-           next-repeat-item)
-      (while (and (stringp (setq next-repeat-item (car reversed-repeat-info)))
-                  (string-match "^[0-9]+$" next-repeat-item))
-        ;; need to rely on evil-repeat-info to get counts
-        ;; evil counts will appear as last items, e.g. ("c3" "3" "3")
-        ;; this will work even if the user binds digits in the dispatch command
-        ;; as long as the key to invoke the dispatch command is not also a digit
-        ;; (the 3 in "c3" is the only duplicate)
-        (push (pop reversed-repeat-info) count))
-      (setq evil-repeat-info (if (= (length count) 0)
-                                 (butlast evil-repeat-info)
-                               (nreverse (cdr reversed-repeat-info))))
-      ;; for debugging purposes only
-      (setq general--repeat-info
-            (list :invoked-keys invoked-keys :keys keys
-                  :this-command-keys (this-command-keys)
-                  :old-evil-repeat-info old-repeat-info
-                  :evil-repeat-info (cl-copy-list evil-repeat-info)
-                  :count count))
-      (if (general--repeat-abort-p repeat-prop)
-          (evil-repeat-abort)
-        (evil-repeat-record
-         (cond
-          (fallback
-           (concat invoked-keys (apply #'concat count) (this-command-keys)))
-          (t
-           (concat invoked-keys
-                   keys
-                   (unless (or (string= (concat invoked-keys keys)
-                                        (this-command-keys))
-                               (eq (evil-get-command-property command :repeat)
-                                   'general--simulate-repeat))
-                     ;; (this-command-keys) will contain the text object if the
-                     ;; matched command is an operator
-                     (concat count (this-command-keys)))))))
-        (evil-clear-command-keys))))))
-
+It behaves as normal but will check the repeat property of a simulated command
+to determine whether to abort recording."
+  (cond ((eq flag 'pre)
+         (when evil-this-register
+           (evil-repeat-record
+            `(set evil-this-register ,evil-this-register))))
+        ((eq flag 'post)
+         (let ((repeat-prop (evil-get-command-property general--last-dispatch
+                                                       :repeat t)))
+           (if (general--repeat-abort-p repeat-prop)
+               (evil-repeat-abort)
+             (evil-repeat-record (evil-this-command-keys t))
+             (evil-clear-command-keys))))))
 
 ;; ** Predicate Dispatch
 (cl-defmacro general-predicate-dispatch
