@@ -957,8 +957,9 @@ evil is in use."
   "Simulate COMMAND followed by KEYS in STATE and KEYMAP.
 If COMMAND is nil, just simulate KEYS. If STATE and KEYMAP are nil, simulate the
 keys in the current context. When COMMAND is non-nil, STATE and KEYMAP will have
-no effect. KEYS should be a string that can be passed to `kbd', and STATE should
-be a quoted evil state.
+no effect. KEYS should be a string that can be passed to `kbd' or nil, and STATE
+should be a quoted evil state. If KEYS is nil, the COMMAND will just be called
+interactively.
 
 If COMMAND is nil, KEYS will normally be looked up in the correct context to
 determine if any subsequnce corresponds to a command or keymap. If a command is
@@ -972,7 +973,8 @@ only work if you specify NO-LOOKUP as non-nil. You generally don't want to use
 this option. Lookup is useful in other situation. For example, the repeat
 property of matched commands will be used when determining whether or not they
 should be recorded."
-  (let ((keys (kbd keys)))
+  (let ((keys (when keys
+                (kbd keys))))
     (unless (or command no-lookup)
       (let* ((lookup (general--key-lookup state keymap keys))
              (match (cl-getf lookup :match)))
@@ -1100,6 +1102,17 @@ to determine whether to abort recording."
 ;; ** Key Dispatch
 (defvar general--last-dispatch nil)
 
+(defun general--extend-key-sequence (keys)
+  "Read a key and append it to KEYS.
+KEYS should be a string given in `kbd' notation."
+  (let ((key (read-event)))
+    (concat keys
+            (when keys
+              " ")
+            (key-description (if (characterp key)
+                                 (char-to-string key)
+                               (vector key))))))
+
 ;;;###autoload
 (cl-defmacro general-key-dispatch
     (fallback-command &rest maps
@@ -1167,14 +1180,14 @@ version of which-key from after 2016-11-21."
            (while (progn
                     (if timeout
                         (with-timeout (timeout (setq timed-out-p t))
-                          (setq char (concat char (char-to-string (read-char)))))
-                      (setq char (concat char (char-to-string (read-char)))))
+                          ;; TODO rename char
+                          (setq char (general--extend-key-sequence char)))
+                      (setq char (general--extend-key-sequence char)))
                     (and (not timed-out-p)
-                         (keymapp (lookup-key map char)))))
-           (setq prefix-arg current-prefix-arg)
+                         (keymapp (lookup-key map (kbd char))))))
            (cond
             ((and (not timed-out-p)
-                  (setq matched-command (lookup-key map char)))
+                  (setq matched-command (lookup-key map (kbd char))))
              ;; necessary for evil-this-operator checks because
              ;; evil-define-operator sets evil-this-operator to this-command
              (let ((this-command matched-command))
