@@ -346,28 +346,28 @@ arguments. The order of arguments will be preserved."
 (defvar general-extended-def-keywords '(:which-key :wk)
   "Extra keywords that are valid in an extended definition.")
 
-(defun general--add-which-key-replacement (major-mode replacement)
-  (let* ((mode-match (assq major-mode which-key-replacement-alist))
+(defun general--add-which-key-replacement (mode replacement)
+  (let* ((mode-match (assq mode which-key-replacement-alist))
          (mode-alist (cdr mode-match)))
-    (cond (major-mode
+    (cond (mode
            (push replacement mode-alist)
            (if mode-match
                (setcdr mode-match mode-alist)
-             (push (cons major-mode mode-alist)
+             (push (cons mode mode-alist)
                    which-key-replacement-alist)))
           (t
            (push replacement which-key-replacement-alist)))))
 
-(defun general--add-which-key-title-prefix (major-mode keys title-prefix)
-  (let* ((mode-match (assq major-mode which-key--prefix-title-alist))
+(defun general--add-which-key-title-prefix (mode keys title-prefix)
+  (let* ((mode-match (assq mode which-key--prefix-title-alist))
          (title-mode-alist (cdr mode-match))
          (title-cons (cons keys title-prefix)))
-    (cond (major-mode
+    (cond (mode
            (push title-cons title-mode-alist)
            (if mode-match
                (setcdr mode-match
                        title-mode-alist)
-             (push (cons major-mode title-mode-alist)
+             (push (cons mode title-mode-alist)
                    which-key--prefix-title-alist)))
           (t
            (push title-cons which-key--prefix-title-alist)))))
@@ -696,6 +696,11 @@ information.
 
 LISPY-PLIST and WORF-PLIST are the corresponding global versions of extended
 definition keywords that are used for the corresponding custom DEFINER"
+  ;; to silence warnings
+  (setq predicate predicate
+        package package
+        lispy-plist lispy-plist
+        worf-plist worf-plist)
   (let (non-normal-prefix-maps
         global-prefix-maps
         kargs)
