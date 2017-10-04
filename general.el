@@ -555,6 +555,14 @@ KEYMAP is 'local."
             (plist (general--getf ',orig-def ',kargs :worf-plist t)))
        (worf-define-key keymap key ',def plist))))
 
+
+(defun general-lpy-define-key (_state keymap key def _orig-def _kargs)
+  "A wrapper for `lpy-define-key'."
+  (eval-after-load 'lpy
+    `(let* ((keymap (general--parse-keymap nil ',keymap))
+            (key (key-description ,key)))
+       (lpy-define-key keymap key ',def))))
+
 (defun general--define-key-dispatch (state keymap maps kargs)
   "In STATE (if non-nil) and KEYMAP, bind MAPS.
 MAPS is composed of triplets of (key parsed-def original-def). This function
