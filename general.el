@@ -923,7 +923,8 @@ Any local keybindings will be shown first followed by global keybindings."
 ;; - handle more edge cases like correctly adding evil repeat info
 
 ;; ** Key Simulation
-(defvar general--last-simulate nil)
+(defvar general--last-simulated-command nil
+  "Holds the last simulated command (or nil for incomplete key sequence).")
 
 (defun general--key-lookup (state keymap &optional keys)
   "In the keymap for STATE and KEYMAP, look up KEYS.
@@ -1005,13 +1006,19 @@ should be recorded."
       (setq prefix-arg current-prefix-arg)
       (unless executing-kbd-macro
         ;; keys are incorrectly saved as this-command-keys when recording macros
-        ;; the same applies with evil repeat
         ;; these keys will be played back, so don't simulate them
-        (setq unread-command-events (listify-key-sequence keys))))
+        (setq unread-command-events
+              ;; force keys to be added to this-command-keys
+              ;; this happens normally already for macros but it needs to be
+              ;; forced for evil-repeat though, which will only include the
+              ;; first key otherwise (ideally no keys would ever be added in
+              ;; either case)
+              (mapcar (lambda (ev) (cons t ev))
+                      (listify-key-sequence keys)))))
     (when command
       (let ((this-command command))
         (call-interactively command)))
-    (setq general--last-simulate command)))
+    (setq general--last-simulated-command command)))
 
 ;;;###autoload
 (cl-defmacro general-simulate-keys (keys &optional state keymap
@@ -1104,7 +1111,7 @@ to determine whether to abort recording."
            (evil-repeat-record
             `(set evil-this-register ,evil-this-register))))
         ((eq flag 'post)
-         (let* ((command (cl-getf general--last-simulate :command))
+         (let* ((command general--last-simulated-command)
                 (repeat-prop (evil-get-command-property command :repeat t)))
            (if (and command (general--repeat-abort-p repeat-prop))
                (evil-repeat-abort)
@@ -1113,7 +1120,8 @@ to determine whether to abort recording."
              (evil-clear-command-keys))))))
 
 ;; ** Key Dispatch
-(defvar general--last-dispatch nil)
+(defvar general--last-dispatch-command nil
+  "Holds the last command run from a `general-key-dispatch' function.")
 
 (defun general--extend-key-sequence (keys)
   "Read a key and append it to KEYS.
@@ -1209,7 +1217,7 @@ version of which-key from after 2016-11-21."
              (setq fallback t
                    matched-command ,fallback-command)
              (general--simulate-keys ,fallback-command char)))
-           (setq general--last-dispatch matched-command))))))
+           (setq general--last-dispatch-command matched-command))))))
 
 (defun general--dispatch-repeat (flag)
   "Modified version of `evil-repeat-keystrokes'.
@@ -1220,8 +1228,9 @@ to determine whether to abort recording."
            (evil-repeat-record
             `(set evil-this-register ,evil-this-register))))
         ((eq flag 'post)
-         (let ((repeat-prop (evil-get-command-property general--last-dispatch
-                                                       :repeat t)))
+         (let ((repeat-prop (evil-get-command-property
+                             general--last-dispatch-command
+                             :repeat t)))
            (if (general--repeat-abort-p repeat-prop)
                (evil-repeat-abort)
              (evil-repeat-record (evil-this-command-keys t))
