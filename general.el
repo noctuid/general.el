@@ -171,7 +171,11 @@ spaces; unless NOKBD is non-nil, apply (kbd ...) to the result. If
 `general-implicit-kbd' is nil, just concatenate the keys."
   (setq keys (remove nil keys))
   (if general-implicit-kbd
-      (let ((keys (mapconcat #'identity keys " ")))
+      (let ((keys (mapconcat (lambda (x)
+                               (if (vectorp x)
+                                   (key-description x)
+                                 x))
+                             keys " ")))
         (if nokbd
             keys
           (kbd keys)))
@@ -183,10 +187,7 @@ Also apply (kbd ...) to key and definition strings if `general-implicit-kbd' is
 non-nil."
   (setq prefix (or prefix ""))
   (cl-loop for (key def) on maps by 'cddr
-           collect (if (stringp key)
-                       (general--concat nil prefix key)
-                     ;; don't touch vectors
-                     key)
+           collect (general--concat nil prefix key)
            and collect def))
 
 ;; http://endlessparentheses.com/define-context-aware-keys-in-emacs.html
