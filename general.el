@@ -789,37 +789,45 @@ will use a certain keymap, evil state, and/or prefix key by default.
 NAME will be the function name and ARGS are the keyword arguments that
 are intended to be the defaults."
   `(defun ,name (&rest args)
-     ;; can still override keywords afterwards
+     ;; can still override keywords afterwards (first keyword takes precedence)
      (apply #'general-define-key (append args (list ,@args)))))
 
 ;;;###autoload
 (defmacro general-emacs-define-key (keymaps &rest args)
   "A wrapper for `general-define-key' that is similar to `define-key'.
-It has a positional argument for KEYMAPS. It acts the same as
-`general-define-key', and ARGS can contain keyword arguments in addition to
-keybindings. This can basically act as a drop-in replacement for `define-key',
-and unlike with `general-define-key', if KEYMAPS is a single keymap, it does
-not need to be quoted."
+It has a positional argument for KEYMAPS (that will not be overridden by a later
+:keymaps argument). Besides this, it acts the same as `general-define-key', and
+ARGS can contain keyword arguments in addition to keybindings. This can
+basically act as a drop-in replacement for `define-key', and unlike with
+`general-define-key', KEYMAPS does not need to be quoted."
   (declare (indent 1))
-  `(general-define-key ,@args
-                       :keymaps (if (symbolp ',keymaps)
-                                    ',keymaps
-                                  ,keymaps)))
+  `(general-define-key
+    :keymaps ,(if (and (listp keymaps)
+                       (eq (car keymaps) 'quote))
+                  `,keymaps
+                `',keymaps)
+    ,@args))
 
 ;;;###autoload
 (defmacro general-evil-define-key (states keymaps &rest args)
   "A wrapper for `general-define-key' that is similar to `evil-define-key'.
-It has positional arguments for STATES and KEYMAPS. It acts the same as
+It has positional arguments for STATES and KEYMAPS (that will not be overridden
+by a later :keymaps or :states argument). Besides this, it acts the same as
 `general-define-key', and ARGS can contain keyword arguments in addition to
 keybindings. This can basically act as a drop-in replacement for
-`evil-define-key', and unlike with `general-define-key', if KEYMAPS is a single
-keymap, it does not need to be quoted."
+`evil-define-key', and unlike with `general-define-key', KEYMAPS does not need
+to be quoted."
   (declare (indent 2))
-  `(general-define-key ,@args
-                       :states ,states
-                       :keymaps (if (symbolp ',keymaps)
-                                    ',keymaps
-                                  ,keymaps)))
+  `(general-define-key
+    :states ,(if (and (listp states)
+                      (eq (car states) 'quote))
+                 `,states
+               `',states)
+    :keymaps ,(if (and (listp keymaps)
+                       (eq (car keymaps) 'quote))
+                  `,keymaps
+                `',keymaps)
+    ,@args))
 
 ;;;###autoload
 (defmacro general-def (&rest args)

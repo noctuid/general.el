@@ -155,7 +155,7 @@ Within these categories keymaps, states, and keybindings will be presented in th
 For each keybinding created, this command will display the key, the definition, and the previous definition.
 
 ** Positional Argument Wrappers
-When you're defining keys in specific keymaps and states, using positional arguments can be shorter. General has two macros that can basically act as drop-in replacements for ~define-key~ and ~evil-define-key~. They are ~general-emacs-define-key~ and ~general-evil-define-key~. These are simply wrappers for ~general-define-key~ that pass the positional arguments to the corresponding keywords. However, for compatibility with ~define-key~ and ~evil-define-key~, it is not necessary to quote a single keymap. When you specify multiple keymaps, the list should still be quoted.
+When you're defining keys in specific keymaps and states, using positional arguments can be shorter. General has two macros that can basically act as drop-in replacements for ~define-key~ and ~evil-define-key~. They are ~general-emacs-define-key~ and ~general-evil-define-key~. These are simply wrappers for ~general-define-key~ that pass the positional arguments to the corresponding keywords. However, for compatibility with ~define-key~ and ~evil-define-key~, it is not necessary to quote keymaps. Both keymaps and states can be left quoted or unquoted (regardless of whether they are lists).
 
 For example, the following are equivalent:
 #+begin_src emacs-lisp
@@ -188,7 +188,7 @@ And the following are equivalent:
   "gk" 'org-previous-visible-heading)
 #+end_src
 
-The actual behavior of these two macros is the same as ~general-define-key~. You can still use ~general-define-key~'s keyword arguments after the positional arguments:
+The actual behavior of these two macros is the same as ~general-define-key~. You can still use ~general-define-key~'s keyword arguments after the positional arguments (however, =:keymaps= and =:states= will not override the positional arguments):
 #+begin_src emacs-lisp
 ;; these are both valid
 (general-emacs-define-key 'global
