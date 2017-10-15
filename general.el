@@ -380,7 +380,6 @@ arguments. The order of arguments will be preserved."
           (t
            (push title-cons which-key--prefix-title-alist)))))
 
-
 (defun general-extended-def-:which-key (_state _keymap keys def kargs)
   "Add a which-key description for KEY.
 If :major-mode is specified in DEF, add the description for that major mode. KEY
@@ -394,8 +393,10 @@ should not be in the kbd format (kbd should have already been run on it)."
                                     "\\`")
                                   keys
                                   "\\'"))
+             (prefix (cl-getf kargs :prefix))
              (binding (or (general--getf2 def :command :prefix-command)
-                          (when (string= keys "")
+                          (when (and prefix
+                                     (string= keys prefix))
                             (cl-getf kargs :prefix-command))))
              (replacement (cond ((stringp wk)
                                  (cons nil wk))
@@ -406,13 +407,14 @@ should not be in the kbd format (kbd should have already been run on it)."
                (cons (when (general--getf def kargs :wk-match-keys)
                        keys-regexp)
                      (when (and (general--getf def kargs :wk-match-binding)
-                                ;; TODO what does which-key match besides
-                                ;; command names?
-                                (commandp binding))
+                                binding
+                                (symbolp binding))
                        (symbol-name binding)))
                replacement)))
         (general--add-which-key-replacement major-mode match/replacement)
-        (unless (functionp replacement)
+        (when (and (consp replacement)
+                   ;; lambda
+                   (not (functionp replacement)))
           (general--add-which-key-title-prefix
            major-mode keys (cdr replacement)))))))
 
