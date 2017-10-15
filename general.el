@@ -4,7 +4,7 @@
 ;; URL: https://github.com/noctuid/general.el
 ;; Created: February 17, 2016
 ;; Keywords: vim, evil, leader, keybindings, keys
-;; Package-Requires: ((cl-lib "0.5"))
+;; Package-Requires: ((emacs "24.3") (cl-lib "0.5"))
 ;; Version: 0.1
 
 ;; This file is not part of GNU Emacs.
@@ -218,37 +218,41 @@ If KEYMAP is \"local\", add MAPS to `general-local-keybindings.' For non-evil
 keybindings, STATE will be nil. Duplicate keys will be replaced with the new
 ones. MINOR-MODE-P should be non-nil when keymap corresponds to a minor-mode
 name (as used with `evil-define-minor-mode-key') as opposed to a keymap name."
-  (let* (keys
-         (maps (cl-loop
-                for (key def _orig-def) on maps by 'cl-cdddr
-                collect
-                (list key
-                      def
-                      (general--lookup-key state keymap key minor-mode-p))
-                do (push key keys))))
-    (cond ((eq keymap 'local)
-           (unless (assq state general-local-keybindings)
-             (add-to-list 'general-local-keybindings (list state)))
-           (let ((state-cons (assq state general-local-keybindings)))
-             (setcdr state-cons
-                     ;; remove old duplicate keys
-                     (cl-remove-duplicates (append (cdr state-cons) maps)
-                                           :key #'car
-                                           :test #'equal))))
-          (t
-           (unless (assq keymap general-keybindings)
-             (add-to-list 'general-keybindings (list keymap)))
-           (unless (assq state (assq keymap general-keybindings))
-             (setcdr (assq keymap general-keybindings)
-                     (append (cdr (assq keymap general-keybindings))
-                             (list (list state)))))
-           (let ((state-cons (assq state (assq keymap general-keybindings))))
-             (setcdr state-cons
-                     (cl-remove-duplicates (append (cdr state-cons) maps)
-                                           :key #'car
-                                           :test #'equal)))))))
+  (if (and state (not (featurep 'evil)))
+      (eval-after-load 'evil
+        (lambda ()
+          (general--record-keybindings keymap state maps minor-mode-p)))
+    (let* (keys
+           (maps (cl-loop
+                  for (key def _orig-def) on maps by 'cl-cdddr
+                  collect
+                  (list key
+                        def
+                        (general--lookup-key state keymap key minor-mode-p))
+                  do (push key keys))))
+      (cond ((eq keymap 'local)
+             (unless (assq state general-local-keybindings)
+               (add-to-list 'general-local-keybindings (list state)))
+             (let ((state-cons (assq state general-local-keybindings)))
+               (setcdr state-cons
+                       ;; remove old duplicate keys
+                       (cl-remove-duplicates (append (cdr state-cons) maps)
+                                             :key #'car
+                                             :test #'equal))))
+            (t
+             (unless (assq keymap general-keybindings)
+               (add-to-list 'general-keybindings (list keymap)))
+             (unless (assq state (assq keymap general-keybindings))
+               (setcdr (assq keymap general-keybindings)
+                       (append (cdr (assq keymap general-keybindings))
+                               (list (list state)))))
+             (let ((state-cons (assq state (assq keymap general-keybindings))))
+               (setcdr state-cons
+                       (cl-remove-duplicates (append (cdr state-cons) maps)
+                                             :key #'car
+                                             :test #'equal))))))))
 
-;; don't force non-evil user to require evil for one function (this is evil-delay)
+;; don't force non-evil user to require evil for one function
 (defun general--delay (condition form hook &optional append local name)
   "Execute FORM when CONDITION becomes true, checking with HOOK.
 NAME specifies the name of the entry added to HOOK. If APPEND is
@@ -307,25 +311,28 @@ FALLBACK-PLIST. Otherwise assume that DEF is a valid plist."
   (or (cl-getf plist keyword1)
       (cl-getf plist keyword2)))
 
-;; TODO this uses evil functions (eval-after-load)
 (cl-defun general--parse-keymap (state keymap &optional minor-mode-p)
   "Transform STATE and the symbol KEYMAP into the appropriate keymap.
 'local  - Return general-override-local-map or the evil local keymap
 'global - Return (current-global-map) or the corresponding evil auxiliary map
-else    - Return (symbol-value keymap) or the corresponding evil auxiliary map"
+else    - Return (symbol-value keymap) or the corresponding evil auxiliary map
+
+Note that if STATE is specified, evil needs to be available."
   (setq keymap (cl-case keymap
                  (global (current-global-map))
                  (local 'local)
                  (t (symbol-value keymap))))
   (if state
-      (cond (minor-mode-p
-             (evil-get-minor-mode-keymap state keymap))
-            ((eq keymap 'local)
-             (evil-state-property state :local-keymap t))
-            (t
-             ;; NOTE: this differs from `evil-define-key*'
-             ;; https://github.com/emacs-evil/evil/issues/709
-             (evil-get-auxiliary-keymap keymap state t t)))
+      (if (require 'evil nil t)
+          (cond (minor-mode-p
+                 (evil-get-minor-mode-keymap state keymap))
+                ((eq keymap 'local)
+                 (evil-state-property state :local-keymap t))
+                (t
+                 ;; NOTE: this differs from `evil-define-key*'
+                 ;; https://github.com/emacs-evil/evil/issues/709
+                 (evil-get-auxiliary-keymap keymap state t t)))
+        (error "Evil is required if state is specified"))
     (if (eq keymap 'local)
         general-override-local-mode-map
       keymap)))
@@ -379,36 +386,35 @@ arguments. The order of arguments will be preserved."
 If :major-mode is specified in DEF, add the description for that major mode. KEY
 should not be in the kbd format (kbd should have already been run on it)."
   (eval-after-load 'which-key
-    `(let* ((def ',def)
-            (kargs ',kargs)
-            (wk (general--getf2 def :which-key :wk))
-            (major-mode (general--getf def kargs :major-mode))
-            (keys (key-description ',keys))
-            (keys-regexp (concat (when (general--getf def kargs :wk-full-keys)
-                                   "\\`")
-                                 keys
-                                 "\\'"))
-            (binding (or (general--getf2 def :command :prefix-command)
-                         (when (string= keys "")
-                           (cl-getf kargs :prefix-command))))
-            (replacement (cond ((stringp wk)
-                                (cons nil wk))
-                               (t
-                                wk)))
-            (match/replacement
-             (cons
-              (cons (when (general--getf def kargs :wk-match-keys)
-                      keys-regexp)
-                    (when (and (general--getf def kargs :wk-match-binding)
-                               ;; TODO what does which-key match besides
-                               ;; command names?
-                               (commandp binding))
-                      (symbol-name binding)))
-              replacement)))
-       (general--add-which-key-replacement major-mode match/replacement)
-       (unless (functionp replacement)
-         (general--add-which-key-title-prefix
-          major-mode keys (cdr replacement))))))
+    (lambda ()
+      (let* ((wk (general--getf2 def :which-key :wk))
+             (major-mode (general--getf def kargs :major-mode))
+             (keys (key-description keys))
+             (keys-regexp (concat (when (general--getf def kargs :wk-full-keys)
+                                    "\\`")
+                                  keys
+                                  "\\'"))
+             (binding (or (general--getf2 def :command :prefix-command)
+                          (when (string= keys "")
+                            (cl-getf kargs :prefix-command))))
+             (replacement (cond ((stringp wk)
+                                 (cons nil wk))
+                                (t
+                                 wk)))
+             (match/replacement
+              (cons
+               (cons (when (general--getf def kargs :wk-match-keys)
+                       keys-regexp)
+                     (when (and (general--getf def kargs :wk-match-binding)
+                                ;; TODO what does which-key match besides
+                                ;; command names?
+                                (commandp binding))
+                       (symbol-name binding)))
+               replacement)))
+        (general--add-which-key-replacement major-mode match/replacement)
+        (unless (functionp replacement)
+          (general--add-which-key-title-prefix
+           major-mode keys (cdr replacement)))))))
 
 (defalias 'general-extended-def-:wk #'general-extended-def-:which-key)
 
@@ -527,42 +533,43 @@ In STATE and KEYMAP, bind KEY to DEF. `evil-local-set-key' is used when
 KEYMAP is 'local."
   (declare (indent defun))
   (eval-after-load 'evil
-    `(let ((state ',state)
-           (keymap ',keymap)
-           (key ,key)
-           (def ',def))
-       (if (eq keymap 'local)
-           (evil-local-set-key state key def)
-         (evil-define-key* state keymap key def)))))
+    (lambda ()
+      (if (eq keymap 'local)
+          (evil-local-set-key state key def)
+        (evil-define-key* state keymap key def)))))
 
 (defun general-minor-mode-define-key (state mode key def _orig-def _kargs)
   "A wrapper for `evil-define-minor-mode-key'."
   (eval-after-load 'evil
-    `(evil-define-minor-mode-key ',state ',mode ',key ',def)))
+    (lambda ()
+      (evil-define-minor-mode-key state mode key def))))
 
 (defun general-lispy-define-key (_state keymap key def orig-def kargs)
   "A wrapper for `lispy-define-key'."
   (eval-after-load 'lispy
-    `(let* ((keymap (general--parse-keymap nil ',keymap))
-            (key (key-description ,key))
-            (plist (general--getf ',orig-def ',kargs :lispy-plist t)))
-       (lispy-define-key keymap key ',def plist))))
+    (lambda ()
+      (let* ((keymap (general--parse-keymap nil keymap))
+             (key (key-description key))
+             (plist (general--getf orig-def kargs :lispy-plist t)))
+        (lispy-define-key keymap key def plist)))))
 
 (defun general-worf-define-key (_state keymap key def orig-def kargs)
   "A wrapper for `worf-define-key'."
   (eval-after-load 'worf
-    `(let* ((keymap (general--parse-keymap nil ',keymap))
-            (key (key-description ,key))
-            (plist (general--getf ',orig-def ',kargs :worf-plist t)))
-       (worf-define-key keymap key ',def plist))))
+    (lambda ()
+      (let* ((keymap (general--parse-keymap nil keymap))
+             (key (key-description key))
+             (plist (general--getf orig-def kargs :worf-plist t)))
+        (worf-define-key keymap key def plist)))))
 
 
 (defun general-lpy-define-key (_state keymap key def _orig-def _kargs)
   "A wrapper for `lpy-define-key'."
   (eval-after-load 'lpy
-    `(let* ((keymap (general--parse-keymap nil ',keymap))
-            (key (key-description ,key)))
-       (lpy-define-key keymap key ',def))))
+    (lambda ()
+      (let* ((keymap (general--parse-keymap nil keymap))
+             (key (key-description key)))
+        (lpy-define-key keymap key def)))))
 
 (defun general--define-key-dispatch (state keymap maps kargs)
   "In STATE (if non-nil) and KEYMAP, bind MAPS.
@@ -583,6 +590,7 @@ is present in original-def or KARGS or whether STATE is non-nil."
         ;; future; evil-define-key* (keymap prompt) and --emacs-local-set-key
         ;; (turning on minor mode) do additional things that would need to be
         ;; replicated
+        ;; If do this, eval-after-load will become necessary if state specified
         (let ((keymap (if (and state (eq keymap 'local))
                           'local
                         (general--parse-keymap nil keymap))))
