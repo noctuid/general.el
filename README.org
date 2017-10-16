@@ -431,24 +431,24 @@ As another example, one could make an extra vim definer using ~general-create-du
 As previously mentioned, how the newly created function creates keybindings can be altered by setting =general-vim-definer-default=. Unlike with ~general-create-definer~, you can't specify defaults for other keyword arguments with ~general-create-dual-vim-definer~. If anyone would like to be able to do this to, for example, set a default prefix for the created function, feel free to make an issue.
 
 ** Use-package Keyword
-General also optionally provides a use-package keyword. =:general= is similar to =:bind= in that it implies =:defer t= and will create autoloads for the bound commands (though this is usually not necessary). The keyword is followed by one or more lists containing arguments for ~general-define-key~; there is no difference in syntax:
+General also optionally provides a use-package keyword. =:general= is similar to =:bind= in that it implies =:defer t= and will create autoloads for the bound commands (though this is usually not necessary). The keyword is followed by one or more lists containing arguments for ~general-def~; there is no difference in syntax:
 #+begin_src emacs-lisp
 (use-package org
   :general
   ("C-c c" 'org-capture)
   (:keymaps 'org-mode-map
+   "TAB" 'org-cycle)
+  ;; uses `general-def' not `general-define-key', so this is fine
+  (org-mode-map
    "TAB" 'org-cycle))
 #+end_src
 
-The =:general= keyword also supports using wrappers (including builtin the wrappers that take positional arguments) by manually specifying them:
+The =:general= keyword also supports using any other key definer/wrapper by manually specifying it:
 #+begin_src emacs-lisp
 (use-package org
   :general
-  (general-nmap "SPC c" 'org-capture)
-  (general-evil-define-key 'normal org-mode-map
-    "TAB" 'org-cycle))
+  (general-nmap "SPC c" 'org-capture))
 #+end_src
-If you would like to use =:general= with your own wrapper that takes positional arguments, please make an issue, and I can add a generic way to add support for wrappers that take positional arguments.
 
 One annoyance you may encounter is that the default function for indentation will indent a list starting with a keyword like a function:
 #+begin_src emacs-lisp

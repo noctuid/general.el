@@ -1452,17 +1452,10 @@ aliases such as `nmap' for `general-nmap'."
       (let* ((sanitized-arglist
               ;; combine arglists into one without function names or
               ;; positional arguments
-              (let (result
-                    first)
+              (let (result)
                 (dolist (arglist arglists result)
-                  (setq first (car arglist))
-                  (cond ((eq first 'general-evil-define-key)
-                         (setq arglist (cl-cdddr arglist)))
-                        ((eq first 'general-emacs-define-key)
-                         (setq arglist (cddr arglist)))
-                        ((cl-oddp (length arglist))
-                         ;; normal wrapper
-                         (setq arglist (cdr arglist))))
+                  (while (general--positional-arg-p (car arglist))
+                    (setq arglist (cdr arglist)))
                   (setq result (append result arglist)))))
              (commands
               (cl-loop for (key def) on sanitized-arglist by 'cddr
@@ -1486,13 +1479,12 @@ aliases such as `nmap' for `general-nmap'."
             (use-package-plist-maybe-put rest :defer t))
            (use-package-plist-append state :commands commands))
          `((ignore ,@(mapcar (lambda (arglist)
-                               (let ((first (car arglist)))
-                                 (if (or (eq first 'general-emacs-define-key)
-                                         (eq first 'general-evil-define-key)
-                                         (cl-oddp (length arglist)))
-                                     `(,@arglist :package ',name)
-                                   `(general-define-key ,@arglist
-                                                        :package ',name))))
+                               (if (and (symbolp (car arglist))
+                                        (not (keywordp (car arglist))))
+                                   `(,@arglist :package ',name)
+                                 `(general-def
+                                    ,@arglist
+                                    :package ',name)))
                              arglists))))))))
 
 ;; * Key-chord "Integration"
