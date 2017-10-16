@@ -289,7 +289,17 @@ Besides the state keymaps, you can also use =inner= and =outer= in place of =evi
 - ~general-nvmap~
 - ~general-tomap~
 
-You can see the help text for each for a more specific description. ~general-evil-setup~ takes two optional arguments. If the first is non-nil, shorter aliases for these functions such as ~nmap~ will be created. If the second is non-nil, the function will default to setting ~:states~ and using the global map instead of ~:keymaps~ (see [[#notes-for-evil-users][Notes for Evil Users]]). This can be altered later by altering ~general-vim-definer-default~.
+These are wrappers around ~general-def~ that set a default =:keymaps= (or a default =:states=). You can see the help text for each for a more specific description. ~general-evil-setup~ takes two optional arguments. If the first is non-nil, shorter aliases for these functions such as ~nmap~ will be created. If the second is non-nil, the function will default to setting =:states= (if a default exists) and using the global map instead of =:keymaps= (see [[#notes-for-evil-users][Notes for Evil Users]]). This can be altered later by setting =general-vim-definer-default=.
+
+=:states= will automatically be set instead of =:keymaps= if the user manually specifies keymaps and a default for =:states= was specified (there is no inner text object state, for example):
+#+begin_src emacs-lisp
+;; define in evil-normal-state-map (set default :keymaps)
+(general-nmap ...)
+;; define in the normal state auxiliary map for org-mode-map (set default :states)
+(general-nmap org-mode-map ...)
+;; or
+(general-nmap :keymaps 'org-mode-map ...)
+#+end_src
 
 If there is some other combination you would like to use, you can use ~general-create-vim-definer~ or ~general-create-dual-vim-definer~.
 

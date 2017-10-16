@@ -829,6 +829,13 @@ to be quoted."
                 `',keymaps)
     ,@args))
 
+(defun general--positional-arg-p (arg)
+  "Return whether ARG is a positional argument for a key definer.
+Keyword arguments and strings/vectors are not considered positional arguments."
+  (and arg
+       (or (symbolp arg) (listp arg))
+       (not (keywordp arg))))
+
 ;;;###autoload
 (defmacro general-def (&rest args)
   "General definer that takes a variable number of positional arguments in ARGS.
@@ -837,10 +844,7 @@ This macro will act as `general-define-key', `general-emacs-define-key', or
 correspond to keybindings."
   (declare (indent defun))
   (let ((pos-args 0))
-    (while (let ((it (nth pos-args args)))
-             (and it
-                  (or (symbolp it) (listp it))
-                  (not (keywordp it))))
+    (while (general--positional-arg-p (nth pos-args args))
       (cl-incf pos-args))
     (cl-case pos-args
       (0
@@ -1335,12 +1339,13 @@ SYMBOLS and FUNCTIONS can be single items or lists."
     (name keymaps &optional states default-to-states)
   "A helper function to create vim-like wrappers over `general-define-key'.
 The function created will be called NAME and will have the keymaps default to
-KEYMAPS or the states default to STATES. If DEFAULT-TO-STATES is non-nil,
-:states STATES will be used. Otherwise :keymaps KEYMAPS will be used. This can
-be overriden later by setting the global `general-vim-definer-default'
-option."
-  `(defun ,name (&rest args)
-     ,(format "A wrapper function over `general-define-key'.
+KEYMAPS or the states default to STATES (both should be quoted). If
+DEFAULT-TO-STATES is non-nil, :states STATES will be used. Otherwise :keymaps
+KEYMAPS will be used. This can be overriden later by setting the global
+`general-vim-definer-default' option."
+  `(defmacro ,name (&rest args)
+     ,(format
+       "A wrapper for `general-def'.
 
 It has one the following defaults depending on `general-vim-definer-default':
 :keymaps
@@ -1350,23 +1355,27 @@ It has one the following defaults depending on `general-vim-definer-default':
 %s
 
 When `general-vim-definer-default' is nil, default to setting %s.
-(If the default :states is nil, :keymaps will be used no matter what.)"
-              keymaps states
-              (if default-to-states
-                  ":states"
-                ":keymaps"))
-     ;; can still override keywords afterwards
+
+If the default :states is nil,the :keymaps default will be used no matter what.
+If the default :states is non-nil and the user specifies keymaps (with :keymaps
+or the positional argument), the default :states will be used."
+       keymaps
+       states
+       (if default-to-states
+           ":states"
+         ":keymaps"))
      (let ((default-to-states
-             (cond ((eq general-vim-definer-default 'states)
-                    t)
-                   ((eq general-vim-definer-default 'keymaps)
-                    nil)
-                   (t
-                    ,default-to-states))))
-       (apply #'general-define-key
-              (append args (if (and default-to-states ,states)
-                               (list :states ,states)
-                             (list :keymaps ,keymaps)))))))
+             (cl-case general-vim-definer-default
+               (states t)
+               (keymaps nil)
+               (t ,default-to-states))))
+       `(general-def ,@args
+          ,@(if (and ,states
+                     (or default-to-states
+                         (cl-getf args :keymaps)
+                         (general--positional-arg-p (car args))))
+                '(:states ,states)
+              '(:keymaps ,keymaps))))))
 
 ;;;###autoload
 (defmacro general-create-dual-vim-definer
