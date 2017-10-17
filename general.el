@@ -1505,8 +1505,9 @@ aliases such as `nmap' for `general-nmap'."
             (use-package-plist-maybe-put rest :defer t))
            (use-package-plist-append state :commands commands))
          `((ignore ,@(mapcar (lambda (arglist)
-                               (if (and (symbolp (car arglist))
-                                        (not (keywordp (car arglist))))
+                               ;; Note: prefix commands are not valid functions
+                               (if (or (functionp (car arglist))
+                                       (macrop (car arglist)))
                                    `(,@arglist :package ',name)
                                  `(general-def
                                     ,@arglist
