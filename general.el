@@ -380,14 +380,30 @@ arguments. The order of arguments will be preserved."
           (t
            (push title-cons which-key--prefix-title-alist)))))
 
-(defun general-extended-def-:which-key (_state _keymap keys def kargs)
+(defun general--remove-map (keymap)
+  "Remove \"-map\" from the symbol KEYMAP." ;
+  (intern (replace-regexp-in-string "-map$" "" (symbol-name keymap))))
+
+(defun general-extended-def-:which-key (_state keymap keys def kargs)
   "Add a which-key description for KEY.
-If :major-mode is specified in DEF, add the description for that major mode. KEY
-should not be in the kbd format (kbd should have already been run on it)."
+If :major-modes is specified in DEF, add the description for the corresponding
+major mode. KEY should not be in the kbd format (kbd should have already been
+run on it)."
   (eval-after-load 'which-key
     (lambda ()
       (let* ((wk (general--getf2 def :which-key :wk))
-             (major-mode (general--getf def kargs :major-mode))
+             (major-modes (general--getf def kargs :major-modes))
+             (keymaps (cl-getf kargs :keymaps))
+             ;; index of keymap in :keymaps
+             (keymap-index (cl-dotimes (ind (length keymaps))
+                             (when (eq (nth ind keymaps) keymap)
+                               (return-from nil ind))))
+             (mode (let ((mode (if (and major-modes (listp major-modes))
+                                   (nth keymap-index major-modes)
+                                 major-modes)))
+                     (if (eq mode t)
+                         (general--remove-map keymap)
+                       mode)))
              (keys (key-description keys))
              (keys-regexp (concat (when (general--getf def kargs :wk-full-keys)
                                     "\\`")
@@ -411,12 +427,12 @@ should not be in the kbd format (kbd should have already been run on it)."
                                 (symbolp binding))
                        (symbol-name binding)))
                replacement)))
-        (general--add-which-key-replacement major-mode match/replacement)
+        (general--add-which-key-replacement mode match/replacement)
         (when (and (consp replacement)
                    ;; lambda
                    (not (functionp replacement)))
           (general--add-which-key-title-prefix
-           major-mode keys (cdr replacement)))))))
+           mode keys (cdr replacement)))))))
 
 (defalias 'general-extended-def-:wk #'general-extended-def-:which-key)
 
@@ -649,7 +665,7 @@ to bind the keys with `general--define-key-dispatch'."
            definer
            ;; for extended definitions only
            package
-           major-mode
+           major-modes
            (wk-match-keys t)
            (wk-match-binding t)
            (wk-full-keys t)
@@ -672,10 +688,12 @@ emacs, normal, visual, operator, motion, replace, inner, and outer).
 'global-override will expand to `general-override-mode-map'.
 
 Unlike with normal key definitions functions, the keymaps in KEYMAPS should be
-quoted (this allows using the keymap name for other purposes, e.g. deferment).
-Note that STATES and KEYMAPS can either be a list or a single symbol. If any
-keymap does not exist, those keybindings will be deferred until the keymap does
-exist, so using `eval-after-load' is not necessary with this function.
+quoted (this allows using the keymap name for other purposes, e.g. deferment,
+inferring major mode names by removing \"-map\" for which-key, easily storing
+the keymap name for use with `general-describe-keybindings', etc.). Note that
+STATES and KEYMAPS can either be a list or a single symbol. If any keymap does
+not exist, those keybindings will be deferred until the keymap does exist, so
+using `eval-after-load' is not necessary with this function.
 
 MAPS consists of paired keys and definitions. Each pair (if not ignored) will be
 recorded for later use with `general-describe-keybindings'.
@@ -707,7 +725,7 @@ to `define-prefix-command'.
 If DEFINER is specified, a custom key definer will be used. See the README for
 more information.
 
-MAJOR-MODE, WK-MATCH-KEYS, WK-MATCH-BINDINGS, and WK-FULL-KEYS are the
+MAJOR-MODES, WK-MATCH-KEYS, WK-MATCH-BINDINGS, and WK-FULL-KEYS are the
 corresponding global versions of which-key extended definition keywords. They
 will only have an effect for extended definitions that specify :which-key
 or :wk. See the section on extended definitions in the README for more
@@ -715,28 +733,36 @@ information.
 
 LISPY-PLIST and WORF-PLIST are the corresponding global versions of extended
 definition keywords that are used for the corresponding custom DEFINER"
-  ;; to silence warnings
+  ;; to silence compiler warning; variables that are later extracted from kargs
   (setq predicate predicate
         package package
+        major-modes major-modes
         lispy-plist lispy-plist
         worf-plist worf-plist)
   (let (non-normal-prefix-maps
         global-prefix-maps
         kargs)
-    ;; remove keyword arguments from rest var
-    (let ((split-maps (general--remove-keyword-args maps)))
-      (setq maps (car split-maps)
-            ;; order will be preserved; matters for duplicates
-            kargs (append (cadr split-maps)
-                          (list :wk-match-keys wk-match-keys
-                                :wk-match-binding wk-match-binding
-                                :wk-full-keys wk-full-keys))))
     ;; don't force the user to wrap a single state or keymap in a list
     ;; luckily nil is a list
     (unless (listp states)
       (setq states (list states)))
     (unless (listp keymaps)
       (setq keymaps (list keymaps)))
+    ;; remove keyword arguments from rest var
+    (let ((split-maps (general--remove-keyword-args maps)))
+      (setq maps (car split-maps)
+            ;; order will be preserved; matters for duplicates
+            kargs (append
+                   ;; should be included even if not manually specified
+                   ;; should be first so :keymaps is a list
+                   (list :wk-match-keys wk-match-keys
+                         :wk-match-binding wk-match-binding
+                         :wk-full-keys wk-full-keys
+                         ;; needed for matching against :major-modes
+                         :keymaps keymaps
+                         ;; for consistency; may be useful in future or for user
+                         :states states)
+                   (cadr split-maps))))
     (when (and prefix-command
                (not (boundp prefix-command)))
       (define-prefix-command prefix-command prefix-map prefix-name))

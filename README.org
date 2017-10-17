@@ -518,7 +518,13 @@ Another related benefit of using =:which-key= instead of ~which-key-add-key-base
 
 The argument supplied to =:which-key= or =:wk= is equivalent to the REPLACEMENT argument in ~which-key-add-key-based-replacements~. It can be a full replacement cons of =(KEY . BINDING)= or just a string (which will be used as the BINDING and serve as the new description). Additionally it can be a function that will return a replacement cons (see the docstring for ~which-key-replacements-alist~ or the which-key README).
 
-The =:which-key= keyword can be used with the =:major-mode= keyword (locally or globally) which can be compared to using ~which-key-add-major-mode-key-based-replacements~.
+The =:which-key= keyword can be used with the =:major-modes= keyword (locally or globally) which can be compared to using ~which-key-add-major-mode-key-based-replacements~. =:major-modes= can have the following values (see the examples below):
+- =t= - the major mode will be obtained from all keymaps by removing "-map"
+- the major mode name (when only one keymap is specified)
+- a list of the following values:
+  - =t= - same behavior as above but only for corresponding index in =:keymaps=
+  - the major mode name for that index
+  - =nil= (or no item at the index) - don't match the major mode
 
 =:wk-match-keys=, =:wk-match-binding=, and =:wk-full-keys= can be used to customize the match cons. Generally these will not need to be adjusted. The binding is only included in the match cons if one is available, and =:wk-full-keys= only needs to be specified as =nil= if you are binding keys in a prefix map.
 
@@ -550,6 +556,18 @@ Here are some examples:
   :prefix-command 'apropos-prefix-map
   ;; make a prefix-command and add description
   "" '(:ignore t :which-key "apropos"))
+
+;; :major-modes
+(general-define-key
+ :keymaps 'emacs-lisp-mode-map
+ :major-modes t
+ ...)
+
+(general-define-key
+ :keymaps '(no-follow-convention-mode-keymap1
+            org-mode-map)
+ :major-modes '(no-follow-convention-mode t)
+ ...)
 #+end_src
 
 *** User-defined Extended Definition Keywords
