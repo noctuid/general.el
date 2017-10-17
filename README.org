@@ -223,6 +223,8 @@ A third macro, ~general-def~, is provided for those who would prefer to use a si
   ...)
 #+end_src
 
+Note that if you want to use variables to hold keys (e.g. =key-var 'def=), you should use ~general-define-key~ (if those were the first arguments to ~general-def~, it would consider them a state and keymap). Doing this isn't recommended and probably isn't useful. If you want to use a variable specifically with =:prefix= or another keyword argument, that is still supported by ~general-def~.
+
 ** Notes for Evil Users
 When =:states= is specified (or ~general-default-states~ is non-nil), ~general-define-key~ will act as a wrapper around ~evil-define-key~. This means that the following are equivalent:
 #+begin_src emacs-lisp
