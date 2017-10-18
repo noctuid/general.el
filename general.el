@@ -149,14 +149,26 @@ local keybindings.")
   :lighter ""
   :keymap general-override-local-mode-map)
 
-(defvar general-maps-alist
-  "Holds the (mode . keymap) pairs for general's override modes."
-  `((general-override-local-mode . ,general-override-local-mode-map)
-    (general-override-mode . ,general-override-mode-map)))
+(defvar-local general-maps-alist
+  `((general-override-mode . ,general-override-mode-map))
+  "Holds the (mode . keymap) pairs for general's override modes.")
+;; not affected by changing major modes
+(put 'general-maps-alist 'permanent-local t)
 
-(setq emulation-mode-map-alists
-      (cl-union '(general-maps-alist)
-                emulation-mode-map-alists))
+(defvar-local general--maps-alist-updated nil
+  "Whether `general-maps-alist' has been set correctly for the current buffer.")
+(put 'general-maps-alist 'permanent-local t)
+
+(defun general--update-maps-alist ()
+  "Update `general-maps-alist' for override modes.
+This is necessary to ensure `general-override-local-mode-map' is the buffer's
+local version."
+  (setq general-maps-alist
+        `((general-override-local-mode . ,general-override-local-mode-map)
+          (general-override-mode . ,general-override-mode-map))
+        general--maps-alist-updated t))
+
+(cl-pushnew 'general-maps-alist emulation-mode-map-alists)
 
 ;; * Helpers
 (defun general--evil-p ()
@@ -313,7 +325,7 @@ FALLBACK-PLIST. Otherwise assume that DEF is a valid plist."
 
 (cl-defun general--parse-keymap (state keymap &optional minor-mode-p)
   "Transform STATE and the symbol KEYMAP into the appropriate keymap.
-'local  - Return general-override-local-map or the evil local keymap
+'local  - Return `general-override-local-map' or the evil local keymap
 'global - Return (current-global-map) or the corresponding evil auxiliary map
 else    - Return (symbol-value keymap) or the corresponding evil auxiliary map
 
@@ -529,8 +541,11 @@ form (e.g. an extended definition)."
 ;; * Helper Key Definers
 (defun general--emacs-local-set-key (key func)
   "Bind KEY to FUNC for only the current buffer.
-This will automatically turn on `general-override-local-mode'."
+This will automatically turn on `general-override-local-mode' and update
+`general-maps-alist'."
   (general-override-local-mode)
+  (unless general--maps-alist-updated
+    (general--update-maps-alist))
   (define-key general-override-local-mode-map key func))
 
 (defun general--emacs-define-key (keymap &rest maps)
@@ -609,7 +624,7 @@ is present in original-def or KARGS or whether STATE is non-nil."
         ;; (turning on minor mode) do additional things that would need to be
         ;; replicated
         ;; If do this, eval-after-load will become necessary if state specified
-        (let ((keymap (if (and state (eq keymap 'local))
+        (let ((keymap (if (eq keymap 'local)
                           'local
                         (general--parse-keymap nil keymap))))
           (if state
