@@ -478,8 +478,8 @@ General.el supports some extra per-definition keywords. It has "type" keywords t
 Here are the keywords currently available by default:
 
 "Type" specifiers:
-- =:command= - Implicit; for any non-keymap definition
-- =:prefix-command= - The same as =:command= but will create a prefix command
+- =:def= - Implicit; for any definition that doesn't fit under one of the below "types"
+- =:prefix-command= - The same as =:def= but will create a prefix command
   - =:prefix-map= The corresponding prefix map (2nd arg to ~define-prefix-command~; global value never considered)
   - =:prefix-name= The prefix name (2nd arg to ~define-prefix-command~; global value never considered)
 - =:keymap= - For keymaps; if the keymap is not defined, will create an "autoloaded" keymap for =:package=
@@ -509,7 +509,7 @@ Using this feature, a key can be bound to a keymap that does not exist yet and s
 
 =:package= can be specified locally within the extended definition or globally. When using the use-package =:general= keyword, it will automatically be specified.
 
-=:keymap= must be specified in this case so that the unbound symbol can be distinguished as a keymap rather than a command. For other extended definitions, you can simply specify the definition as the first item in the list or explicitly use the =:command= keyword.
+=:keymap= must be specified in this case so that the unbound symbol can be distinguished as a keymap rather than a command. For other extended definitions, you can simply specify the definition as the first item in the list or explicitly use the =:def= keyword.
 
 *** Which Key Integration
 If you are not already familiar with which-key's replacement system, please see the docstring for ~which-key-replacement-alist~ if you don't understand any of the examples or information here.

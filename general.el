@@ -422,7 +422,7 @@ run on it)."
                                   keys
                                   "\\'"))
              (prefix (cl-getf kargs :prefix))
-             (binding (or (general--getf2 def :command :prefix-command)
+             (binding (or (general--getf2 def :def :prefix-command)
                           (when (and prefix
                                      (string= keys prefix))
                             (cl-getf kargs :prefix-command))))
@@ -495,7 +495,7 @@ This function will execute the actions specified in an extended definition and
 apply a predicate if there is one."
   (cond ((general--extended-def-p def)
          (unless (keywordp (car def))
-           (setq def (cons :command def)))
+           (setq def (cons :def def)))
          (dolist (keyword general-extended-def-keywords)
            (when (cl-getf def keyword)
              (funcall (intern (concat "general-extended-def-"
@@ -516,7 +516,7 @@ apply a predicate if there is one."
                       (cl-getf def :prefix-name))))
                 (general--maybe-apply-predicate
                  (general--getf def kargs :predicate)
-                 (general--getf2 def :command :prefix-command)))))
+                 (general--getf2 def :def :prefix-command)))))
         (t
          ;; not an extended definition
          (general--maybe-apply-predicate (cl-getf kargs :predicate) def))))
@@ -1488,8 +1488,23 @@ aliases such as `nmap' for `general-nmap'."
                    unless (eq item :general)
                    collect item))
     (defun use-package-normalize/:general (_name _keyword args)
+      "Return ARGS."
       args)
+    (defun general--extract-symbol (def)
+      "Extract autoloadable symbol from DEF, a normal or extended definition."
+      (when def
+        (if (general--extended-def-p def)
+            (let ((first (car def))
+                  (inner-def (cl-getf def :def)))
+              (cond ((symbolp inner-def)
+                     inner-def)
+                    ((and (symbolp first)
+                          (not (keywordp first)))
+                     first)))
+          (when (symbolp def)
+            def))))
     (defun use-package-handler/:general (name _keyword arglists rest state)
+      "Use-package handler for :general."
       (let* ((sanitized-arglist
               ;; combine arglists into one without function names or
               ;; positional arguments
@@ -1504,15 +1519,7 @@ aliases such as `nmap' for `general-nmap'."
                                  (not (null def))
                                  (ignore-errors
                                    (setq def (eval def))
-                                   (or (symbolp def)
-                                       (when (and (symbolp (car def))
-                                                  (not (keywordp (car def)))
-                                                  (not (memq
-                                                        (car def)
-                                                        '(menu-item lambda)))
-                                                  (not (keymapp def)))
-                                         (setq def (car def)))
-                                       (setq def (cl-getf def :command)))))
+                                   (setq def (general--extract-symbol def))))
                        collect def)))
         (use-package-concat
          (use-package-process-keywords name
