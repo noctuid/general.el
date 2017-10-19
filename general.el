@@ -409,7 +409,7 @@ run on it)."
              ;; index of keymap in :keymaps
              (keymap-index (cl-dotimes (ind (length keymaps))
                              (when (eq (nth ind keymaps) keymap)
-                               (return-from nil ind))))
+                               (cl-return-from nil ind))))
              (mode (let ((mode (if (and major-modes (listp major-modes))
                                    (nth keymap-index major-modes)
                                  major-modes)))
