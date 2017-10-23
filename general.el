@@ -700,7 +700,7 @@ global mappings. KEYMAPS defaults to 'global (`general-default-keymaps' and
 which create buffer-local keybindings for both evil and non-evil keybindings.
 There are other special \"shorthand\" hand symbols for evil keymaps (insert,
 emacs, normal, visual, operator, motion, replace, inner, and outer).
-'global-override will expand to `general-override-mode-map'.
+'override will expand to `general-override-mode-map'.
 
 Unlike with normal key definitions functions, the keymaps in KEYMAPS should be
 quoted (this allows using the keymap name for other purposes, e.g. deferment,
@@ -807,7 +807,7 @@ definition keywords that are used for the corresponding custom DEFINER"
                              insert emacs normal visual operator motion replace
                              inner outer))
         (setq keymap (general--evil-keymap-for-state keymap)))
-      (when (eq keymap 'global-override)
+      (when (eq keymap 'override)
         (setq keymap 'general-override-mode-map))
       (general--delay `(or (memq ',keymap '(local global))
                            (eq ',definer 'minor-mode)
