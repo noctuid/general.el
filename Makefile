@@ -1,15 +1,11 @@
 emacs ?= emacs
-CASK ?= cask
-BEMACS = $(emacs) -batch -l elpa.el
-LOAD = -l general.el
 
 cask:
-	$(shell EMACS=$(emacs) $(CASK) --verbose --debug)
+	$(shell EMACS=$(emacs) cask --verbose --debug)
 
 test:
 	@echo "Using $(shell which $(emacs))..."
-	$(CASK) exec buttercup -L .
-	# $(BEMACS) -l general-tests.el $(LOAD) -f ert-run-tests-batch-and-exit
+	cask exec buttercup -L .
 
 clean:
 	rm -f *.elc
