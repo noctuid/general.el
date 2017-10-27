@@ -85,7 +85,9 @@ just use `general-default-prefix'/:prefix by itself."
           (const :tag "Operator state" operator)
           (const :tag "Motion state" motion)
           (const :tag "Emacs state" emacs)
-          (const :tag "Use define-key not evil-define-key" nil)))
+          (const :tag "Use define-key not evil-define-key" nil)
+          ;; other packages define states
+          symbol))
 
 (defcustom general-default-states nil
   "The default evil state(s) to make mappings in.
