@@ -693,6 +693,9 @@ to bind the keys with `general--define-key-dispatch'."
 ;;;###autoload
 (cl-defun general-define-key
     (&rest maps &key
+           definer
+           (states general-default-states)
+           (keymaps general-default-keymaps)
            (prefix general-default-prefix)
            (non-normal-prefix general-default-non-normal-prefix)
            (global-prefix general-default-global-prefix)
@@ -700,10 +703,7 @@ to bind the keys with `general--define-key-dispatch'."
            prefix-command
            prefix-map
            prefix-name
-           (states general-default-states)
-           (keymaps general-default-keymaps)
            predicate
-           definer
            ;; for extended definitions only
            package
            major-modes
