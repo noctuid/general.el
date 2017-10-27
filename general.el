@@ -96,6 +96,13 @@ Non-evil users should keep this nil."
   :type '(choice general-state
                  (set general-state)))
 
+(defcustom general-non-normal-states '(insert emacs hybrid iedit-insert)
+  "List of \"non-normal\" evil states (used with :non-normal-prefix). When
+  :states is not specified (only :keymaps), these will automatically be expanded
+  to their full global evil keymap equivalents."
+  :group 'general
+  :type '(repeat general-state))
+
 (define-widget 'general-keymap 'lazy
   "General's keymap type."
   :type '(choice
@@ -222,6 +229,12 @@ If STATEP is non-nil, check `general-state-aliases' instead of
                                 (or (eq symbol key)
                                     (ignore-errors (memq symbol key))))))))
     (or match symbol)))
+
+;; don't want to reuse `general--unalias' since the user can alter
+;; `general-keymap-aliases'
+(defun general--evil-keymap-for-state (state)
+  "Return a symbol corresponding to the global evil keymap for STATE."
+  (intern (concat "evil-" (symbol-name state) "-state-map")))
 
 (defun general--concat (nokbd &rest keys)
   "Concatenate the strings in KEYS.
@@ -677,10 +690,11 @@ to bind the keys with `general--define-key-dispatch'."
                      (defkeys global-maps))))
     (if states
         (dolist (state states)
-          (def-pick-maps (memq state '(insert emacs))))
+          (def-pick-maps (memq state general-non-normal-states)))
       (let (state)
-        (def-pick-maps (memq keymap '(evil-insert-state-map
-                                      evil-emacs-state-map)))))))
+        (def-pick-maps (memq keymap
+                             (mapcar #'general--evil-keymap-for-state
+                                     general-non-normal-states)))))))
 
 ;; * Functions With Keyword Arguments
 ;;;###autoload
@@ -1431,12 +1445,6 @@ or the positional argument), the default :states will be used."
                          (general--positional-arg-p (car args))))
                 '(:states ,states)
               '(:keymaps ,keymaps))))))
-
-;; don't want to use `general--unalias' since the user can alter
-;; `general-keymap-aliases'
-(defun general--evil-keymap-for-state (state)
-  "Return a symbol corresponding to the global evil keymap for STATE."
-  (intern (concat "evil-" (symbol-name state) "-state-map")))
 
 ;;;###autoload
 (defmacro general-create-dual-vim-definer
