@@ -258,22 +258,27 @@ These are the equivalents with general:
 
 Note that keybindings made for normal state in the global map will override keybindings made for =evil-normal-state-map=. The keybinding may not change immediately if you do this in a buffer though. For a potentially practical use for the former method, see [[https://github.com/noctuid/evil-guide#preventing-certain-keys-from-being-overridden][here]].
 
-** Global Evil Keymap Shorthand
-To prevent the need to type out something like =evil-inner-text-objects-map=, general provides shorthand symbols for the various evil states and text object maps to be used with =:keymaps=. This allows similar syntax to the state argument for ~evil-global-set-key~ or ~evil-define-key~:
+** Keymap/State Aliases
+To prevent the need to type out long keymap names like =evil-inner-text-objects-map=, general allows the user to specify shorthand names for keymaps by altering =general-keymap-aliases= (and for states by altering =general-state-aliases=). These are alists of either an alias or a list of aliases to the full keymap name:
 #+begin_src emacs-lisp
-(general-define-key :keymaps 'motion
-                    "j" 'evil-next-line)
+(push '(help . help-map) general-keymap-aliases)
+;; or
+(push '((h help) . help-map) general-keymap-aliases)
+;; now
+(general-define-key :keymaps 'help ...)
+;; is the same as
+(general-define-key :keymaps 'help-map ...)
 #+end_src
-Note that this is different from using =:states 'motion= (see [[#notes-for-evil-users][Notes for Evil Users]]).
 
-Besides the state keymaps, you can also use =inner= and =outer= in place of =evil-inner-text-objects-map= and =evil-outer-text-objects-map=. All states have shorter one-letter abbreviations as well (or =in= and =out= in the case of the text object keymaps):
+By default, the global evil state and text object keymaps have aliases. This allows for using the same syntax as ~evil-global-set-key~ and ~evil-define-key~:
 #+begin_src emacs-lisp
-(general-define-key :keymaps 'v
-                    ...)
-
-(general-define-key :keymaps '(in out)
-                    ...)
+(general-define-key :keymaps 'motion ...)
+;; or
+(general-define-key :keymaps 'm ...)
 #+end_src
+Note that this is different from using =:states 'motion= (see [[#notes-for-evil-users][Notes for Evil Users]]). See =general-keymap-aliases= for all default aliases.
+
+All keymap symbols are immediately processed by ~general--unalias~. By overriding this function, it would be possible to, for example, automatically append =-map= or =-mode-map= to keymap names that don't end in =-map= or do something more complicated to create a generic shorthand without having manually specify all aliases. This is not recommended as it could potentially become confusing (and would currently break =:definer 'minor-mode=), but if anyone would find this useful, feel free to make an issue, and I'll consider adding it as an option.
 
 ** Vim-like Wrappers
 ~general-evil-setup~ is used to generate key definition functions that are named similarly to vim's. Currently, the following functions are created:

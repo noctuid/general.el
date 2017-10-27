@@ -38,10 +38,9 @@
 ;; TODO
 ;; - way to set the current global map
 ;; - way to wrap all specs with let automatically
-;; - test :major-modes
+;; - test :major-modes (and with aliases; should work now but previously didn't)
 ;; - test :definer
 ;; - test rest of which-key keywords
-;; - (implement and) test keymap aliasing
 ;; - test 'global
 ;; - test all local keywords in extended definitions
 ;; - test all def types in extended definitions
@@ -188,7 +187,23 @@ Return t if successful or a cons corresponding to the failed key and def."
     (expect (general-test-keys 'normal general-temp-map
               "a" nil)))
   (xit "should allow defining/undefining keys in multiple states and keymaps")
-  (xit "should support keymap aliasing")
+  (it "should support keymap/state aliasing"
+    (let ((evil-normal-state-map (make-sparse-keymap)))
+      (general-define-key
+       :keymaps 'normal
+       "a" #'a)
+      (general-define-key
+       :keymaps 'n
+       "b" #'b)
+      (expect (general-test-keys nil evil-normal-state-map
+                "a" #'a
+                "b" #'b)))
+    (general-define-key
+     :states 'n
+     :keymaps 'general-temp-map
+     "a" #'a)
+    (expect (general-test-keys 'normal general-temp-map
+              "a" #'a)))
   (it "should allow defining local keybindings"
     ;; Note: local is not a keymap alias (it is special and turns on
     ;; `general-override-local-mode')

@@ -126,6 +126,36 @@ This is an alist of a keymap to an alist of a state to keybindings.")
 This is an alist of a state to keybindings.")
 (make-variable-buffer-local 'general-local-keybindings)
 
+(define-widget 'general-alist 'lazy
+  "General's alist type."
+  :type '(alist :key-type (or symbol (repeat symbol))
+                :value-type symbol))
+
+(defcustom general-keymap-aliases
+  '((override . general-override-mode-map)
+    ((i insert) . evil-insert-state-map)
+    ((e emacs) . evil-emacs-state-map)
+    ((n normal) . evil-normal-state-map)
+    ((v visual) . evil-visual-state-map)
+    ((m motion) . evil-motion-state-map)
+    ((r replace) . evil-replace-state-map)
+    ((in inner) . evil-inner-text-objects-map)
+    ((out outer) . evil-outer-text-objects-map))
+  "An alist for mapping short keymap names to their full names."
+  :group 'general
+  :type 'general-alist)
+
+(defcustom general-state-aliases
+  '((i . insert)
+    (e . emacs)
+    (n . normal)
+    (v . visual)
+    (m . motion)
+    (r . replace))
+  "An alist for mapping short state names to their full names."
+  :group 'general
+  :type 'general-alist)
+
 ;; * Minor Modes
 (defvar general-override-mode-map (make-sparse-keymap)
   "A keymap that will take priority over other minor mode keymaps.
@@ -175,6 +205,21 @@ local version."
   "Whether `evil-mode' or `evil-local-mode' are in use."
   (or (bound-and-true-p evil-mode)
       (bound-and-true-p evil-local-mode)))
+
+(defun general--unalias (symbol &optional statep)
+  "Return the full keymap or state name associated with SYMBOL.
+If STATEP is non-nil, check `general-state-aliases' instead of
+`general-keymap-aliases'."
+  (let ((match
+         (cdr (cl-assoc symbol
+                        (if statep
+                            general-state-aliases
+                          general-keymap-aliases)
+                        ;; test-fn is new to assoc in 26.1
+                        :test (lambda (symbol key)
+                                (or (eq symbol key)
+                                    (ignore-errors (memq symbol key))))))))
+    (or match symbol)))
 
 (defun general--concat (nokbd &rest keys)
   "Concatenate the strings in KEYS.
@@ -284,27 +329,6 @@ This is `evil-delay'."
                      ,form)))
       (put fun 'permanent-local-hook t)
       (add-hook hook fun append local))))
-
-(defun general--evil-keymap-for-state (state)
-  "Return a symbol corresponding to the global evil keymap for STATE."
-  (cl-case state
-    (i (setq state 'insert))
-    (e (setq state 'emacs))
-    (n (setq state 'normal))
-    (v (setq state 'visual))
-    (o (setq state 'operator))
-    (m (setq state 'motion))
-    (r (setq state 'replace))
-    (in (setq state 'inner))
-    (out (setq state 'outer)))
-  (cl-case state
-    ((insert emacs normal visual operator motion replace)
-     (setq state (intern (concat "evil-" (symbol-name state) "-state-map"))))
-    ((inner outer)
-     (setq state (intern (concat "evil-"
-                                 (symbol-name state)
-                                 "-text-objects-map")))))
-  state)
 
 (defun general--getf (def fallback-plist keyword &optional verify-extended-p)
   "From DEF or FALLBACK-PLIST get the corresponding value for KEYWORD.
@@ -698,9 +722,8 @@ STATES nil and set KEYMAPS to a keymap such as `evil-normal-state-map' for
 global mappings. KEYMAPS defaults to 'global (`general-default-keymaps' and
 `general-default-states' can be changed by the user). There is also 'local,
 which create buffer-local keybindings for both evil and non-evil keybindings.
-There are other special \"shorthand\" hand symbols for evil keymaps (insert,
-emacs, normal, visual, operator, motion, replace, inner, and outer).
-'override will expand to `general-override-mode-map'.
+There are other special, user-alterable \"shorthand\" symbols for keymaps and
+states (see `general-keymap-aliases' and `general-state-aliases').
 
 Unlike with normal key definitions functions, the keymaps in KEYMAPS should be
 quoted (this allows using the keymap name for other purposes, e.g. deferment,
@@ -761,8 +784,11 @@ definition keywords that are used for the corresponding custom DEFINER"
     ;; luckily nil is a list
     (unless (listp states)
       (setq states (list states)))
+    (setq states (mapcar (lambda (state) (general--unalias state t))
+                         states))
     (unless (listp keymaps)
       (setq keymaps (list keymaps)))
+    (setq keymaps (mapcar #'general--unalias keymaps))
     ;; remove keyword arguments from rest var
     (let ((split-maps (general--remove-keyword-args maps)))
       (setq maps (car split-maps)
@@ -803,12 +829,6 @@ definition keywords that are used for the corresponding custom DEFINER"
                           (list "" prefix-command))
                         maps)))
     (dolist (keymap keymaps)
-      (when (memq keymap '(i e n v o m r in out
-                             insert emacs normal visual operator motion replace
-                             inner outer))
-        (setq keymap (general--evil-keymap-for-state keymap)))
-      (when (eq keymap 'override)
-        (setq keymap 'general-override-mode-map))
       (general--delay `(or (memq ',keymap '(local global))
                            (eq ',definer 'minor-mode)
                            (and (boundp ',keymap)
@@ -1417,6 +1437,12 @@ or the positional argument), the default :states will be used."
                          (general--positional-arg-p (car args))))
                 '(:states ,states)
               '(:keymaps ,keymaps))))))
+
+;; don't want to use `general--unalias' since the user can alter
+;; `general-keymap-aliases'
+(defun general--evil-keymap-for-state (state)
+  "Return a symbol corresponding to the global evil keymap for STATE."
+  (intern (concat "evil-" (symbol-name state) "-state-map")))
 
 ;;;###autoload
 (defmacro general-create-dual-vim-definer
