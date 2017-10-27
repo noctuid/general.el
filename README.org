@@ -627,7 +627,7 @@ To use ~worf-define-key~ to make the definitions, =:definer 'worf= can be specif
 To use ~lpy-define-key~ to make the definitions, =:definer 'lpy= can be specified.
 
 ** Non-keybinding-related Configuration Helpers
-General.el also provides a few helper functions for other configuration purposes. They are intended to be slightly more convenient versions of functions provided by default. ~general-add-hook~, ~general-remove-hook~, ~general-advice-add~, and ~general-advice-remove~ all act as drop-in replacements for their corresponding functions but allow lists for some of the arguments. Because I don't like the difference in naming for the default advice functions, ~general-add-hook~ and ~general-remove-hook~ are also provided.
+General.el also provides a few helper functions for other configuration purposes. They are intended to be slightly more convenient versions of functions provided by default. ~general-add-hook~, ~general-remove-hook~, ~general-advice-add~, and ~general-advice-remove~ all act as drop-in replacements for their corresponding functions but allow lists for some of the arguments. Because I don't like the difference in naming for the default advice functions, ~general-add-advice~ and ~general-remove-advice~ are also provided.
 
 For example:
 #+begin_src emacs-lisp
