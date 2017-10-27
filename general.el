@@ -4,7 +4,7 @@
 ;; URL: https://github.com/noctuid/general.el
 ;; Created: February 17, 2016
 ;; Keywords: vim, evil, leader, keybindings, keys
-;; Package-Requires: ((emacs "24.3") (cl-lib "0.5"))
+;; Package-Requires: ((emacs "24.4") (cl-lib "0.5"))
 ;; Version: 0.1
 
 ;; This file is not part of GNU Emacs.
@@ -278,9 +278,8 @@ keybindings, STATE will be nil. Duplicate keys will be replaced with the new
 ones. MINOR-MODE-P should be non-nil when keymap corresponds to a minor-mode
 name (as used with `evil-define-minor-mode-key') as opposed to a keymap name."
   (if (and state (not (featurep 'evil)))
-      (eval-after-load 'evil
-        (lambda ()
-          (general--record-keybindings keymap state maps minor-mode-p)))
+      (with-eval-after-load 'evil
+        (general--record-keybindings keymap state maps minor-mode-p))
     (let* (keys
            (maps (cl-loop
                   for (key def _orig-def) on maps by 'cl-cdddr
@@ -427,50 +426,49 @@ arguments. The order of arguments will be preserved."
 If :major-modes is specified in DEF, add the description for the corresponding
 major mode. KEY should not be in the kbd format (kbd should have already been
 run on it)."
-  (eval-after-load 'which-key
-    (lambda ()
-      (let* ((wk (general--getf2 def :which-key :wk))
-             (major-modes (general--getf def kargs :major-modes))
-             (keymaps (cl-getf kargs :keymaps))
-             ;; index of keymap in :keymaps
-             (keymap-index (cl-dotimes (ind (length keymaps))
-                             (when (eq (nth ind keymaps) keymap)
-                               (cl-return-from nil ind))))
-             (mode (let ((mode (if (and major-modes (listp major-modes))
-                                   (nth keymap-index major-modes)
-                                 major-modes)))
-                     (if (eq mode t)
-                         (general--remove-map keymap)
-                       mode)))
-             (keys (key-description keys))
-             (keys-regexp (concat (when (general--getf def kargs :wk-full-keys)
-                                    "\\`")
-                                  keys
-                                  "\\'"))
-             (prefix (cl-getf kargs :prefix))
-             (binding (or (general--getf2 def :def :prefix-command)
-                          (when (and prefix
-                                     (string= keys prefix))
-                            (cl-getf kargs :prefix-command))))
-             (replacement (cond ((stringp wk)
-                                 (cons nil wk))
-                                (t
-                                 wk)))
-             (match/replacement
-              (cons
-               (cons (when (general--getf def kargs :wk-match-keys)
-                       keys-regexp)
-                     (when (and (general--getf def kargs :wk-match-binding)
-                                binding
-                                (symbolp binding))
-                       (symbol-name binding)))
-               replacement)))
-        (general--add-which-key-replacement mode match/replacement)
-        (when (and (consp replacement)
-                   ;; lambda
-                   (not (functionp replacement)))
-          (general--add-which-key-title-prefix
-           mode keys (cdr replacement)))))))
+  (with-eval-after-load 'which-key
+    (let* ((wk (general--getf2 def :which-key :wk))
+           (major-modes (general--getf def kargs :major-modes))
+           (keymaps (cl-getf kargs :keymaps))
+           ;; index of keymap in :keymaps
+           (keymap-index (cl-dotimes (ind (length keymaps))
+                           (when (eq (nth ind keymaps) keymap)
+                             (cl-return-from nil ind))))
+           (mode (let ((mode (if (and major-modes (listp major-modes))
+                                 (nth keymap-index major-modes)
+                               major-modes)))
+                   (if (eq mode t)
+                       (general--remove-map keymap)
+                     mode)))
+           (keys (key-description keys))
+           (keys-regexp (concat (when (general--getf def kargs :wk-full-keys)
+                                  "\\`")
+                                keys
+                                "\\'"))
+           (prefix (cl-getf kargs :prefix))
+           (binding (or (general--getf2 def :def :prefix-command)
+                        (when (and prefix
+                                   (string= keys prefix))
+                          (cl-getf kargs :prefix-command))))
+           (replacement (cond ((stringp wk)
+                               (cons nil wk))
+                              (t
+                               wk)))
+           (match/replacement
+            (cons
+             (cons (when (general--getf def kargs :wk-match-keys)
+                     keys-regexp)
+                   (when (and (general--getf def kargs :wk-match-binding)
+                              binding
+                              (symbolp binding))
+                     (symbol-name binding)))
+             replacement)))
+      (general--add-which-key-replacement mode match/replacement)
+      (when (and (consp replacement)
+                 ;; lambda
+                 (not (functionp replacement)))
+        (general--add-which-key-title-prefix
+         mode keys (cdr replacement))))))
 
 (defalias 'general-extended-def-:wk #'general-extended-def-:which-key)
 
@@ -591,44 +589,39 @@ number of paired keys and commands"
 In STATE and KEYMAP, bind KEY to DEF. `evil-local-set-key' is used when
 KEYMAP is 'local."
   (declare (indent defun))
-  (eval-after-load 'evil
-    (lambda ()
-      (if (eq keymap 'local)
-          (evil-local-set-key state key def)
-        (evil-define-key* state keymap key def)))))
+  (with-eval-after-load 'evil
+    (if (eq keymap 'local)
+        (evil-local-set-key state key def)
+      (evil-define-key* state keymap key def))))
 
 (defun general-minor-mode-define-key (state mode key def _orig-def _kargs)
   "A wrapper for `evil-define-minor-mode-key'."
-  (eval-after-load 'evil
-    (lambda ()
-      (evil-define-minor-mode-key state mode key def))))
+  (with-eval-after-load 'evil
+    (evil-define-minor-mode-key state mode key def)))
 
 (defun general-lispy-define-key (_state keymap key def orig-def kargs)
   "A wrapper for `lispy-define-key'."
-  (eval-after-load 'lispy
-    (lambda ()
-      (let* ((keymap (general--parse-keymap nil keymap))
-             (key (key-description key))
-             (plist (general--getf orig-def kargs :lispy-plist t)))
-        (lispy-define-key keymap key def plist)))))
+  (with-eval-after-load 'lispy
+    (let* ((keymap (general--parse-keymap nil keymap))
+           (key (key-description key))
+           (plist (general--getf orig-def kargs :lispy-plist t)))
+      (lispy-define-key keymap key def plist))))
 
 (defun general-worf-define-key (_state keymap key def orig-def kargs)
   "A wrapper for `worf-define-key'."
-  (eval-after-load 'worf
-    (lambda ()
-      (let* ((keymap (general--parse-keymap nil keymap))
-             (key (key-description key))
-             (plist (general--getf orig-def kargs :worf-plist t)))
-        (worf-define-key keymap key def plist)))))
+  (with-eval-after-load 'worf
+    (let* ((keymap (general--parse-keymap nil keymap))
+           (key (key-description key))
+           (plist (general--getf orig-def kargs :worf-plist t)))
+      (worf-define-key keymap key def plist))))
 
 
 (defun general-lpy-define-key (_state keymap key def _orig-def _kargs)
   "A wrapper for `lpy-define-key'."
-  (eval-after-load 'lpy
-    (lambda ()
-      (let* ((keymap (general--parse-keymap nil keymap))
-             (key (key-description key)))
-        (lpy-define-key keymap key def)))))
+  (with-eval-after-load 'lpy
+    (let* ((keymap (general--parse-keymap nil keymap))
+           (key (key-description key)))
+      (lpy-define-key keymap key def))))
 
 (defun general--define-key-dispatch (state keymap maps kargs)
   "In STATE (if non-nil) and KEYMAP, bind MAPS.
@@ -1258,12 +1251,11 @@ version of which-key from after 2016-11-21."
        (eval-after-load 'evil
          '(evil-set-command-property #',name :repeat 'general--dispatch-repeat))
        (when ,which-key
-         (eval-after-load 'which-key
-           (lambda ()
-             (when (boundp 'which-key-replacement-alist)
-               (push '((nil . ,(symbol-name name))
-                       nil . ,which-key)
-                     which-key-replacement-alist)))))
+         (with-eval-after-load 'which-key
+           (when (boundp 'which-key-replacement-alist)
+             (push '((nil . ,(symbol-name name))
+                     nil . ,which-key)
+                   which-key-replacement-alist))))
        ;; TODO list all of the bound keys in the docstring
        (defun ,name ()
          ,(or docstring (format (concat "Run %s or something else based"
@@ -1503,66 +1495,65 @@ aliases such as `nmap' for `general-nmap'."
        (defalias 'tomap #'general-tomap))))
 
 ;; * Use-package Integration
-(eval-after-load 'use-package
-  (lambda ()
-    (setq use-package-keywords
-          ;; should go in the same location as :bind
-          ;; adding to end may not cause problems, but see issue #22
-          (cl-loop for item in use-package-keywords
-                   if (eq item :bind-keymap*)
-                   collect :bind-keymap* and collect :general
-                   else
-                   ;; don't add duplicates
-                   unless (eq item :general)
-                   collect item))
-    (defun use-package-normalize/:general (_name _keyword args)
-      "Return ARGS."
-      args)
-    (defun general--extract-symbol (def)
-      "Extract autoloadable symbol from DEF, a normal or extended definition."
-      (when def
-        (if (general--extended-def-p def)
-            (let ((first (car def))
-                  (inner-def (cl-getf def :def)))
-              (cond ((symbolp inner-def)
-                     inner-def)
-                    ((and (symbolp first)
-                          (not (keywordp first)))
-                     first)))
-          (when (symbolp def)
-            def))))
-    (defun use-package-handler/:general (name _keyword arglists rest state)
-      "Use-package handler for :general."
-      (let* ((sanitized-arglist
-              ;; combine arglists into one without function names or
-              ;; positional arguments
-              (let (result)
-                (dolist (arglist arglists result)
-                  (while (general--positional-arg-p (car arglist))
-                    (setq arglist (cdr arglist)))
-                  (setq result (append result arglist)))))
-             (commands
-              (cl-loop for (key def) on sanitized-arglist by 'cddr
-                       when (and (not (keywordp key))
-                                 (not (null def))
-                                 (ignore-errors
-                                   (setq def (eval def))
-                                   (setq def (general--extract-symbol def))))
-                       collect def)))
-        (use-package-concat
-         (use-package-process-keywords name
-           (use-package-sort-keywords
-            (use-package-plist-maybe-put rest :defer t))
-           (use-package-plist-append state :commands commands))
-         `((ignore ,@(mapcar (lambda (arglist)
-                               ;; Note: prefix commands are not valid functions
-                               (if (or (functionp (car arglist))
-                                       (macrop (car arglist)))
-                                   `(,@arglist :package ',name)
-                                 `(general-def
-                                    ,@arglist
-                                    :package ',name)))
-                             arglists))))))))
+(with-eval-after-load 'use-package
+  (setq use-package-keywords
+        ;; should go in the same location as :bind
+        ;; adding to end may not cause problems, but see issue #22
+        (cl-loop for item in use-package-keywords
+                 if (eq item :bind-keymap*)
+                 collect :bind-keymap* and collect :general
+                 else
+                 ;; don't add duplicates
+                 unless (eq item :general)
+                 collect item))
+  (defun use-package-normalize/:general (_name _keyword args)
+    "Return ARGS."
+    args)
+  (defun general--extract-symbol (def)
+    "Extract autoloadable symbol from DEF, a normal or extended definition."
+    (when def
+      (if (general--extended-def-p def)
+          (let ((first (car def))
+                (inner-def (cl-getf def :def)))
+            (cond ((symbolp inner-def)
+                   inner-def)
+                  ((and (symbolp first)
+                        (not (keywordp first)))
+                   first)))
+        (when (symbolp def)
+          def))))
+  (defun use-package-handler/:general (name _keyword arglists rest state)
+    "Use-package handler for :general."
+    (let* ((sanitized-arglist
+            ;; combine arglists into one without function names or
+            ;; positional arguments
+            (let (result)
+              (dolist (arglist arglists result)
+                (while (general--positional-arg-p (car arglist))
+                  (setq arglist (cdr arglist)))
+                (setq result (append result arglist)))))
+           (commands
+            (cl-loop for (key def) on sanitized-arglist by 'cddr
+                     when (and (not (keywordp key))
+                               (not (null def))
+                               (ignore-errors
+                                 (setq def (eval def))
+                                 (setq def (general--extract-symbol def))))
+                     collect def)))
+      (use-package-concat
+       (use-package-process-keywords name
+         (use-package-sort-keywords
+          (use-package-plist-maybe-put rest :defer t))
+         (use-package-plist-append state :commands commands))
+       `((ignore ,@(mapcar (lambda (arglist)
+                             ;; Note: prefix commands are not valid functions
+                             (if (or (functionp (car arglist))
+                                     (macrop (car arglist)))
+                                 `(,@arglist :package ',name)
+                               `(general-def
+                                  ,@arglist
+                                  :package ',name)))
+                           arglists)))))))
 
 ;; * Key-chord "Integration"
 (defun general-chord (keys)
