@@ -264,12 +264,7 @@ local version."
 
 (cl-pushnew 'general-maps-alist emulation-mode-map-alists)
 
-;; * Helpers
-(defun general--evil-p ()
-  "Whether `evil-mode' or `evil-local-mode' are in use."
-  (or (bound-and-true-p evil-mode)
-      (bound-and-true-p evil-local-mode)))
-
+;; * General Helpers
 (defun general--unalias (symbol &optional statep)
   "Return the full keymap or state name associated with SYMBOL.
 If STATEP is non-nil, check `general-state-aliases' instead of
@@ -412,14 +407,12 @@ This is `evil-delay'."
       (put fun 'permanent-local-hook t)
       (add-hook hook fun append local))))
 
-(defun general--getf (def fallback-plist keyword &optional verify-extended-p)
+(defun general--getf (def fallback-plist keyword)
   "From DEF or FALLBACK-PLIST get the corresponding value for KEYWORD.
 FALLBACK-PLIST will be checked when KEYWORD does not exist in DEF (not in cases
-where it is explicitly specified as nil). If VERIFY-EXTENDED-P is non-nil, check
-that DEF is a general extended definition, and if it isn't, only check in
-FALLBACK-PLIST. Otherwise assume that DEF is a valid plist."
-  (if (or (not verify-extended-p)
-          (general--extended-def-p def))
+where it is explicitly specified as nil). If DEF isn't a general extended
+definition, only check in FALLBACK-PLIST."
+  (if (general--extended-def-p def)
       (cl-getf def keyword
                (cl-getf fallback-plist keyword))
     (cl-getf fallback-plist keyword)))
@@ -577,9 +570,10 @@ with :package). If the keymap already exists, it will simply be returned."
                           ',bind-to-keymap ',package)))
          (let ((keys (this-command-keys))
                (general-implicit-kbd nil))
-           (general-define-key :states ',state
-                               :keymaps ',keymap
-             keys ,bind-to-keymap)
+           (general-define-key
+            :states ',state
+            :keymaps ',keymap
+            keys ,bind-to-keymap)
            (setq prefix-arg current-prefix-arg
                  unread-command-events
                  (mapcar (lambda (ev) (cons t ev))
@@ -685,7 +679,7 @@ KEYMAP is 'local."
   (with-eval-after-load 'lispy
     (let* ((keymap (general--parse-keymap nil keymap))
            (key (key-description key))
-           (plist (general--getf orig-def kargs :lispy-plist t)))
+           (plist (general--getf orig-def kargs :lispy-plist)))
       (lispy-define-key keymap key def plist))))
 
 (defun general-worf-define-key (_state keymap key def orig-def kargs)
@@ -693,7 +687,7 @@ KEYMAP is 'local."
   (with-eval-after-load 'worf
     (let* ((keymap (general--parse-keymap nil keymap))
            (key (key-description key))
-           (plist (general--getf orig-def kargs :worf-plist t)))
+           (plist (general--getf orig-def kargs :worf-plist)))
       (worf-define-key keymap key def plist))))
 
 
@@ -713,7 +707,7 @@ is present in original-def or KARGS or whether STATE is non-nil."
     (let* ((key (pop maps))
            (def (pop maps))
            (orig-def (pop maps))
-           (definer (general--getf orig-def kargs :definer t)))
+           (definer (general--getf orig-def kargs :definer)))
       (if definer
           (funcall (intern (format "general-%s-define-key"
                                    (symbol-name definer)))
@@ -1136,6 +1130,18 @@ Any local keybindings will be shown first followed by global keybindings."
 (defvar general--last-simulated-command nil
   "Holds the last simulated command (or nil for incomplete key sequence).")
 
+(defvar general--simulate-next-as-is nil
+  "Whether to fake keys unconditionally in the next `general--simulate-keys'.
+This is used for testing (but could potentially be useful for a user). Since
+`general--simulate-keys' will normally assume it is being run inside a macro
+that was manually recorded, this is needed when executing a keyboard macro that
+ends up running general--simulate-keys for the first time.")
+
+(defun general--evil-p ()
+  "Whether `evil-mode' or `evil-local-mode' are in use."
+  (or (bound-and-true-p evil-mode)
+      (bound-and-true-p evil-local-mode)))
+
 (defun general--key-lookup (state keymap &optional keys)
   "In the keymap for STATE and KEYMAP, look up KEYS.
 Return the keymap that corresponds to STATE and KEYMAP. When KEYS is also
@@ -1214,17 +1220,21 @@ should be recorded."
     (when keys
       ;; only set prefix-arg when keys (otherwise will also affect next command)
       (setq prefix-arg current-prefix-arg)
-      (unless executing-kbd-macro
+      (when (or general--simulate-next-as-is
+                (not executing-kbd-macro))
+        (setq general--simulate-next-as-is nil)
         ;; keys are incorrectly saved as this-command-keys when recording macros
         ;; these keys will be played back, so don't simulate them
         (setq unread-command-events
-              ;; force keys to be added to this-command-keys
-              ;; this happens normally already for macros but it needs to be
-              ;; forced for evil-repeat though, which will only include the
-              ;; first key otherwise (ideally no keys would ever be added in
-              ;; either case)
-              (mapcar (lambda (ev) (cons t ev))
-                      (listify-key-sequence keys)))))
+              (nconc
+               ;; force keys to be added to this-command-keys
+               ;; this happens normally already for macros but it needs to be
+               ;; forced for evil-repeat though, which will only include the
+               ;; first key otherwise (ideally no keys would ever be added in
+               ;; either case)
+               (mapcar (lambda (ev) (cons t ev))
+                       (listify-key-sequence keys))
+               unread-command-events))))
     (when command
       (let ((this-command command))
         (call-interactively command)))
@@ -1423,8 +1433,7 @@ version of which-key from after 2016-11-21."
              (let ((this-command matched-command))
                (call-interactively matched-command)))
             (t
-             (setq fallback t
-                   matched-command ,fallback-command)
+             (setq matched-command ,fallback-command)
              (general--simulate-keys ,fallback-command char)))
            (setq general--last-dispatch-command matched-command))))))
 
@@ -1471,6 +1480,7 @@ can be specified as a description for the menu item."
                        (t ,fallback-def))))))
 
 ;; * Functions/Macros to Aid Other Configuration
+;; ** Hooks
 (defun general-add-hook (hooks functions &optional append local)
   "A drop-in replacement for `add-hook'.
 HOOKS and FUNCTIONS can be single items or lists."
@@ -1493,6 +1503,7 @@ HOOKS and FUNCTIONS can be single items or lists."
     (dolist (func functions)
       (remove-hook hook func local))))
 
+;; ** Advice
 (defun general-add-advice (symbols where functions &optional props)
   "A drop-in replacement for `advice-add'.
 SYMBOLS and FUNCTIONS can be single items or lists."
