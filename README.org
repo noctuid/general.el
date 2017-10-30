@@ -176,16 +176,14 @@ The order in which keybindings are displayed is customizable. All keymaps listed
 
 For reference, keybindings are stored in an alist. Here is what is passed to each sorting function:
 #+begin_src emacs-lisp
-;; `general-keybindings' - an alist of keymaps to state alist
+;; `general-keybindings' - an alist of keymap to state alist
+;; passed to `general-describe-keymap-sort-function'
 ((keymap-name . state-alist) ...)
-;; `general-describe-keymap-sort-function' is passed a single keymap cons
-(keymap-name . state-alist)
 ;; a state alist (state name is nil if there is no state)
+;; passed to `general-describe-state-sort-function'
 ((state-name . keybindings) ...)
-;; `general-describe-state-sort-function' is passed a single state cons
-(state-name . keybindings)
-;; `general-describe-keybinding-sort-function' is passed a single mapping
-("key after kbd applied" 'def 'previous-def)
+;; the list of keybindings is passed to `general-describe-keybinding-sort-function'
+(("key after kbd applied" 'def 'previous-def) ...)
 #+end_src
 
 To actually change how the keybinding table is printed, the user could override  ~general--print-map~.
