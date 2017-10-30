@@ -907,9 +907,7 @@ definition keywords that are used for the corresponding custom DEFINER"
                         maps)))
     (dolist (keymap keymaps)
       (general--delay `(or (memq ',keymap '(local global))
-                           (eq ',definer 'minor-mode)
-                           (and (boundp ',keymap)
-                                (keymapp ,keymap)))
+                           (boundp ',keymap))
           `(general--define-key ',states
                                 ',keymap
                                 ',maps
