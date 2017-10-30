@@ -78,13 +78,13 @@ just use `general-default-prefix'/:prefix by itself."
 (define-widget 'general-state 'lazy
   "General's evil state type."
   :type '(choice
-          (const :tag "Normal state" normal)
           (const :tag "Insert state" insert)
-          (const :tag "Visual state" visual)
-          (const :tag "Replace state" replace)
-          (const :tag "Operator state" operator)
-          (const :tag "Motion state" motion)
           (const :tag "Emacs state" emacs)
+          (const :tag "Normal state" normal)
+          (const :tag "Visual state" visual)
+          (const :tag "Motion state" motion)
+          (const :tag "Operator state" operator)
+          (const :tag "Replace state" replace)
           (const :tag "Use define-key not evil-define-key" nil)
           ;; other packages define states
           symbol))
@@ -144,9 +144,11 @@ This is an alist of a state to keybindings.")
   '((override . general-override-mode-map)
     ((i insert) . evil-insert-state-map)
     ((e emacs) . evil-emacs-state-map)
+    ((h hybrid . evil-hybrid-state-map))
     ((n normal) . evil-normal-state-map)
     ((v visual) . evil-visual-state-map)
     ((m motion) . evil-motion-state-map)
+    ((o operator) . evil-operator-state-map)
     ((r replace) . evil-replace-state-map)
     ((in inner) . evil-inner-text-objects-map)
     ((out outer) . evil-outer-text-objects-map))
@@ -157,13 +159,66 @@ This is an alist of a state to keybindings.")
 (defcustom general-state-aliases
   '((i . insert)
     (e . emacs)
+    (h . hybrid)
     (n . normal)
     (v . visual)
     (m . motion)
+    (o . operator)
     (r . replace))
   "An alist for mapping short state names to their full names."
   :group 'general
   :type 'general-alist)
+
+;; ** `general-describe-keybindings' Settings
+(defcustom general-describe-keybinding-sort-function nil
+  "Function used to sort keybindings for `general-describe-keybindings'."
+  :group 'general
+  :type 'function)
+
+(defcustom general-describe-state-sort-function
+  #'general--sort-evil-state-conses
+  "Function used to sort the states conses for `general-describe-keybindings'."
+  :group 'general
+  :type 'function)
+
+(defcustom general-describe-keymap-sort-function nil
+  "Function used to sort the keymap conses`general-keybindings' for
+`general-describe-keybindings'."
+  :group 'general
+  :type 'function)
+
+(defcustom general-describe-priority-keymaps
+  '(local
+    global
+    evil-insert-state-map
+    evil-emacs-state-map
+    evil-hybrid-state-map
+    evil-normal-state-map
+    evil-visual-state-map
+    evil-motion-state-map
+    evil-operator-state-map
+    evil-replace-state-map
+    evil-inner-text-objects-map
+    evil-outer-text-objects-map
+    evil-ex-search-keymap
+    evil-ex-completion-map
+    evil-command-window-mode-map
+    evil-window-map)
+  "Keymaps to print first for `general-describe-keybindings'."
+  :group 'general
+  :type '(repeat sybmol))
+
+(defcustom general-describe-update-previous-definition 'on-change
+  "Whether to update the previous definition when a key is bound.
+When set to 'on-change, the previous definition will only be updated when the
+definition changes (e.g. re-evaluating a file with keybindings will not affect
+the stored previous definition). When set to nil, it will only be updated when
+the key was previously unbound."
+  :group 'general
+  ;; can't think of a use case, but add 'always if requested
+  :type '(choice
+          (const :tag "When definition has changed" on-change)
+          (const :tag "When the key was previously unbound" nil)))
 
 ;; * Minor Modes
 (defvar general-override-mode-map (make-sparse-keymap)
@@ -295,11 +350,24 @@ name (as used with `evil-define-minor-mode-key') as opposed to a keymap name."
         (general--record-keybindings keymap state maps minor-mode-p))
     (let* (keys
            (maps (cl-loop
-                  for (key def _orig-def) on maps by 'cl-cdddr
+                  for (key new-def _orig-def) on maps by 'cl-cdddr
                   collect
                   (list key
-                        def
-                        (general--lookup-key state keymap key minor-mode-p))
+                        new-def
+                        (let* ((current-def (general--lookup-key
+                                             state keymap key minor-mode-p))
+                               ;; none of these will fail if nil
+                               (keymap-cons (assq keymap general-keybindings))
+                               (state-cons (assq state (cdr keymap-cons)))
+                               (mapping (cl-find key (cdr state-cons)
+                                                 :test #'equal :key #'car))
+                               (previous-def (cl-caddr mapping)))
+                          (if (or
+                               (and current-def (not previous-def))
+                               (and general-describe-update-previous-definition
+                                    (not (equal new-def current-def))))
+                              current-def
+                            previous-def)))
                   do (push key keys))))
       (cond ((eq keymap 'local)
              (unless (assq state general-local-keybindings)
@@ -925,15 +993,85 @@ correspond to keybindings."
        `(general-evil-define-key ,@args)))))
 
 ;; * Displaying Keybindings
-(defun general--print-keybind-table (maps)
+(defun general--to-string (x)
+  "Convert key vector or symbol X to a string."
+  (cond ((vectorp x)
+         (key-description x))
+        ((symbolp x)
+         (symbol-name x))
+        (t
+         x)))
+
+;; these sorting functions assume x != y (which will hold true for
+;; `general-keybindings')
+(defun general--< (x y)
+  "Return t if X is alphabetically less than Y.
+Each should be either a string, symbol, or vector. Nil is a special case and is
+considered the \"smallest\"."
+  (cond ((null x)
+         t)
+        ((null y)
+         nil)
+        (t
+         (setq x (general--to-string x)
+               y (general--to-string y))
+         (string< x y))))
+
+(defun general-sort-by-car (list)
+  "Sort LIST by comparing the car of each element with `general--<'."
+  (cl-sort list #'general--< :key #'car))
+
+(defun general-sort-by-cadr (list)
+  "Sort LIST by comparing the cadr of each element with `general--<'."
+  (cl-sort list #'general--< :key #'cadr))
+
+(defvar general-describe-evil-states
+  '(nil
+    insert
+    emacs
+    hybrid
+    normal
+    visual
+    motion
+    operator
+    replace)
+  "Ordered list of evil states used for `general--evil-state-<'.")
+
+(defun general--evil-state-< (x y)
+  "Return t if evil state X should come before state Y.
+If X and Y are conses, the first element will be compared. Ordering is based on
+`general-describe-evil-states' or the symbol names for states not in the list."
+  (let ((xind (cl-position x general-describe-evil-states))
+        (yind (cl-position y general-describe-evil-states)))
+    (cond ((and (null xind)
+                (null yind))
+           (general--symbol-< x y))
+          ((null xind)
+           nil)
+          ((null yind)
+           t)
+          (t
+           (< xind yind)))))
+
+(defun general--sort-evil-state-conses (state-conses)
+  "Sort STATE-CONSES using `general--evil-state-<'."
+  (cl-sort state-conses #'general--evil-state-< :key #'car))
+
+(defun general--print-map (map)
+  "Print the keybinding MAP."
+  (cl-destructuring-bind (key command previous) map
+    (princ (format "|=%.50s=|~%.50s~|~%.50s~|\n"
+                   (key-description key)
+                   command
+                   previous))))
+
+(defun general--print-maps-table (maps)
   "Print an org table for MAPS."
+  (when general-describe-keybinding-sort-function
+    (setq maps (funcall general-describe-keybinding-sort-function maps)))
   (princ "|key|command|previous|\n|-+-|\n")
   (dolist (map maps)
-    (cl-destructuring-bind (key command previous) map
-      (princ (format "|=%s=|~%s~|~%s~|\n"
-                     (key-description key)
-                     command
-                     previous))))
+    (general--print-map map))
   (princ "\n"))
 
 (defun general--print-state-heading (state-cons)
@@ -942,20 +1080,18 @@ correspond to keybindings."
         (maps (cdr state-cons)))
     (unless (null state)
       (princ (capitalize (concat "** " (symbol-name state) " State\n"))))
-    (general--print-keybind-table maps)))
+    (general--print-maps-table maps)))
 
 (defun general--print-keymap-heading (keymap-cons)
   "Print headings and tables for KEYMAP-CONS."
   (let ((keymap (car keymap-cons))
         (state-conses (cdr keymap-cons)))
     (princ (capitalize (concat "* " (symbol-name keymap) " Keybindings\n")))
-    (let ((no-evil-state-cons (assq nil state-conses)))
-      ;; non-evil keybindings go first
-      (when no-evil-state-cons
-        (general--print-state-heading no-evil-state-cons)
-        (setq state-conses (assq-delete-all nil state-conses)))
-      (dolist (state-cons state-conses)
-        (general--print-state-heading state-cons)))))
+    (when general-describe-state-sort-function
+      (setq state-conses (funcall general-describe-state-sort-function
+                                  state-conses)))
+    (dolist (state-cons state-conses)
+      (general--print-state-heading state-cons))))
 
 ;;;###autoload
 (defun general-describe-keybindings ()
@@ -963,36 +1099,19 @@ correspond to keybindings."
 Any local keybindings will be shown first followed by global keybindings."
   (interactive)
   (with-output-to-temp-buffer "*General Keybindings*"
-    (let* ((keybindings (copy-alist general-keybindings))
-           (global-keybinds (assq 'global keybindings))
-           (global-evil-keymaps
-            '(evil-insert-state-map
-              evil-emacs-state-map
-              evil-normal-state-map
-              evil-visual-state-map
-              evil-motion-state-map
-              evil-operators-state-map
-              evil-outer-text-objects-map
-              evil-inner-text-objects-map
-              evil-replace-state-map
-              evil-ex-search-keymap
-              evil-ex-completion-map
-              evil-command-window-mode-map
-              evil-window-map))
-           (global-evil-keybinds
-            (cl-loop for keymap-cons in keybindings
-                     when (memq (car keymap-cons) global-evil-keymaps)
-                     append (list keymap-cons)))
-           (local-keybindings (copy-alist general-local-keybindings)))
-      (when local-keybindings
-        (general--print-keymap-heading (cons 'local local-keybindings)))
-      (when global-keybinds
-        (general--print-keymap-heading global-keybinds)
-        (setq keybindings (assq-delete-all 'global keybindings)))
-      (when global-evil-keybinds
-        (dolist (keymap-cons global-evil-keybinds)
-          (general--print-keymap-heading keymap-cons)
-          (setq keybindings (assq-delete-all (car keymap-cons) keybindings))))
+    (let* ((keybindings (append
+                         (copy-alist general-keybindings)
+                         (list (cons 'local general-local-keybindings)))))
+      ;; print prioritized keymaps first (if any)
+      (dolist (keymap general-describe-priority-keymaps)
+        (let ((keymap-cons (assq keymap keybindings)))
+          (when keymap-cons
+            (general--print-keymap-heading keymap-cons)
+            (setq keybindings (assq-delete-all keymap keybindings)))))
+      ;; sort the remaining and then print them
+      (when general-describe-keymap-sort-function
+        (setq keybindings (funcall general-describe-keymap-sort-function
+                                   keybindings)))
       (dolist (keymap-cons keybindings)
         (general--print-keymap-heading keymap-cons))))
   (with-current-buffer "*General Keybindings*"
@@ -1473,12 +1592,12 @@ aliases such as `nmap' for `general-nmap'."
      (general-create-dual-vim-definer general-emap 'emacs ,default-to-states)
      (general-create-dual-vim-definer general-nmap 'normal ,default-to-states)
      (general-create-dual-vim-definer general-vmap 'visual ,default-to-states)
-     (general-create-dual-vim-definer general-omap 'operator ,default-to-states)
      (general-create-dual-vim-definer general-mmap 'motion ,default-to-states)
+     (general-create-dual-vim-definer general-omap 'operator ,default-to-states)
      (general-create-dual-vim-definer general-rmap 'replace ,default-to-states)
      ;; these two don't have corresponding states
-     (general-create-vim-definer general-otomap 'evil-outer-text-objects-map)
      (general-create-vim-definer general-itomap 'evil-inner-text-objects-map)
+     (general-create-vim-definer general-otomap 'evil-outer-text-objects-map)
      (general-create-dual-vim-definer general-iemap
                                       '(insert emacs)
                                       ,default-to-states)
@@ -1493,11 +1612,11 @@ aliases such as `nmap' for `general-nmap'."
        (defalias 'emap #'general-emap)
        (defalias 'nmap #'general-nmap)
        (defalias 'vmap #'general-vmap)
-       (defalias 'omap #'general-omap)
        (defalias 'mmap #'general-mmap)
+       (defalias 'omap #'general-omap)
        (defalias 'rmap #'general-rmap)
-       (defalias 'otomap #'general-otomap)
        (defalias 'itomap #'general-itomap)
+       (defalias 'otomap #'general-otomap)
        (defalias 'iemap #'general-iemap)
        (defalias 'nvmap #'general-nvmap)
        (defalias 'tomap #'general-tomap))))

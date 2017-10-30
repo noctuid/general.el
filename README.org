@@ -154,16 +154,41 @@ The =:infix= keyword can be used to sandwich keys in between all of the specifie
 There is also a =:predicate= keyword for giving a condition under which a map should be active.
 
 ** Displaying Keybindings
-General keeps track of all your keybindings and allows presenting them as tables in an org buffer using ~general-describe-keybindings~. They will be displayed in this order:
+General keeps track of all your keybindings and allows presenting them as tables in an org buffer using ~general-describe-keybindings~. By default, they will be displayed in this order:
 
 - Buffer local keybindings (i.e. =:keymaps 'local=)
 - Global keybindings (i.e. =:keymaps 'global=)
 - Global evil keybindings (e.g. =:keymaps 'evil-normal-state-map=)
 - Other keybindings
 
-Within these categories keymaps, states, and keybindings will be presented in the order they were created in.
+Within these categories keymaps, states, and keybindings will be presented in the order they were created in. For each keybinding created, this command will display the key, the definition, and the previous definition. The previous definition will only be updated when the definition changes by default. To have it only be updated when the key was previously unbound, the user can set =general-describe-update-previous-definition= to =nil=.
 
-For each keybinding created, this command will display the key, the definition, and the previous definition.
+The order in which keybindings are displayed is customizable. All keymaps listed in =general-describe-priority-keymaps= will be displayed first. The rest can optionally be sorted by setting =general-describe-keymap-sort-function= (nil by default). The order evil states are displayed in can be altered either by changing =general-describe-state-sort-function= or changing the order of states in =general-describe-evil-states=. Keybindings can also be sorted if the user sets =general-describe-keybinding-sort-function=. Here is an example that will sort everything alphabetically:
+#+begin_src emacs-lisp
+(setq general-describe-priority-keymaps nil
+      general-describe-keymap-sort-function #'general-sort-by-car
+      general-describe-state-sort-function #'general-sort-by-car)
+;; sort keybindings alphabetically by key
+(setq general-describe-keybinding-sort-function #'general-sort-by-car)
+;; sort keybindings alphabetically by definition
+(setq general-describe-keybinding-sort-function #'general-sort-by-cadr)
+#+end_src
+
+For reference, keybindings are stored in an alist. Here is what is passed to each sorting function:
+#+begin_src emacs-lisp
+;; `general-keybindings' - an alist of keymaps to state alist
+((keymap-name . state-alist) ...)
+;; `general-describe-keymap-sort-function' is passed a single keymap cons
+(keymap-name . state-alist)
+;; a state alist (state name is nil if there is no state)
+((state-name . keybindings) ...)
+;; `general-describe-state-sort-function' is passed a single state cons
+(state-name . keybindings)
+;; `general-describe-keybinding-sort-function' is passed a single mapping
+("key after kbd applied" 'def 'previous-def)
+#+end_src
+
+To actually change how the keybinding table is printed, the user could override  ~general--print-map~.
 
 ** Positional Argument Wrappers
 When you're defining keys in specific keymaps and states, using positional arguments can be shorter. General has two macros that can basically act as drop-in replacements for ~define-key~ and ~evil-define-key~. They are ~general-emacs-define-key~ and ~general-evil-define-key~. These are simply wrappers for ~general-define-key~ that pass the positional arguments to the corresponding keywords. However, for compatibility with ~define-key~ and ~evil-define-key~, it is not necessary to quote keymaps. Both keymaps and states can be left quoted or unquoted (regardless of whether they are lists).
