@@ -638,6 +638,10 @@ Alternate definers can be used by specifying the =:definer= keyword (globally or
 The user-created function should be named ~general-<definer>-define-key~. It will be passed =state keymap key def orig-def kargs=. These arguments are the same as for extended definition functions except for =def= and =orig-def=. =def= is the transformed definition, whereas =orig-def= is the original definition (an extended definition or the same as =def=). Since =orig-def= is not necessarily an extended definition, it may be useful to use ~general--getf~ (which uses ~general--extended-def-p~; see ~general-lispy-define-key~ for an example). Since the keymap passed in is a symbol, ~general--parse-keymap~ may be useful as well. ~key-description~ will also be useful if the underlying definition function uses ~kbd~ (since =key= is the internal representation ready to be passed directly to ~define-key~; note that ~key-description~ will work with both strings and vectors, including something like =[remap kill-line]=)
 
 *** Wrapping ~evil-define-minor-mode-key~
+:PROPERTIES:
+:CUSTOM_ID: wrapping-evil-define-minor-mode-key
+:END:
+
 If you want to use ~evil-define-minor-mode-key~ instead of ~evil-define-key*~, you can use =:definer 'minor-mode=. This will simply repurpose =:keymaps= to specify minor mode names instead.
 
 If you are wondering why you might want to use ~evil-define-minor-mode-key~, see [[https://github.com/noctuid/evil-guide#why-dont-keys-defined-with-evil-define-key-work-immediately][here]].
@@ -665,3 +669,6 @@ For example:
 #+end_src
 
 The hook functions allow specifying lists for the hooks and functions, and the advice functions allow specifying lists for the symbols and functions.
+* FAQ
+** Why don't some evil keybindings work (immediately)?
+This is a [[https://github.com/emacs-evil/evil/issues/301][known issue for evil]]. To work around this problem, you can use [[#wrapping-evil-define-minor-mode-key][:definer 'minor-mode]]. See [[https://github.com/noctuid/evil-guide#why-dont-keys-defined-with-evil-define-key-work-immediately][here]] for more information.
