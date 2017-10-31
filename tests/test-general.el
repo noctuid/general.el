@@ -469,6 +469,8 @@ Return t if successful or a cons corresponding to the failed key and def."
        ;; basic replacement
        "" '(:ignore t :which-key "general prefix")
        "f" '(:ignore t :which-key "file prefix")
+       ;; should be quoted
+       "[" '(:ignore t :which-key "open square bracket")
        ;; use a cons as a replacement
        "g" '(:ignore t :wk ("g-key" . "git prefix"))
        ;; toggle lispy; use a function as a replacement to show if currently on
@@ -498,6 +500,8 @@ Return t if successful or a cons corresponding to the failed key and def."
                            . my-lispy-which-key-display)
                           (("\\`, g\\'")
                            "g-key" . "git prefix")
+                          (("\\`, \\[\\'")
+                           nil . "open square bracket")
                           (("\\`, f\\'")
                            nil . "file prefix")
                           (("\\`,\\'")

@@ -517,7 +517,7 @@ run on it)."
            (keys (key-description keys))
            (keys-regexp (concat (when (general--getf def kargs :wk-full-keys)
                                   "\\`")
-                                keys
+                                (regexp-quote keys)
                                 "\\'"))
            (prefix (cl-getf kargs :prefix))
            (binding (or (general--getf2 def :def :prefix-command)
