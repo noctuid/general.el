@@ -1037,7 +1037,7 @@ If X and Y are conses, the first element will be compared. Ordering is based on
         (yind (cl-position y general-describe-evil-states)))
     (cond ((and (null xind)
                 (null yind))
-           (general--symbol-< x y))
+           (general--< x y))
           ((null xind)
            nil)
           ((null yind)
