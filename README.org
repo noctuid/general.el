@@ -350,7 +350,19 @@ These are wrappers around ~general-def~ that set a default =:keymaps= (or a defa
 If there is some other combination you would like to use, you can use ~general-create-vim-definer~ or ~general-create-dual-vim-definer~.
 
 ** Override Keymaps and Buffer Local Keybindings
-General.el provides the equivalent of =bind-key='s =override-global-map= as =general-override-mode-map= (keymap alias is ='override=). When =general-override-mode= is enabled, keys bound in =general=override-map= will take precedence over keys bound in any other minor mode keymaps. Note that this is only useful for non-evil keybindings (evil keybindings already override all normal keybindings using the same method used here).
+General.el provides the equivalent of =bind-key='s =override-global-map= as =general-override-mode-map= (keymap alias is ='override=). When =general-override-mode= is enabled, keys bound in =general=override-map= will take precedence over keys bound in any other minor mode keymaps.
+
+Note that binding directly in =general-override-mode-map= is only useful for non-evil keybindings. Evil keybindings already override almost all normal keybindings using the same method used here. On the other hand, if you want to override evil keybindings, you have a few options. For reference, first review the [[https://github.com/noctuid/evil-guide#keymap-precedence][precedence for evil keymaps]]. If you want a global evil keybinding to not be overridden by any evil overriding maps (used by =evil-integration.el= for some modes by default), you can use the [[https://github.com/noctuid/evil-guide#preventing-certain-keys-from-being-overridden][previously mentioned method]] and bind that key in an auxiliary keymap since auxiliary maps have precedence over overriding maps (which in turn have precedence over the normal global evil keymaps). Doing this is mainly useful if you want to use ~evil-make-overriding-map~ for specific modes but want to prevent certain global keys from ever being overwritten (e.g. a prefix key for window/file/buffer management). However, if you use evil packages that make keybindings with ~evil-define-key~, this method is not sufficient. If you want your global keybinding to not be overridden by keybindings in any auxiliary maps, you can use an intercept keymap. You can make any keymap an intercept keymap, but it may be convenient to just use =general-override-mode-map= for this purpose since the necessary setup (~evil-make-intercept-map~) has already been performed:
+#+begin_src emacs-lisp
+(general-define-key
+ :states 'normal
+ :keymaps 'override
+ ...)
+;; has precedence over
+(general-define-key
+ :states 'normal
+ :keymaps 'org-mode-map)
+#+end_src
 
 General also provides a local equivalent called =general-override-local-mode= which is used to add support for buffer-local keybindings (with higher precedence than minor mode keybindings) by specifying =:keymaps 'local=. Unlike with the global override mode, =:keymaps 'local= should always be used instead of the actual keymap name since =:keymaps 'local= will cause general.el to automatically turn on the corresponding minor mode and perform some necessary extra setup. Note that this is not the same as using ~local-set-key~ (which will bind the key for the current buffer's major mode). When =:states= is specified with =:keymaps 'local=, ~evil-local-set-key~ will be used instead.
 

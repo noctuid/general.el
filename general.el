@@ -253,6 +253,33 @@ local keybindings.")
   "Whether `general-maps-alist' has been set correctly for the current buffer.")
 (put 'general-maps-alist 'permanent-local t)
 
+(defun general-override-make-intercept-maps (_sym states)
+  "Make intercept keymaps for STATES in `general-override-mode-map'.
+This means that keys bound in STATES for `general-override-mode-map' will take
+precedence over keys bound in other evil auxiliary maps."
+  (with-eval-after-load 'evil
+    (dolist (state states)
+      (evil-make-intercept-map
+       (evil-get-auxiliary-keymap general-override-mode-map state t t)
+       state))))
+
+(defcustom general-override-states
+  '(insert
+    emacs
+    hybrid
+    normal
+    visual
+    motion
+    operator
+    replace)
+  "States to make intercept maps for in `general-override-mode-map'.
+Note that this uses :set, meaning that if you want to change the value, you
+should either set it using customize (e.g. `customize-set-variable') or set it
+before loading general if using `setq'."
+  :group 'general
+  :type '(repeat general-state)
+  :set #'general-override-make-intercept-maps)
+
 (defun general--update-maps-alist ()
   "Update `general-maps-alist' for override modes.
 This is necessary to ensure `general-override-local-mode-map' is the buffer's
