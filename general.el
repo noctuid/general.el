@@ -1554,6 +1554,48 @@ can be specified as a description for the menu item."
                                  defs)
                        (t ,fallback-def))))))
 
+;; ** Key "Translation"
+;;;###autoload
+(cl-defun general-translate-keys (state keymap-name
+                                        &rest maps
+                                        &key destructive
+                                        &allow-other-keys)
+  "Translate keys in the keymap corresponding to STATE and KEYMAP-NAME.
+STATE should be the name of an evil state or nil. KEYMAP-NAME should be a symbol
+corresponding to the keymap to make the translations in. MAPS corresponds to a
+list of translations (key replacement pairs). For example, specifying \"a\"
+\"b\" will bind \"a\" to \"b\"'s definition in the keymap. If DESTRUCTIVE is
+non-nil, the keymap will be destructively altered without a backup being
+created. If DESTRUCTIVE is nil, a backup of the keymap will be stored on the
+initial invocation, and future invocations will always reference the backup
+keymap, meaning that invocations are idempotent. On the other hand, if
+DESTRUCTIVE is non-nil, calling this function multiple times with \"a\" \"b\"
+\"b\" \"a\", for example, would continue to swap and unswap the definitions of
+these keys. This means that when DESTRUCTIVE is non-nil, all related
+swaps/cycles should be done in the same invocation."
+  (declare (indent defun))
+  (let* ((keymap (if state
+                     (evil-get-auxiliary-keymap
+                      (symbol-value keymap-name) state t t)
+                   (symbol-value keymap-name)))
+         (backup-keymap-name (intern (format "general-%S-%S-state-backup-map"
+                                             keymap-name
+                                             (or nil 'no))))
+         (backup-keymap (if (boundp backup-keymap-name)
+                            (symbol-value backup-keymap-name)
+                          (copy-keymap keymap))))
+    (unless destructive
+      (set backup-keymap-name backup-keymap))
+    (setq maps (cl-loop for (key replacement) on maps by 'cddr
+                        ;; :destructive can be in MAPS
+                        unless (keywordp key)
+                        collect key
+                        and collect (lookup-key (if destructive
+                                                    keymap
+                                                  backup-keymap)
+                                                replacement)))
+    (apply #'general-define-key :states state :keymaps keymap-name maps)))
+
 ;; * Functions/Macros to Aid Other Configuration
 ;; ** Hooks
 (defun general-add-hook (hooks functions &optional append local)
