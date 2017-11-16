@@ -1611,6 +1611,7 @@ swaps/cycles should be done in the same invocation."
 
 ;; * Functions/Macros to Aid Other Configuration
 ;; ** Hooks
+;;;###autoload
 (defun general-add-hook (hooks functions &optional append local)
   "A drop-in replacement for `add-hook'.
 HOOKS and FUNCTIONS can be single items or lists."
@@ -1622,6 +1623,7 @@ HOOKS and FUNCTIONS can be single items or lists."
     (dolist (func functions)
       (add-hook hook func append local))))
 
+;;;###autoload
 (defun general-remove-hook (hooks functions &optional local)
   "A drop-in replacement for `remove-hook'.
 HOOKS and FUNCTIONS can be single items or lists."
@@ -1634,6 +1636,7 @@ HOOKS and FUNCTIONS can be single items or lists."
       (remove-hook hook func local))))
 
 ;; ** Advice
+;;;###autoload
 (defun general-add-advice (symbols where functions &optional props)
   "A drop-in replacement for `advice-add'.
 SYMBOLS and FUNCTIONS can be single items or lists."
@@ -1645,8 +1648,12 @@ SYMBOLS and FUNCTIONS can be single items or lists."
     (dolist (func functions)
       (advice-add symbol where func props))))
 
+;; will actually pull in defalias
+;; (will work the same though; docstring will be correct)
+;;;###autoload
 (defalias 'general-advice-add #'general-add-advice)
 
+;;;###autoload
 (defun general-remove-advice (symbols functions)
   "A drop-in replacement for `advice-remove'.
 SYMBOLS and FUNCTIONS can be single items or lists."
