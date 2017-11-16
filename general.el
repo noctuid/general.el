@@ -490,7 +490,7 @@ arguments. The order of arguments will be preserved."
            else
            collect key into args
            and collect value into args
-           finally (return (list args kargs))))
+           finally (cl-return (list args kargs))))
 
 ;; * Extended Key Definition Language
 (defvar general-extended-def-keywords '(:which-key :wk)
