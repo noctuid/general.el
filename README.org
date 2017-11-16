@@ -130,7 +130,7 @@ Using a different prefix for the insert and emacs states (or any state in =gener
                     "/" 'swiper)
 #+end_src
 
-If you would like to create a named prefix keymap for your prefix keys, you can also specify =:prefix-command= which will be passed to ~define-prefix-command~. All prefix keys will then be bound to the prefix command in the correct keymaps. You can additionally specify =:prefix-map= and =:prefix-name= (which will be passed as the last two arguments to ~define-prefix-command~).
+If you would like to create a named prefix keymap for your prefix keys, you can also specify =:prefix-command= and/or =:prefix-map=. All prefix keys will then be bound to the prefix command or prefix keymap in the correct keymaps. If =:prefix-command= is specified, ~define-prefix-command~ will be used with =prefix-map= and =prefix-name= passed in as additional arguments to ~define-prefix-command~. If only =:prefix-map= is specified, a prefix keymap alone will be created with a menu item/prompt corresponding to =:prefix-name=. Note that existing prefix commands/keymaps will not be redefined, so reevaluating a general.el form that uses =:prefix-command= or =:prefix-map= will not clear the previously created keymap.
 #+begin_src emacs-lisp
 (general-define-key :states '(normal insert emacs)
                     :keymaps 'text-mode-map
@@ -537,11 +537,10 @@ Here are the keywords currently available by default:
 
 "Type" specifiers:
 - =:def= - Implicit; for any definition that doesn't fit under one of the below "types"
-- =:prefix-command= - The same as =:def= but will create a prefix command
-  - =:prefix-map= The corresponding prefix map (2nd arg to ~define-prefix-command~; global value never considered)
-  - =:prefix-name= The prefix name (2nd arg to ~define-prefix-command~; global value never considered)
 - =:keymap= - For keymaps; if the keymap is not defined, will create an "autoloaded" keymap for =:package=
   - =:package= - The package to load (also global)
+- =:prefix-command= or =:prefix-map= - These are the same as =:def= and =:keymap= respectively but will create a prefix command and/or keymap (these behave the same as the global keyword arguments except for any key as opposed to just =:prefix=)
+  - =:prefix-name= The keymap menu name/prompt (global value never considered)
 - =:ignore= - Do not create a keybinding for the key def pair
 
 Which-key functionality (see below for more details):

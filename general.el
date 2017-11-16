@@ -622,6 +622,21 @@ with :package). If the keymap already exists, it will simply be returned."
        ;; will error on cons
        (ignore-errors (cl-some #'keywordp def))))
 
+(defun general--define-prefix (command-name &optional map-name menu-name)
+  "Define a prefix command and/or keymap.
+COMMAND-NAME corresponds to the prefix command name. When COMMAND-NAME is
+non-nil, `define-prefix-command' will be used and will be passed MAP-NAME and
+MENU-NAME. When COMMAND-NAME is nil and MAP-NAME is non-nil, only a prefix
+keymap will be created, and its menu name/prompt will be set to MENU-NAME (if
+MENU-NAME is non-nil). Existing prefix keymaps/commands will not be
+recreated/rebound."
+  (unless (or (and command-name (fboundp command-name))
+              (and map-name (boundp map-name)))
+    (cond (command-name
+           (define-prefix-command command-name map-name menu-name))
+          (map-name
+           (eval `(defvar ,map-name (make-sparse-keymap ,menu-name)))))))
+
 (defun general--parse-def (state keymap key def kargs)
   "Rewrite DEF into a valid definition.
 This function will execute the actions specified in an extended definition and
@@ -642,14 +657,14 @@ apply a predicate if there is one."
                 ;; bind or autoload
                 (general--maybe-autoload-keymap state keymap def kargs))
                (t
-                (let ((it (cl-getf def :prefix-command)))
-                  (when it
-                    (define-prefix-command it
-                      (cl-getf def :prefix-map)
-                      (cl-getf def :prefix-name))))
-                (general--maybe-apply-predicate
-                 (general--getf def kargs :predicate)
-                 (general--getf2 def :def :prefix-command)))))
+                (let ((prefix-map-name (cl-getf def :prefix-map)))
+                  (general--define-prefix (cl-getf def :prefix-command)
+                                          prefix-map-name
+                                          (cl-getf def :prefix-name))
+                  (general--maybe-apply-predicate
+                   (general--getf def kargs :predicate)
+                   (or (symbol-value prefix-map-name)
+                       (general--getf2 def :def :prefix-command)))))))
         (t
          ;; not an extended definition
          (general--maybe-apply-predicate (cl-getf kargs :predicate) def))))
@@ -861,13 +876,12 @@ MAPS. This may be particularly useful if you are using default prefixes in a
 wrapper so that you can add to them without needing to re-specify all of them.
 If none of the other prefix arguments are specified, INFIX will have no effect.
 
-If PREFIX-COMMAND is specified, a prefix keymap/command will be created using
-`define-prefix-command' as long as the symbol specified is not already bound (to
-ensure that an existing prefix keymap is not overwritten if the
-`general-define-key' function is re-evaluated). All prefixes (including the
-INFIX key, if specified) will then be bound to PREFIX-COMMAND. PREFIX-MAP and
-PREFIX-NAME can additionally be specified and are used as the last two arguments
-to `define-prefix-command'.
+If PREFIX-COMMAND or PREFIX-MAP is specified, a prefix command and/or keymap.
+ PREFIX-NAME can be additionally specified to set the keymap mene name/prompt.
+ If PREFIX-COMMAND is specified `define-prefix-command' will be used. Otherwise,
+ only a prefix keymap will be created. Previously created prefix
+ commands/keymaps will never be redefined/cleared. All prefixes (including the
+ INFIX key, if specified) will then be bound to PREFIX-COMMAND or PREFIX-MAP.
 
 If DEFINER is specified, a custom key definer will be used. See the README for
 more information.
@@ -914,9 +928,7 @@ definition keywords that are used for the corresponding custom DEFINER"
                          ;; for consistency; may be useful in future or for user
                          :states states)
                    (cadr split-maps))))
-    (when (and prefix-command
-               (not (boundp prefix-command)))
-      (define-prefix-command prefix-command prefix-map prefix-name))
+    (general--define-prefix prefix-command prefix-map prefix-name)
     ;; TODO reduce code duplication here
     (when non-normal-prefix
       (setq non-normal-prefix-maps
