@@ -541,7 +541,57 @@ Return t if successful or a cons corresponding to the failed key and def."
                           (("\\`, f\\'")
                            nil . "file prefix")
                           (("\\`,\\'")
-                           nil . "general prefix")))))
+                           nil . "general prefix"))))
+    (describe "including support for :properties, :repeat, and :jump"
+      (it "globally"
+        (general-define-key
+         :keymaps 'general-temp-map
+         :properties '(:repeat t :jump t)
+         "a" 'general-should-repeat-and-jump)
+        (expect (evil-get-command-properties 'general-should-repeat-and-jump)
+                :to-equal '(:repeat t :jump t))
+        (evil-set-command-properties 'general-should-repeat-and-jump)
+        (expect (evil-get-command-properties 'general-should-repeat-and-jump)
+                :to-be nil))
+      (it "locally"
+        (general-define-key
+         :keymaps 'general-temp-map
+         "a" '(general-should-repeat-and-jump :properties (:repeat t :jump t)))
+        (expect (evil-get-command-properties 'general-should-repeat-and-jump)
+                :to-equal '(:repeat t :jump t))
+        (evil-set-command-properties 'general-should-repeat-and-jump)
+        (expect (evil-get-command-properties 'general-should-repeat-and-jump)
+                :to-be nil)
+        (general-define-key
+         :keymaps 'general-temp-map
+         "a" '(general-should-repeat-and-jump :repeat t :jump t))
+        (expect (evil-get-command-properties
+                 'general-should-repeat-and-jump)
+                :to-equal '(:repeat t :jump t))
+        (evil-set-command-properties 'general-should-repeat-and-jump)
+        (expect (evil-get-command-properties 'general-should-repeat-and-jump)
+                :to-be nil))
+      (it "locally with a global default"
+        (general-define-key
+         :keymaps 'general-temp-map
+         :properties '(:repeat nil :jump nil)
+         "a" '(general-should-repeat-and-jump :properties (:repeat t :jump t)))
+        (expect (evil-get-command-properties 'general-should-repeat-and-jump)
+                :to-equal '(:repeat t :jump t))
+        (evil-set-command-properties 'general-should-repeat-and-jump)
+        (expect (evil-get-command-properties 'general-should-repeat-and-jump)
+                :to-be nil)
+        (general-define-key
+         :keymaps 'general-temp-map
+         :repeat nil
+         :jump nil
+         "a" '(general-should-repeat-and-jump :repeat t :jump t))
+        (expect (evil-get-command-properties
+                 'general-should-repeat-and-jump)
+                :to-equal '(:repeat t :jump t))
+        (evil-set-command-properties 'general-should-repeat-and-jump)
+        (expect (evil-get-command-properties 'general-should-repeat-and-jump)
+                :to-be nil))))
   (it "should support delaying keybindings until the keymap exists"
     (general-define-key
      :keymaps 'general-delay-map

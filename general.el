@@ -493,8 +493,20 @@ arguments. The order of arguments will be preserved."
            finally (cl-return (list args kargs))))
 
 ;; * Extended Key Definition Language
-(defvar general-extended-def-keywords '(:which-key :wk)
-  "Extra keywords that are valid in an extended definition.")
+(defvar general-extended-def-keywords '(:which-key :wk :properties :repeat :jump)
+  "Extra keywords that are valid for extended definitions.
+These can work both locally (in extended definitions) and globally (in which
+case they apply to all definitions including normal ones). Note that not all
+keywords need to make sense/work globally. For each keyword there should be a
+corresponding function named general-extended-def-:keyword which will be passed
+state, keymap (the symbol not actual keymap), key (internal representation),
+def (always a plist; normal definitions will automatically be converted), and
+kargs (the original `general-define-key' keyword argument plist; useful when the
+keyword can be used globally or has helper keywords that can be used globally).
+`general--parse-keymap' may be useful for getting the actual keymap from the
+keymap symbol. `general--getf' may be useful when a default for a
+keyword (helper or main) can be specified in globally (in kargs) and overridden
+locally (in def).")
 
 (defvar which-key-replacement-alist)
 (defun general--add-which-key-replacement (mode replacement)
@@ -579,6 +591,30 @@ run on it)."
 
 (defalias 'general-extended-def-:wk #'general-extended-def-:which-key)
 
+(defun general-extended-def-:properties (_state _keymap _key def kargs)
+  "Use `evil-add-command-properties' to add properties to a command.
+The properties should be specified with :properties in either DEF or KARGS."
+  (with-eval-after-load 'evil
+    (let ((properties (general--getf def kargs :properties))
+          (command (cl-getf def :def)))
+      (apply #'evil-add-command-properties command properties))))
+
+(defun general-extended-def-:repeat (_state _keymap _key def kargs)
+  "Use `evil-add-command-properties' to set the :repeat property for a command.
+The repeat property should be specified with :repeat in either DEF or KARGS."
+  (with-eval-after-load 'evil
+    (let ((repeat-property (general--getf def kargs :repeat))
+          (command (cl-getf def :def)))
+      (evil-add-command-properties command :repeat repeat-property))))
+
+(defun general-extended-def-:jump (_state _keymap _key def kargs)
+  "Use `evil-add-command-properties' to set the :jump property for a command.
+The jump property should be specified with :jump in either DEF or KARGS."
+  (with-eval-after-load 'evil
+    (let ((jump-property (general--getf def kargs :jump))
+          (command (cl-getf def :def)))
+      (evil-add-command-properties command :jump jump-property))))
+
 (defun general--maybe-autoload-keymap (state keymap def kargs)
   "Return either a keymap or a function that serves as an \"autoloaded\" keymap.
 A created function will bind the keys it was invoked with in STATE and KEYMAP to
@@ -637,6 +673,17 @@ recreated/rebound."
           (map-name
            (eval `(defvar ,map-name (make-sparse-keymap ,menu-name)))))))
 
+(defun general--run-extended-def-functions (state keymap key def kargs)
+  "Run the extended definition functions for the matched keywords.
+Each extended definition function will be passed STATE, KEYMAP, KEY, DEF, and
+KARGS. For each keyword from `general-extended-def-keywords' found in DEF or
+KARGS, call the corresponding function named general--extended-def-:keyword."
+  (dolist (keyword general-extended-def-keywords)
+    (when (general--getf def kargs keyword)
+      (funcall (intern (concat "general-extended-def-"
+                               (symbol-name keyword)))
+               state keymap key def kargs))))
+
 (defun general--parse-def (state keymap key def kargs)
   "Rewrite DEF into a valid definition.
 This function will execute the actions specified in an extended definition and
@@ -644,11 +691,7 @@ apply a predicate if there is one."
   (cond ((general--extended-def-p def)
          (unless (keywordp (car def))
            (setq def (cons :def def)))
-         (dolist (keyword general-extended-def-keywords)
-           (when (cl-getf def keyword)
-             (funcall (intern (concat "general-extended-def-"
-                                      (symbol-name keyword)))
-                      state keymap key def kargs)))
+         (general--run-extended-def-functions state keymap key def kargs)
          (cond ((cl-getf def :ignore)
                 ;; just for side effects (e.g. which-key description for prefix)
                 ;; return something that isn't a valid definition
@@ -666,6 +709,11 @@ apply a predicate if there is one."
                    (or (symbol-value prefix-map-name)
                        (general--getf2 def :def :prefix-command)))))))
         (t
+         (general--run-extended-def-functions state
+                                              keymap
+                                              key
+                                              (list :def def)
+                                              kargs)
          ;; not an extended definition
          (general--maybe-apply-predicate (cl-getf kargs :predicate) def))))
 
@@ -826,8 +874,11 @@ to bind the keys with `general--define-key-dispatch'."
            prefix-map
            prefix-name
            predicate
-           ;; for extended definitions only
+           ;; related to extended definitions
            package
+           properties
+           repeat
+           jump
            major-modes
            (wk-match-keys t)
            (wk-match-binding t)
@@ -836,68 +887,103 @@ to bind the keys with `general--define-key-dispatch'."
            lispy-plist
            worf-plist
            &allow-other-keys)
-  "The primary key definition function provided by general.
+  "The primary key definition function provided by general.el.
 
-PREFIX corresponds to a prefix key and defaults to none. STATES corresponds to
-the evil state(s) to bind the keys in. Non-evil users should not set STATES.
-When STATES is non-nil, `evil-define-key*' will be used; otherwise `define-key'
-will be used (unless DEFINER is specified). Evil users may also want to leave
-STATES nil and set KEYMAPS to a keymap such as `evil-normal-state-map' for
-global mappings. KEYMAPS defaults to 'global (`general-default-keymaps' and
-`general-default-states' can be changed by the user). There is also 'local,
-which create buffer-local keybindings for both evil and non-evil keybindings.
-There are other special, user-alterable \"shorthand\" symbols for keymaps and
-states (see `general-keymap-aliases' and `general-state-aliases').
+Define MAPS, optionally using DEFINER, in the keymap(s) corresponding to STATES
+and KEYMAPS.
+
+MAPS consists of paired keys (vectors or strings; also see
+`general-implicit-kbd') and definitions (those mentioned in `define-key''s
+docstring and general.el's \"extended\" definitions). All pairs (when not
+ignored) will be recorded and can be later displayed with
+`general-describe-keybindings'.
+
+If DEFINER is specified, a custom key definer will be used to bind MAPS. See
+general.el's documentation/README for more information.
 
 Unlike with normal key definitions functions, the keymaps in KEYMAPS should be
-quoted (this allows using the keymap name for other purposes, e.g. deferment,
-inferring major mode names by removing \"-map\" for which-key, easily storing
-the keymap name for use with `general-describe-keybindings', etc.). Note that
-STATES and KEYMAPS can either be a list or a single symbol. If any keymap does
-not exist, those keybindings will be deferred until the keymap does exist, so
-using `eval-after-load' is not necessary with this function.
+quoted (this allows using the keymap name for other purposes, e.g. deferring
+keybindings if the keymap symbol is not bound, optionally inferring the
+corresponding major mode for a symbol by removing \"-map\" for :which-key,
+easily storing the keymap name for use with `general-describe-keybindings',
+etc.). Note that general.el provides other key definer macros that do not
+require quoting keymaps.
 
-MAPS consists of paired keys and definitions. Each pair (if not ignored) will be
-recorded for later use with `general-describe-keybindings'.
+STATES corresponds to the evil state(s) to bind the keys in. Non-evil users
+should not set STATES. When STATES is non-nil, `evil-define-key*' will be
+used (the evil auxiliary keymaps corresponding STATES and KEYMAPS will be used);
+otherwise `define-key' will be used (unless DEFINER is specified). KEYMAPS
+defaults to 'global. There is also 'local, which create buffer-local
+keybindings for both evil and non-evil keybindings. There are other special,
+user-alterable \"shorthand\" symbols for keymaps and states (see
+`general-keymap-aliases' and `general-state-aliases').
 
-If NON-NORMAL-PREFIX is specified, this prefix will be used for emacs and insert
-state keybindings instead of PREFIX. This argument will only have an effect if
-'insert and/or 'emacs is one of the STATES or if 'evil-insert-state-map and/or
-'evil-emacs-state-map is one of the KEYMAPS. Alternatively, GLOBAL-PREFIX can be
-used with PREFIX and/or NON-NORMAL-PREFIX to bind keys in all states under a
-specified prefix. Like with NON-NORMAL-PREFIX, GLOBAL-PREFIX will prevent PREFIX
-from applying to insert and emacs states. Note that these keywords are only
-useful for evil users.
+Note that STATES and KEYMAPS can either be lists or single symbols. If any
+keymap does not exist, those keybindings will be deferred until the keymap does
+exist, so using `eval-after-load' is not necessary with this function.
 
+PREFIX corresponds to a key to prefix keys in MAPS with and defaults to none. To
+bind/unbind a key specified with PREFIX, \"\" can be specified as a key in
+MAPS (e.g. ...:prefix \"SPC\" \"\" nil... will unbind space).
+
+The keywords in this paragraph are only useful for evil users. If
+NON-NORMAL-PREFIX is specified, this prefix will be used instead of PREFIX for
+states in `general-non-normal-states' (e.g. the emacs and insert states). This
+argument will only have an effect if one of these states is in STATES or if
+corresponding global keymap (e.g. `evil-insert-state-map') is in KEYMAPS.
+Alternatively, GLOBAL-PREFIX can be used with PREFIX and/or NON-NORMAL-PREFIX to
+bind keys in all states under the specified prefix. Like with NON-NORMAL-PREFIX,
+GLOBAL-PREFIX will prevent PREFIX from applying to `general-non-normal-states'.
 INFIX can be used to append a string to all of the specified prefixes. This is
 potentially useful when you are using GLOBAL-PREFIX and/or NON-NORMAL-PREFIX so
 that you can sandwich keys in between all the prefixes and the specified keys in
 MAPS. This may be particularly useful if you are using default prefixes in a
-wrapper so that you can add to them without needing to re-specify all of them.
-If none of the other prefix arguments are specified, INFIX will have no effect.
+wrapper function/macro so that you can add to them without needing to re-specify
+all of them. If none of the other prefix keyword arguments are specified, INFIX
+will have no effect.
 
-If PREFIX-COMMAND or PREFIX-MAP is specified, a prefix command and/or keymap.
- PREFIX-NAME can be additionally specified to set the keymap mene name/prompt.
- If PREFIX-COMMAND is specified `define-prefix-command' will be used. Otherwise,
- only a prefix keymap will be created. Previously created prefix
- commands/keymaps will never be redefined/cleared. All prefixes (including the
- INFIX key, if specified) will then be bound to PREFIX-COMMAND or PREFIX-MAP.
+If PREFIX-COMMAND or PREFIX-MAP is specified, a prefix command and/or keymap
+will be created. PREFIX-NAME can be additionally specified to set the keymap
+menu name/prompt. If PREFIX-COMMAND is specified, `define-prefix-command' will
+be used. Otherwise, only a prefix keymap will be created. Previously created
+prefix commands/keymaps will never be redefined/cleared. All prefixes (including
+the INFIX key, if specified) will then be bound to PREFIX-COMMAND or PREFIX-MAP.
 
-If DEFINER is specified, a custom key definer will be used. See the README for
-more information.
+PREDICATE corresponds to a predicate to check to determine whether a definition
+should be active (e.g. \":predicate '(eobp)\"). Definitions created with a
+predicate will only be active when the predicate is true. When the predicate is
+false, key lookup will continue to search for a match in lower-precedence
+keymaps.
+
+In addition to the normal definitions supported by `define-key', general.el also
+provides \"extended\" definitions, which are plists containing the normal
+definition as well as other keywords. For example, PREDICATE can be specified
+globally or locally in an extended definition. New global (~general-define-key~)
+and local (extended definition) keywords can be added by the user. See
+`general-extended-def-keywords' and general.el's documentation/README for more
+information.
+
+PACKAGE is the global version of the extended definition keyword that specifies
+the package a keymap is defined in (used for \"autoloading\" keymaps)
+
+PROPERTIES, REPEAT, and JUMP are the global versions of the extended definition
+keywords used for adding evil command properties to commands.
 
 MAJOR-MODES, WK-MATCH-KEYS, WK-MATCH-BINDINGS, and WK-FULL-KEYS are the
 corresponding global versions of which-key extended definition keywords. They
-will only have an effect for extended definitions that specify :which-key
-or :wk. See the section on extended definitions in the README for more
-information.
+will only have an effect for extended definitions that specify :which-key or
+:wk. See the section on extended definitions in the general.el
+documentation/README for more information.
 
-LISPY-PLIST and WORF-PLIST are the corresponding global versions of extended
-definition keywords that are used for the corresponding custom DEFINER"
+LISPY-PLIST and WORF-PLIST are the global versions of extended definition
+keywords that are used for each corresponding custom DEFINER."
   ;; to silence compiler warning; variables that are later extracted from kargs
   (ignore definer
           predicate
           package
+          properties
+          repeat
+          jump
           major-modes
           lispy-plist
           worf-plist)
@@ -918,15 +1004,17 @@ definition keywords that are used for the corresponding custom DEFINER"
       (setq maps (car split-maps)
             ;; order will be preserved; matters for duplicates
             kargs (append
-                   ;; should be included even if not manually specified
-                   ;; should be first so :keymaps is a list
-                   (list :wk-match-keys wk-match-keys
-                         :wk-match-binding wk-match-binding
-                         :wk-full-keys wk-full-keys
-                         ;; needed for matching against :major-modes
-                         :keymaps keymaps
-                         ;; for consistency; may be useful in future or for user
-                         :states states)
+                   (list
+                    ;; should be included even if not manually specified
+                    ;; (because have non-nil defaults)
+                    :wk-match-keys wk-match-keys
+                    :wk-match-binding wk-match-binding
+                    :wk-full-keys wk-full-keys
+                    ;; so :keymaps and :states are always lists in kargs
+                    ;; needed for matching against :major-modes
+                    :keymaps keymaps
+                    ;; for consistency; may be useful in future or for user
+                    :states states)
                    (cadr split-maps))))
     (general--define-prefix prefix-command prefix-map prefix-name)
     ;; TODO reduce code duplication here

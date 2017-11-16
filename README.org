@@ -19,7 +19,8 @@ This package was initially created due to frustration with the popularity of [[h
   - ~general-define-key~ and ~global-set-key~ (no positional keymap argument)
   - ~define-key~ and ~evil-global-set-key~ (positional argument for keymap)
   - ~evil-define-key~ (positional argument for state and keymap)
-- With the =:definer= keyword, ~general-define-key~ can be extended to wrap any key definition function (e.g. ~evil-define-minor-mode-key~, ~lispy-define-key~, etc.) (unique)
+- With the =:definer= keyword, ~general-define-key~ can be extended to use any key definition function (e.g. ~evil-define-minor-mode-key~, ~lispy-define-key~, etc.) (unique)
+- With "extended" definitions, user-created keywords can be added globally (in ~general-define-key~) and locally (in an "extended" definition plist) to extend the behavior of ~general-define-key~ (unique)
 - Allows bindings keys in multiple keymaps/states at once (unlike ~bind-key~)
 - Automatically wraps string keys and definitions with ~kbd~ (this behavior can be turned off for compatibility with ~define-key~)
 - Allows using an arbitrary number of prefix keys or "leaders" of any length (but does not require prefix keys like) (unlike =evil-leader.el=)
@@ -531,7 +532,9 @@ General provides a simple function that will rewrite a string into a key-chord v
 Note that the order of the keys does matter unlike with the default ~key-chord-define~.
 
 ** Extended Definition Syntax
-General.el supports some extra per-definition keywords. It has "type" keywords that give general.el some extra information to use to create the definition (=:prefix-command= and =:keymap=) and other keywords that will alter or ignore the definition (=:predicate= and =:ignore=). There is also a system to allow users to support their own keywords. Note that anything done with external user functions can have side effects but cannot alter the definition directly. As an example, the which-key functionality described later in this section does not need to alter the definition, so it is implemented just as user-defined keyword would be.
+General.el supports some extra per-definition keywords. It has "type" keywords that give general.el some extra information to use to create definitions (e.g. =:prefix-command= and =:keymap=) and other keywords that will alter or ignore definitions (e.g. =:predicate= and =:ignore=).
+
+There is also a system to allow users to support their own keywords. Note that anything done with external user functions can have side effects but cannot alter the definition directly (to do that, a custom definer should be created instead). As an example, the which-key functionality described later in this section does not need to alter the definition, so it is implemented just as user-defined keyword would be.
 
 Here are the keywords currently available by default:
 
@@ -545,10 +548,15 @@ Here are the keywords currently available by default:
 
 Which-key functionality (see below for more details):
 - =:which-key= or =:wk= - The replacement text (or cons or function)
-  - =:major-mode= - The major mode to add the text for (optional; also global)
-  - =:wk-match-keys= - Whether to include the keys in the match cons (defaults to t; also global)
-  - =:wk-match-binding= - Whether to include the binding in the match cons (defaults to t; also global)
-  - =:wk-full-keys= - Whether the bound keys correspond to the full sequence to match (defaults to =t= globally)
+  - =:major-modes= - Major modes to match (optional; also global)
+  - =:wk-match-keys= - Whether to include the keys in the match cons (defaults to =t= globally)
+  - =:wk-match-binding= - Whether to include the binding in the match cons (defaults to =t=; also global)
+  - =:wk-full-keys= - Whether the bound keys correspond to the full sequence to match (defaults to =t=; also global)
+
+Evil command properties (see below for more details):
+- =:properties= - The list of properties to add to the command (also global)
+- =:repeat= - The repeat property to set for the command (also global)
+- =:jump= - The jump property to set for the command (also global)
 
 Global keywords that can be overridden locally:
 - =:predicate=
@@ -629,8 +637,33 @@ Here are some examples:
  ...)
 #+end_src
 
+*** Evil Command Properties
+The =:properties=, =:repeat=, and =:jump= keywords can be used to add evil command properties:
+#+begin_src emacs-lisp
+(general-define-key
+ :keymaps 'normal
+ :prefix "SPC"
+ "gj" '(git-gutter:next-hunk :properties (:repeat t :jump t))
+ "gk" '(git-gutter:previous-hunk :repeat t :jump t))
+
+;; they also work globally
+(general-define-key
+ :keymaps 'normal
+ :prefix "SPC"
+ :properties '(:repeat t :jump t)
+ ;; or
+ :repeat t
+ :jump t
+ "gj" 'git-gutter:next-hunk
+ "gk" 'git-gutter:previous-hunk)
+
+#+end_src
+If you would like for more keywords to be added that correspond to specific properties (like =:repeat=), feel free to make an issue or pull request. For more information on command properties see evil's documentation and [[https://github.com/noctuid/evil-guide#command-properties][here]].
+
 *** User-defined Extended Definition Keywords
-New keywords and functionality can be added by the user by adding a keyword to =general-extended-def-keywords= and creating a corresponding function named ~general-extended-def-:<keyword>~. This function will be passed in =state keymap key def kargs=. =state= and =keymap= are the evil state (nil if none) and keymap the =key= (internal representation; ~kbd~ already used when necessary) is being bound in. Note that =keymap= will be the actual symbol for the keymap in case the name is needed. To get the actual keymap, using ~general--parse-keymap~ is recommended. =def= is the extended definition itself, and =kargs= is a list of all the keyword arguments given to the original ~general-define-key~. This could, for example, be used to do something like add a keyword that would create autoloads for commands (I could also add this functionality directly if anyone wants it). For an example, see ~general-extended-def-:which-key~.
+New keywords and functionality can be added by the user by adding a keyword to =general-extended-def-keywords= and creating a corresponding function named ~general-extended-def-:<keyword>~. This function will be passed in =state keymap key def kargs=. =state= and =keymap= are the evil state (nil if none) and keymap that the =key= (internal representation; ~kbd~ already used if necessary) is being bound in. Note that =keymap= will be the symbol for the keymap in case it is needed. To get the actual keymap, using ~general--parse-keymap~ is recommended. =def= is the extended definition itself, and =kargs= is the plist of all the keyword arguments given to the original ~general-define-key~. For examples, see ~general-extended-def-:which-key~ and ~general-extended-def-:properties~.
+
+Note that the keywords in =general-extended-def-keywords= and their helper keywords can all be specified both globally and locally. Since globally specifying keywords may not always make sense, it is up to the ~general-extended-def-:<keyword>~ function to decide how to handle things. When a keyword can be specified both globally and locally, ~general--getf~ may be useful.
 
 ** User-defined Key Definers
 In addition to being able to add new keywords for extended definitions, the user can also create their own key definers. These are potentially useful when you want to do something to rewrite a definition (e.g. like ~lispy-define-key~ does) as that is not possible with user-defined extended definition keywords.
@@ -671,7 +704,7 @@ For example:
 #+begin_src emacs-lisp
 (general-add-hook my-lisp-mode-hooks
                   (list #'lispy-mode #'rainbow-delimiters-mode))
-
+;; note that setting the :jump command property is recommended instead of this
 (general-add-advice (list #'git-gutter:next-hunk
                           #'git-gutter:previous-hunk)
                     :before #'evil-set-jump)
