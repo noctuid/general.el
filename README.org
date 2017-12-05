@@ -35,7 +35,8 @@ This package was initially created due to frustration with the popularity of [[h
   - A method for binding under non-prefix keys with an optional timeout (like in vim; e.g. bind =jk= in insert mode without losing =j=)
   - A helper to create a menu item to dispatch to different definitions based on predicates
 - Provides other helpers for configuration (e.g. more convenient functions for hooks and advice)
-- Is well tested (unlike =bind-key.el= and =evil-leader.el=)
+- Is well tested (unlike =evil-leader.el=)
+
 
 * Basic Setup
 Since general provides variables for defaults to the various keyword arguments, you can use it in a very specific way. For example, you could set =general-default-prefix= to a prefix of your choosing and only use it for defining prefix keys. I personally don't change any of these variables and use it in a more general way for all my keybindings. The main advantage of using ~general-define-key~ (or a wrapper for it) even in cases where its extra functionality may be not used is that all keybindings are recorded and can be displayed later with ~general-describe-keybindings~.
