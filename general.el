@@ -1123,6 +1123,37 @@ correspond to keybindings."
       (2
        `(general-evil-define-key ,@args)))))
 
+(defun general--starter-arg-p (arg)
+  "Return whether ARG is a keyword or positional argument for a key definer."
+  (or (keywordp arg)
+      (general--positional-arg-p arg)))
+
+;;;###autoload
+(defmacro general-defs (&rest args)
+  "A wrapper that splits into multiple `general-def's.
+Each consecutive grouping of positional argument followed by keyword/argument
+pairs (having only one or the other is fine) marks the start of a new section.
+Each section corresponds to one use of `general-def'. This means that settings
+only apply to the keybindings that directly follow."
+  (declare (indent defun)
+           (debug [&rest sexp]))
+  (let (arglists
+        arglist)
+    (while args
+      (while (and args (general--starter-arg-p (car args)))
+        (when (keywordp (car args))
+          (push (pop args) arglist))
+        (push (pop args) arglist))
+      (while (and args (not (general--starter-arg-p (car args))))
+        (push (pop args) arglist)
+        (push (pop args) arglist))
+      (push (nreverse arglist) arglists)
+      (setq arglist nil))
+    `(progn
+       ,@(mapcar (lambda (arglist)
+                   (cons 'general-def arglist))
+                 (nreverse arglists)))))
+
 ;; * Displaying Keybindings
 (defun general--to-string (x)
   "Convert key vector or symbol X to a string."

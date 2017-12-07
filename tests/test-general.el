@@ -669,6 +669,27 @@ Return t if successful or a cons corresponding to the failed key and def."
     (expect (general-test-keys 'normal general-temp-map
               "a" #'a))))
 
+(describe "general-defs"
+  (after-each
+    (setq general-temp-map (make-sparse-keymap)))
+  (it "should split into multiple `general-def's"
+    (general-defs
+      general-temp-map
+      :states 'normal
+      "a" #'a
+      [?b] #'b
+      'visual general-temp-map
+      "c" #'c
+      :states 'insert :keymaps 'general-temp-map
+      "d" #'d)
+    (expect (general-test-keys 'normal general-temp-map
+              "a" #'a
+              "b" #'b))
+    (expect (general-test-keys 'visual general-temp-map
+              "c" #'c))
+    (expect (general-test-keys 'insert general-temp-map
+              "d" #'d))))
+
 ;; ** Vim Definers
 (describe "wrappers created with `general-create-vim-definer'"
   (before-all
