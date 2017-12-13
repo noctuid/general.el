@@ -987,7 +987,10 @@ keywords that are used for each corresponding custom DEFINER."
           major-modes
           lispy-plist
           worf-plist)
-  (let (non-normal-prefix-maps
+  (let ((prefix-def (or prefix-command
+                        (when prefix-map
+                          (list :keymap prefix-map))))
+        non-normal-prefix-maps
         global-prefix-maps
         kargs)
     ;; don't force the user to wrap a single state or keymap in a list
@@ -1022,21 +1025,21 @@ keywords that are used for each corresponding custom DEFINER."
       (setq non-normal-prefix-maps
             (general--apply-prefix-and-kbd
              (general--concat t non-normal-prefix infix)
-             (append (when prefix-command
-                       (list "" prefix-command))
+             (append (when prefix-def
+                       (list "" prefix-def))
                      maps))))
     (when global-prefix
       (setq global-prefix-maps
             (general--apply-prefix-and-kbd
              (general--concat t global-prefix infix)
-             (append (when prefix-command
-                       (list "" prefix-command))
+             (append (when prefix-def
+                       (list "" prefix-def))
                      maps))))
     ;; last so not applying prefix twice
     (setq maps (general--apply-prefix-and-kbd
                 (general--concat t prefix infix)
-                (append (when prefix-command
-                          (list "" prefix-command))
+                (append (when prefix-def
+                          (list "" prefix-def))
                         maps)))
     (dolist (keymap keymaps)
       (general--delay `(or (memq ',keymap '(local global))

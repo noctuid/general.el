@@ -321,6 +321,10 @@ Return t if successful or a cons corresponding to the failed key and def."
          :prefix-map 'my-comma-prefix-map
          :prefix-name "my comma prefix map"
          "b" #'comma-b)
+        ;; the prefix should be bound to the prefix keymap
+        (general-define-key
+         :keymaps 'my-comma-prefix-map
+         "c" #'comma-c)
         (expect (fboundp 'my-comma-prefix))
         (expect (and (boundp 'my-comma-prefix-map)
                      (keymapp my-comma-prefix-map)))
@@ -334,7 +338,8 @@ Return t if successful or a cons corresponding to the failed key and def."
          :prefix-map 'my-comma-prefix-map
          :prefix-name "my comma prefix map")
         (expect (general-test-keys nil general-temp-map
-                  ",b" #'comma-b))
+                  ",b" #'comma-b
+                  ",c" #'comma-c))
         ;; cleanup
         (fmakunbound 'my-comma-prefix)
         (makunbound 'my-comma-prefix-map)
@@ -352,6 +357,10 @@ Return t if successful or a cons corresponding to the failed key and def."
                      (keymapp my-comma-prefix-map)))
         (expect (keymap-prompt my-comma-prefix-map)
                 :to-equal "my comma prefix map")
+        ;; the prefix should be bound to the prefix keymap
+        (general-define-key
+         :keymaps 'my-comma-prefix-map
+         "c" #'comma-c)
         ;; previously created keymaps should not be cleared
         (general-define-key
          :keymaps 'general-temp-map
@@ -359,7 +368,8 @@ Return t if successful or a cons corresponding to the failed key and def."
          :prefix-map 'my-comma-prefix-map
          :prefix-name "my comma prefix map")
         (expect (general-test-keys nil general-temp-map
-                  ",b" #'comma-b))
+                  ",b" #'comma-b
+                  ",c" #'comma-c))
         ;; cleanup
         (makunbound 'my-comma-prefix-map)
         (expect (not (boundp 'my-comma-prefix-map)))))
