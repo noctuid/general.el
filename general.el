@@ -253,6 +253,7 @@ local keybindings.")
   "Whether `general-maps-alist' has been set correctly for the current buffer.")
 (put 'general-maps-alist 'permanent-local t)
 
+(declare-function evil-make-intercept-map "evil-core")
 (defun general-override-make-intercept-maps (_sym states)
   "Make intercept keymaps for STATES in `general-override-mode-map'.
 This means that keys bound in STATES for `general-override-mode-map' will take
@@ -591,6 +592,7 @@ run on it)."
 
 (defalias 'general-extended-def-:wk #'general-extended-def-:which-key)
 
+(declare-function evil-add-command-properties "evil-common")
 (defun general-extended-def-:properties (_state _keymap _key def kargs)
   "Use `evil-add-command-properties' to add properties to a command.
 The properties should be specified with :properties in either DEF or KARGS."

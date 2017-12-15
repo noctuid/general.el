@@ -7,6 +7,9 @@ test:
 	@echo "Using $(shell which $(emacs))..."
 	cask exec buttercup -L .
 
+compile:
+	cask exec emacs -Q --eval '(byte-compile-file "general.el")'
+
 clean:
 	rm -f *.elc
 
