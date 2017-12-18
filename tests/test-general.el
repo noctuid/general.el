@@ -881,6 +881,112 @@ Return t if successful or a cons corresponding to the failed key and def."
               "<right>")
             :to-equal "|foo")))
 
+;; ** Translate Key
+(describe "general-translate-key"
+  (before-each
+    (general-define-key
+     :keymaps 'general-temp-map
+     "a" #'a
+     "b" #'b
+     "c" #'c)
+    (general-define-key
+     :states 'normal
+     :keymaps 'general-temp-map
+     "a" #'a
+     "b" #'b
+     "c" #'c))
+  (after-each
+    (setq general-temp-map (make-sparse-keymap)))
+  (it "should bind each key to the definition of another key in the same keymap"
+    (general-translate-key nil 'general-temp-map
+      "a" "b"
+      "b" "c"
+      "c" "a")
+    (expect (general-test-keys nil general-temp-map
+              "a" #'b
+              "b" #'c
+              "c" #'a))
+    (general-translate-key 'normal 'general-temp-map
+      "a" "b"
+      "b" "c"
+      "c" "a")
+    (expect (general-test-keys 'normal general-temp-map
+              "a" #'b
+              "b" #'c
+              "c" #'a)))
+  (it "should support translating keys using the original keymap for reference"
+    (general-translate-key nil 'general-temp-map
+      "a" "b")
+    (general-translate-key nil 'general-temp-map
+      "b" "c")
+    (general-translate-key nil 'general-temp-map
+      "c" "a")
+    (expect (general-test-keys nil general-temp-map
+              "a" #'b
+              "b" #'c
+              "c" #'a)))
+  (it "should support destructively translating keys"
+    (general-translate-key nil 'general-temp-map
+      :destructive t
+      "a" "b")
+    (general-translate-key nil 'general-temp-map
+      :destructive t
+      "b" "c")
+    (general-translate-key nil 'general-temp-map
+      :destructive t
+      "c" "a")
+    (expect (general-test-keys nil general-temp-map
+              "a" #'b
+              "b" #'c
+              "c" #'b)))
+  (it "should support keymap and state aliases"
+    (let ((general-keymap-aliases '((temp . general-temp-map))))
+      (general-translate-key 'n 'temp
+        "a" "b"
+        "b" "c"
+        "c" "a")
+      (expect (general-test-keys 'normal general-temp-map
+                "a" #'b
+                "b" #'c
+                "c" #'a))))
+  (xit "should support 'local and 'global")
+  (it "should use kbd when `general-implicit-kbd' is non-nil"
+    (general-translate-key nil 'general-temp-map
+      "C-a" "a")
+    (expect (general-test-keys nil general-temp-map
+              "C-a" #'a))
+    (let (general-implicit-kbd)
+      (general-translate-key nil 'general-temp-map
+        (kbd "C-b") "b")
+      (expect (general-test-keys nil general-temp-map
+                "C-b" #'b)))))
+
+(describe "general-swap-key"
+  (after-each
+    (setq general-temp-map (make-sparse-keymap)))
+  (it "should swap keys in a keymap"
+    (general-define-key
+     :keymaps 'general-temp-map
+     "a" #'a
+     "b" #'b)
+    (general-swap-key nil 'general-temp-map
+      :destructive t
+      "a" "b")
+    (expect (general-test-keys nil general-temp-map
+              "a" #'b
+              "b" #'a))
+    (general-define-key
+     :states 'normal
+     :keymaps 'general-temp-map
+     "a" #'a
+     "b" #'b)
+    (general-swap-key 'normal 'general-temp-map
+      :destructive t
+      "a" "b")
+    (expect (general-test-keys 'normal general-temp-map
+              "a" #'b
+              "b" #'a))))
+
 ;; ** Key-chord Helper
 ;; TODO
 

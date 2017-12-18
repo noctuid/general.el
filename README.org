@@ -474,6 +474,55 @@ Like with ~general-simulate-keys~ used with a command name, the behavior of ~evi
 
 The =:docstring= keyword can be specified to add a description to the menu-item.
 
+*** Key "Translation"
+~general-translate-key~ allows binding a key to the definition of another key in the same keymap (comparable to how vim's keybindings work). Its arguments are the =state= (which can be nil for non-evil keymaps) and =keymap-name= (both symbols) to bind/look up the key(s) in followed optionally by keyword arguments (currently only =:destructive=) and key/replacement pairs.
+
+This can be particularly useful, for example, when you want make key swaps/cycles en masse. This use case is similar to one for ~general-simulate-keys~ (i.e. make a key act as another key that has a consistent meaning but different commands for different modes without having to individually bind the key to the exact definition in each mode's keymap). However, ~general-simulate-keys~ is not always suitable for this purpose. It can be used to, for example, make =j= in normal state act as =C-n= in emacs state (to use the default "down" navigation key for all modes without needing to individually make keybindings for every mode), but it cannot be used to swap/cycle keys within a single keymap, as this would cause an infinite loop of simulating the other key(s).
+
+An example use case of ~general-translate-key~ is for non-QWERTY users who want to retain the hjkl keyboard positions for movement in dired, mu4e, etc. When using a package that already creates hjkl keybindings for the desired mode(s) (e.g. [[https://github.com/jojojames/evil-collection][evil-collection]]), it is easily possible to make these cycles in a single statement:
+#+begin_src emacs-lisp
+;; single invocation example
+(general-translate-key nil 'evil-normal-state-keymap
+  "n" "j"
+  "e" "k"
+  ...)
+;; cycling keys en masse
+(dolist (keymap keymaps-with-hjkl-keybindings)
+  (general-translate-key 'normal keymap
+    ;; colemak hnei is qwerty hjkl
+    "n" "j"
+    "e" "k"
+    "i" "l"
+    ;; add back nei
+    "j" "e"
+    "k" "n"
+    "l" "i"))
+#+end_src
+
+By default, the first invocation of ~general-translate-key~ will make a backup of the keymap. Each subsequent invocation will look up keys in the backup instead of the original. This means that a call to ~general-translate-key~ will always have the same behavior even if evaluated multiple times. When =:destructive t= is specified, keys are looked up in the keymap as it is currently. This means that a call to ~general-translate-key~ that swapped two keys would continue to swap/unswap them with each call. Therefore when =:destructive t= is used, all cycles/swaps must be done within a single call to ~general-translate-key~. To make a comparison to vim keybindings, =:destructive t= is comparable to vim's ~map~, =:destructive nil= is comparable to vim's ~noremap~ (where the "original" keybindings are those that existed in the keymap when the ~general-translate-key~ was first used), and generally you will want to use ~noremap~ (=:destructive nil=).
+
+Note that general state and keymap aliases (as well as =local= and =global=) and =general-implicit-kbd= are supported by ~general-translate-key~:
+#+begin_src emacs-lisp
+;; normal -> evil-normal-state-keymap
+(general-translate-key nil 'normal
+  ;; kbd not necessary by default
+  "C-p" "C-n")
+#+end_src
+Keys are bound using ~general-define-key~, so they are viewable with ~general-describe-keybindings~.
+
+~general-swap-key~ is provided as a wrapper around ~general-translate-key~ that allows swapping keys:
+#+begin_src emacs-lisp
+(general-swap-key nil 'normal
+  ";" ":"
+  "a" "A")
+;; equivalent to
+(general-translate-key nil 'normal
+  ";" ":"
+  ":" ";"
+  "a" "A"
+  "A" "a")
+#+end_src
+
 ** Creating Extra Keybinding Functions
 The primary purpose of this package is to provide a single function for key definitions that is simple and flexible. Most users probably won't want to use this functionality (apart from ~general-evil-setup~). However, if you would like more specific keybinding functions for certain prefixes, evil states, or keymaps, this package provides macros to generate these functions.
 
