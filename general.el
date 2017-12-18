@@ -1740,6 +1740,7 @@ in the same invocation."
                                                 (general--kbd replacement))))
     (apply #'general-define-key :states state :keymaps keymap-name maps)))
 
+;;;###autoload
 (defmacro general-swap-key (state keymap-name &rest args)
   "Wrapper around `general-translate-key' for swapping keys.
 STATE, KEYMAP-NAME, and ARGS are passed to `general-translate-key'. ARGS should
