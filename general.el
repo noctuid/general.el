@@ -1914,7 +1914,7 @@ aliases such as `nmap' for `general-nmap'."
        (defalias 'tomap #'general-tomap))))
 
 ;; * Use-package Integration
-(with-eval-after-load 'use-package
+(with-eval-after-load 'use-package-core
   (declare-function use-package-concat "use-package")
   (declare-function use-package-process-keywords "use-package")
   (declare-function use-package-sort-keywords "use-package")
