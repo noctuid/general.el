@@ -885,12 +885,12 @@ Return t if successful or a cons corresponding to the failed key and def."
 (describe "general-translate-key"
   (before-each
     (general-define-key
-     :keymaps 'general-temp-map
+     :keymaps '(general-temp-map general-test-mode-map)
      "a" #'a
      "b" #'b
      "c" #'c)
     (general-define-key
-     :states 'normal
+     :states '(normal visual)
      :keymaps 'general-temp-map
      "a" #'a
      "b" #'b
@@ -898,19 +898,20 @@ Return t if successful or a cons corresponding to the failed key and def."
   (after-each
     (setq general-temp-map (make-sparse-keymap)))
   (it "should bind each key to the definition of another key in the same keymap"
-    (general-translate-key nil 'general-temp-map
+    (general-translate-key nil '(general-temp-map general-test-mode-map)
       "a" "b"
       "b" "c"
       "c" "a")
-    (expect (general-test-keys nil general-temp-map
+    (expect (general-test-keys nil (list general-temp-map
+                                         general-test-mode-map)
               "a" #'b
               "b" #'c
               "c" #'a))
-    (general-translate-key 'normal 'general-temp-map
+    (general-translate-key '(normal visual) 'general-temp-map
       "a" "b"
       "b" "c"
       "c" "a")
-    (expect (general-test-keys 'normal general-temp-map
+    (expect (general-test-keys '(normal visual) general-temp-map
               "a" #'b
               "b" #'c
               "c" #'a)))

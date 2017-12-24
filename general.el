@@ -1699,61 +1699,70 @@ can be specified as a description for the menu item."
 
 ;; ** Key "Translation"
 ;;;###autoload
-(cl-defun general-translate-key (state keymap-name
-                                       &rest maps
-                                       &key destructive
-                                       &allow-other-keys)
-  "Translate keys in the keymap corresponding to STATE and KEYMAP-NAME.
-STATE should be the name of an evil state or nil. KEYMAP-NAME should be a symbol
-corresponding to the keymap to make the translations in. General keymap and
-state aliases are supported (as well as 'local and 'global for KEYMAP). MAPS
-corresponds to a list of translations (key replacement pairs). For example,
-specifying \"a\" \"b\" will bind \"a\" to \"b\"'s definition in the keymap. When
-`general-implicit-kbd' is non-nil, `kbd' will be used on the keys and their
-replacements. If DESTRUCTIVE is non-nil, the keymap will be destructively
-altered without a backup being created. If DESTRUCTIVE is nil, a backup of the
-keymap will be stored on the initial invocation, and future invocations will
-always look up keys in the backup keymap. On the other hand, if DESTRUCTIVE is
-non-nil, calling this function multiple times with \"a\" \"b\" \"b\" \"a\", for
-example, would continue to swap and unswap the definitions of these keys. This
-means that when DESTRUCTIVE is non-nil, all related swaps/cycles should be done
-in the same invocation."
+(cl-defun general-translate-key (states keymaps
+                                        &rest maps
+                                        &key destructive
+                                        &allow-other-keys)
+  "Translate keys in the keymap(s) corresponding to STATES and KEYMAPS.
+STATES should be the name of an evil state, a list of states, or nil. KEYMAPS
+should be a symbol corresponding to the keymap to make the translations in or a
+list of keymap names. Keymap and state aliases are supported (as well as 'local
+and 'global for KEYMAPS). MAPS corresponds to a list of translations (key
+replacement pairs). For example, specifying \"a\" \"b\" will bind \"a\" to
+\"b\"'s definition in the keymap. When `general-implicit-kbd' is non-nil, `kbd'
+will be used on the keys and their replacements. If DESTRUCTIVE is non-nil, the
+keymap will be destructively altered without a backup being created. If
+DESTRUCTIVE is nil, a backup of the keymap will be stored on the initial
+invocation, and future invocations will always look up keys in the backup
+keymap. On the other hand, if DESTRUCTIVE is non-nil, calling this function
+multiple times with \"a\" \"b\" \"b\" \"a\", for example, would continue to swap
+and unswap the definitions of these keys. This means that when DESTRUCTIVE is
+non-nil, all related swaps/cycles should be done in the same invocation."
   (declare (indent defun))
-  (setq keymap-name (general--unalias keymap-name)
-        state (general--unalias state t))
-  (let* ((keymap (general--parse-keymap state keymap-name))
-         (backup-keymap-name (intern (format "general-%S-%S-state-backup-map"
-                                             keymap-name
-                                             (or state 'no))))
-         (lookup-keymap (if (and (not destructive)
-                                 (boundp backup-keymap-name))
-                            (symbol-value backup-keymap-name)
-                          (copy-keymap keymap))))
-    (unless (or destructive
-                (boundp backup-keymap-name))
-      (set backup-keymap-name lookup-keymap))
-    (setq maps (cl-loop for (key replacement) on maps by 'cddr
-                        ;; :destructive can be in MAPS
-                        unless (keywordp key)
-                        collect (general--kbd key)
-                        and collect (lookup-key lookup-keymap
-                                                (general--kbd replacement))))
-    (apply #'general-define-key :states state :keymaps keymap-name maps)))
+  (unless (listp keymaps)
+    (setq keymaps (list keymaps)))
+  (unless (and (listp states)
+               (not (null states)))
+    (setq states (list states)))
+  (dolist (keymap-name keymaps)
+    (dolist (state states)
+      (setq keymap-name (general--unalias keymap-name)
+            state (general--unalias state t))
+      (let* ((keymap (general--parse-keymap state keymap-name))
+             (backup-keymap (intern (format "general-%s%s-backup-map"
+                                            keymap-name
+                                            (if state
+                                                (format "-%s-state" state)
+                                              ""))))
+             (lookup-keymap (if (and (not destructive)
+                                     (boundp backup-keymap))
+                                (symbol-value backup-keymap)
+                              (copy-keymap keymap)))
+             (maps (cl-loop for (key replacement) on maps by 'cddr
+                            ;; :destructive can be in MAPS
+                            unless (keywordp key)
+                            collect (general--kbd key)
+                            and collect (lookup-key
+                                         lookup-keymap
+                                         (general--kbd replacement)))))
+        (unless (or destructive
+                    (boundp backup-keymap))
+          (set backup-keymap lookup-keymap))
+        (apply #'general-define-key :states state :keymaps keymap-name maps)))))
 
 ;;;###autoload
-(defmacro general-swap-key (state keymap-name &rest args)
+(defmacro general-swap-key (states keymaps &rest args)
   "Wrapper around `general-translate-key' for swapping keys.
-STATE, KEYMAP-NAME, and ARGS are passed to `general-translate-key'. ARGS should
+STATES, KEYMAPS, and ARGS are passed to `general-translate-key'. ARGS should
 consist of key swaps (e.g. \"a\" \"b\" is equivalent to \"a\" \"b\" \"b\" \"a\"
-with `general-translate-key') and keyword arguments for
+with `general-translate-key') and optionally keyword arguments for
 `general-translate-key'."
   (declare (indent defun))
-  (setq args
-        (cl-loop for (from-key to-key) on args by 'cddr
-                 collect from-key and collect to-key
-                 and unless (keywordp from-key)
-                 collect to-key and collect from-key))
-  `(general-translate-key ,state ,keymap-name ,@args))
+  (setq args (cl-loop for (key replacement) on args by 'cddr
+                      collect key and collect replacement
+                      and unless (keywordp key)
+                      collect replacement and collect key))
+  `(general-translate-key ,states ,keymaps ,@args))
 
 ;; * Functions/Macros to Aid Other Configuration
 ;; ** Hooks

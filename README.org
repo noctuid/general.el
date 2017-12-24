@@ -475,7 +475,7 @@ Like with ~general-simulate-keys~ used with a command name, the behavior of ~evi
 The =:docstring= keyword can be specified to add a description to the menu-item.
 
 *** Key "Translation"
-~general-translate-key~ allows binding a key to the definition of another key in the same keymap (comparable to how vim's keybindings work). Its arguments are the =state= (which can be nil for non-evil keymaps) and =keymap-name= (both symbols) to bind/look up the key(s) in followed optionally by keyword arguments (currently only =:destructive=) and key/replacement pairs.
+~general-translate-key~ allows binding a key to the definition of another key in the same keymap (comparable to how vim's keybindings work). Its arguments are the =states= (which can be nil for non-evil keymaps) and =keymaps= (both symbols or lists of symbols like for ~general-define-key~) to bind/look up the key(s) in followed optionally by keyword arguments (currently only =:destructive=) and key/replacement pairs.
 
 This can be particularly useful, for example, when you want make key swaps/cycles en masse. This use case is similar to one for ~general-simulate-keys~ (i.e. make a key act as another key that has a consistent meaning but different commands for different modes without having to individually bind the key to the exact definition in each mode's keymap). However, ~general-simulate-keys~ is not always suitable for this purpose. It can be used to, for example, make =j= in normal state act as =C-n= in emacs state (to use the default "down" navigation key for all modes without needing to individually make keybindings for every mode), but it cannot be used to swap/cycle keys within a single keymap, as this would cause an infinite loop of simulating the other key(s).
 
