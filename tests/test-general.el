@@ -1,4 +1,4 @@
-;;; general-tests.el --- Tests for general.el. -*- lexical-binding: t -*-
+;;; test-general.el --- Tests for general.el. -*- lexical-binding: t -*-
 
 ;; This file is not part of GNU Emacs.
 
@@ -992,4 +992,46 @@ Return t if successful or a cons corresponding to the failed key and def."
 ;; TODO
 
 ;; * Other Configuration Helpers
-;; TODO add-hook and remove-hook; advice
+;; ** Settings
+(describe "general-setq"
+  (it "should act as a drop in replacement for setq"
+    (defvar general-dummy-var-a nil)
+    (defvar general-dummy-var-b nil)
+    (general-setq general-dummy-var-a t
+                  general-dummy-var-b t)
+    (expect general-dummy-var-a)
+    (expect general-dummy-var-b)
+    (makunbound 'general-dummy-var-a)
+    (makunbound 'general-dummy-var-b))
+  (it "should correctly use a defined variable's custom setter"
+    (defcustom general-dummy-var-with-setter nil
+      ""
+      :group 'general
+      :set (lambda (sym _val)
+             (set-default 'general-dummy-var-with-setter
+                          1)))
+    (general-setq general-dummy-var-with-setter 'not-1)
+    (expect general-dummy-var-with-setter
+            :to-equal 1)
+    (makunbound 'general-dummy-var-with-setter))
+  (it "should work for an undefined variable with a custom setter"
+    (expect (not (boundp 'general-dummy-var-with-setter)))
+    (general-setq general-dummy-var-with-setter 'not-1)
+    (defcustom general-dummy-var-with-setter nil
+      ""
+      :group 'general
+      :set (lambda (sym _val)
+             (set-default 'general-dummy-var-with-setter
+                          1)))
+    (expect general-dummy-var-with-setter
+            :to-equal 1)
+    (makunbound 'general-dummy-var-with-setter)))
+
+;; ** Hooks
+;; TODO
+
+;; ** Advice
+;; TODO
+
+(provide 'test-general)
+;;; test-general.el ends here

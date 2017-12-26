@@ -748,7 +748,22 @@ To use ~worf-define-key~ to make the definitions, =:definer 'worf= can be specif
 To use ~lpy-define-key~ to make the definitions, =:definer 'lpy= can be specified.
 
 ** Non-keybinding-related Configuration Helpers
-General.el also provides a few helper functions for other configuration purposes. They are intended to be slightly more convenient versions of functions provided by default. ~general-add-hook~, ~general-remove-hook~, ~general-advice-add~, and ~general-advice-remove~ all act as drop-in replacements for their corresponding functions but allow lists for some of the arguments. Because I don't like the difference in naming for the default advice functions, ~general-add-advice~ and ~general-remove-advice~ are also provided.
+General.el also provides a few helper functions/macros for other configuration purposes. They are intended to be slightly more convenient versions of functions/macros provided by default.
+
+*** Settings
+~general-setq~ is a stripped-down ~customize-set-variable~ that can act as a drop-in replacement for ~setq~. Some variables defined with ~defcustom~ specify a custom setter with =:set= that must be used for changes to take effect (e.g. =auto-revert-interval=). ~setq~ cannot be used to set such variables correctly if the corresponding package has already been loaded, but ~general-setq~ will correctly use the custom setter when necessary. The benefit of ~general-setq~ over ~customize-set-variable~ is that it can be used to set multiple variables at once. It does not do everything ~customize-set-variable~ does (e.g. it cannot be used interactively, does not attempt to load variable dependencies, and does not allow the user to specify comments). From some basic testing, it is 10x to 100x faster because of this, but the speed difference should not be noticeable if you aren't setting thousands of variables during emacs initialization.
+
+Here's an example using variables that have a custom setter:
+#+begin_src emacs-lisp
+(general-setq auto-revert-interval 10
+              evil-want-Y-yank-to-eol t
+              evil-search-module 'evil-search)
+#+end_src
+
+Note that ~setq~ will work as expected as long it is used before the corresponding package is loaded, but with ~customize-set-variable~ or ~general-setq~, you do not need to worry about whether or not the package has been loaded. If you decide to use ~general-setq~, I'd recommend aliasing it to something shorter like ~gsetq~.
+
+*** Hooks and Advice
+~general-add-hook~, ~general-remove-hook~, ~general-advice-add~, and ~general-advice-remove~ all act as drop-in replacements for their corresponding functions but allow lists for some of the arguments. The hook functions allow specifying lists for the hooks and functions, and the advice functions allow specifying lists for the symbols and functions. Because I don't like the difference in naming for the default advice functions, ~general-add-advice~ and ~general-remove-advice~ are also provided as aliases.
 
 For example:
 #+begin_src emacs-lisp
@@ -760,7 +775,6 @@ For example:
                     :before #'evil-set-jump)
 #+end_src
 
-The hook functions allow specifying lists for the hooks and functions, and the advice functions allow specifying lists for the symbols and functions.
 * FAQ
 ** Why don't some evil keybindings work (immediately)?
 This is a [[https://github.com/emacs-evil/evil/issues/301][known issue for evil]]. To work around this problem, you can use [[#wrapping-evil-define-minor-mode-key][:definer 'minor-mode]]. See [[https://github.com/noctuid/evil-guide#why-dont-keys-defined-with-evil-define-key-work-immediately][here]] for more information.
