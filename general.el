@@ -1059,7 +1059,8 @@ keywords that are used for each corresponding custom DEFINER."
                                 ',global-prefix-maps
                                 ',kargs)
         'after-load-functions t nil
-        (format "general-define-key-in-%s" keymap)))))
+        (symbol-name
+         (cl-gensym (format "general-define-key-in-%s" keymap)))))))
 
 ;;;###autoload
 (defmacro general-create-definer (name &rest args)
