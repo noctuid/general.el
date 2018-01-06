@@ -841,33 +841,37 @@ Choose based on STATES and KEYMAP which of MAPS, NON-NORMAL-MAPS, and
 GLOBAL-MAPS to use for the keybindings. This function will rewrite extended
 definitions, add predicates when applicable, and then choose the base function
 to bind the keys with `general--define-key-dispatch'."
-  ;; TODO is it actually necessary to use macros here? could I use free
-  ;; variables in functions without issues?
-  (cl-macrolet ((defkeys (maps)
-                  `(let ((maps (general--parse-maps state keymap ,maps kargs))
-                         (keymap keymap))
-                     ;; NOTE: minor-mode is not a definition-local definer
-                     (general--record-keybindings keymap state maps
-                                                  (eq (cl-getf kargs :definer)
-                                                      'minor-mode))
-                     (general--define-key-dispatch state keymap maps kargs)))
-                (def-pick-maps (non-normal-p)
-                  `(progn
-                     (cond ((and non-normal-maps ,non-normal-p)
-                            (defkeys non-normal-maps))
-                           ((and global-maps ,non-normal-p))
-                           (t
-                            (defkeys maps)))
-                     (defkeys global-maps))))
+  (let ((general--definer-p t))
+    ;; TODO is it actually necessary to use macros here? could I use free
+    ;; variables in functions without issues?
+    (cl-macrolet ((defkeys (maps)
+                    `(let ((maps (general--parse-maps state keymap ,maps kargs))
+                           (keymap keymap))
+                       ;; NOTE: minor-mode is not a definition-local definer
+                       (general--record-keybindings keymap state maps
+                                                    (eq (cl-getf kargs :definer)
+                                                        'minor-mode))
+                       (general--define-key-dispatch state keymap maps kargs)))
+                  (def-pick-maps (non-normal-p)
+                    `(progn
+                       (cond ((and non-normal-maps ,non-normal-p)
+                              (defkeys non-normal-maps))
+                             ((and global-maps ,non-normal-p))
+                             (t
+                              (defkeys maps)))
+                       (defkeys global-maps))))
     (if states
         (dolist (state states)
           (def-pick-maps (memq state general-non-normal-states)))
       (let (state)
         (def-pick-maps (memq keymap
                              (mapcar #'general--evil-keymap-for-state
-                                     general-non-normal-states)))))))
+                                     general-non-normal-states))))))))
 
 ;; * Functions With Keyword Arguments
+(defvar general--definer-p nil
+  "Whether the current keybinding is being created with `general-define-key'.")
+
 ;;;###autoload
 (cl-defun general-define-key
     (&rest maps &key
@@ -1764,6 +1768,25 @@ with `general-translate-key') and optionally keyword arguments for
                       and unless (keywordp key)
                       collect replacement and collect key))
   `(general-translate-key ,states ,keymaps ,@args))
+
+;; ** Automatic Unbinding
+(defun general-unbind-non-prefix (define-key keymap key def)
+  "If in KEYMAP KEY starts with a non-prefix key, unbind it with DEFINE-KEY."
+  (when general--definer-p
+    (let ((non-prefix key))
+      (when (stringp non-prefix)
+        (setq non-prefix (string-to-vector non-prefix)))
+      (while (numberp (lookup-key keymap non-prefix))
+        (setq non-prefix (cl-subseq non-prefix 0 -1)))
+      (funcall define-key keymap non-prefix nil)))
+  (funcall define-key keymap key def))
+
+;;;###autoload
+(defun general-auto-unbind-keys ()
+  "Advise `define-key' to automatically unbind keys when necessary.
+This will prevent errors when a sub-sequence of a key is already bound (e.g.
+the user attempts to bind \"SPC a\" when \"SPC\" is bound)."
+  (general-add-advice 'define-key :around #'general-unbind-non-prefix))
 
 ;; * Functions/Macros to Aid Other Configuration
 ;; ** Settings
