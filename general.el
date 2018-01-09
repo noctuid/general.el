@@ -840,33 +840,30 @@ is present in original-def or KARGS or whether STATE is non-nil."
 Choose based on STATES and KEYMAP which of MAPS, NON-NORMAL-MAPS, and
 GLOBAL-MAPS to use for the keybindings. This function will rewrite extended
 definitions, add predicates when applicable, and then choose the base function
-to bind the keys with `general--define-key-dispatch'."
+to bind the keys with by calling `general--define-key-dispatch'."
   (let ((general--definer-p t))
-    ;; TODO is it actually necessary to use macros here? could I use free
-    ;; variables in functions without issues?
-    (cl-macrolet ((defkeys (maps)
-                    `(let ((maps (general--parse-maps state keymap ,maps kargs))
-                           (keymap keymap))
-                       ;; NOTE: minor-mode is not a definition-local definer
-                       (general--record-keybindings keymap state maps
-                                                    (eq (cl-getf kargs :definer)
-                                                        'minor-mode))
-                       (general--define-key-dispatch state keymap maps kargs)))
-                  (def-pick-maps (non-normal-p)
-                    `(progn
-                       (cond ((and non-normal-maps ,non-normal-p)
-                              (defkeys non-normal-maps))
-                             ((and global-maps ,non-normal-p))
-                             (t
-                              (defkeys maps)))
-                       (defkeys global-maps))))
-    (if states
-        (dolist (state states)
-          (def-pick-maps (memq state general-non-normal-states)))
-      (let (state)
-        (def-pick-maps (memq keymap
-                             (mapcar #'general--evil-keymap-for-state
-                                     general-non-normal-states))))))))
+    (unless states
+      (setq states (list nil)))
+    (dolist (state states)
+      (let* ((non-normal-p (if state
+                               (memq state general-non-normal-states)
+                             (memq keymap
+                                   (mapcar #'general--evil-keymap-for-state
+                                           general-non-normal-states))))
+             (valid-maps (list (cond ((and non-normal-maps non-normal-p)
+                                      non-normal-maps)
+                                     ((and global-maps non-normal-p))
+                                     (t
+                                      maps))
+                               global-maps)))
+        (dolist (maps valid-maps)
+          (when maps
+            (setq maps (general--parse-maps state keymap maps kargs))
+            ;; NOTE: :definer 'minor-mode cannot be specified locally
+            (general--record-keybindings keymap state maps
+                                         (eq (cl-getf kargs :definer)
+                                             'minor-mode))
+            (general--define-key-dispatch state keymap maps kargs)))))))
 
 ;; * Functions With Keyword Arguments
 (defvar general--definer-p nil
