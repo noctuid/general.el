@@ -69,6 +69,7 @@
   (evil-normalize-keymaps))
 
 (defvar general-temp-map (make-sparse-keymap))
+(push '(temp . general-temp-map) general-keymap-aliases)
 
 ;; * Testing Helpers
 (defmacro general-with (in &rest body)
@@ -859,8 +860,175 @@ Return t if successful or a cons corresponding to the failed key and def."
 ;; TODO
 
 ;; * Other Key Definition Helpers
-;; ** General Simulate Keys
-;; TODO
+;; ** Key Simulation
+;; TODO test with 'self-insert-command
+;; TODO test when simulate command bound to a multi-key sequence
+;; TODO test repeat with different LOOKUP args
+;; TODO test case where STATE and no KEYMAPS (e.g. normal should inherit from
+;; motion)
+(describe "general-simulate-key"
+  (after-each
+    (setq general-temp-map (make-sparse-keymap)))
+  (it "should automatically generate named functions"
+    (general-define-key
+     :states 'normal
+     :keymaps 'general-temp-map
+     "a" (general-simulate-key "a")
+     "b" (general-simulate-key "b" :state 'emacs)
+     "c" (general-simulate-key "c" :keymap some-map)
+     "d" (general-simulate-key "d" :state 'insert :keymap some-map)
+     "e" (general-simulate-key (#'evil-delete "iw")))
+    (expect (general-test-keys 'normal general-temp-map
+              "a" #'general-simulate-a
+              "b" #'general-simulate-b-in-emacs-state
+              "c" #'general-simulate-c-in-some-map
+              "d" #'general-simulate-d-in-insert-state-in-some-map
+              "e" #'general-simulate-evil-delete-iw)))
+  (it "should allow explicitly specifying a function name"
+    (general-define-key
+     :states 'normal
+     :keymaps 'general-temp-map
+     "a" (general-simulate-key "C-c" :name general-C-c))
+    (expect (general-test-keys 'normal general-temp-map
+              "a" #'general-C-c)))
+  (describe "should simulate the keys for a complete binding"
+    (it "in the specified keymap"
+      (general-define-key
+       :states 'normal
+       :keymaps 'general-test-mode-map
+       "a" (general-simulate-key "j" :keymap evil-motion-state-map))
+      (expect (general-with "|one\ntwo"
+                "a")
+              :to-equal "one\n|two"))
+    (it "in the specified state"
+      (general-define-key
+       :states 'normal
+       :keymaps 'general-test-mode-map
+       "a" (general-simulate-key "C-n" :state 'emacs))
+      (expect (general-with "|one\ntwo" "a")
+              :to-equal "one\n|two")
+      (general-define-key
+       :states 'normal
+       :keymaps 'general-test-mode-map
+       ;; checks inheritance from motion state
+       "a" (general-simulate-key "j" :state 'normal))
+      (expect (general-with "|one\ntwo" "a")
+              :to-equal "one\n|two"))
+    (it "in the specified state and keymap"
+      (general-define-key
+       :states 'normal
+       :keymaps 'general-temp-map
+       "w" #'evil-forward-word-begin)
+      (general-define-key
+       :states 'normal
+       :keymaps 'general-test-mode-map
+       "a" (general-simulate-key "w" :state 'normal :keymap general-temp-map))
+      (expect (general-with "|one two" "a")
+              :to-equal "one |two")))
+  (it "should allow state and keymap aliases"
+    (general-define-key
+     :states 'normal
+     :keymaps 'general-temp-map
+     "w" #'evil-forward-word-begin)
+    (general-define-key
+     :states 'normal
+     :keymaps 'general-test-mode-map
+     "a" (general-simulate-key "w" :state 'n :keymap temp))
+    (expect (general-with "|one two" "a")
+            :to-equal "one |two"))
+  ;; TODO haven't found a way to test incomplete bindings
+  ;; if is possible, add tests for repeating (e.g. "di" then "w")
+  (describe "should simulate the keys for an incomplete binding"
+    (xit "in the specified state and keymap"
+      (general-define-key
+       :states 'normal
+       :keymaps 'general-temp-map
+       "bc" #'next-line)
+      (general-define-key
+       :states 'normal
+       :keymaps 'general-test-mode-map
+       "a" (general-simulate-key "b" :state 'normal :keymap general-temp-map))
+      (expect (general-with "|one\ntwo"
+                ;; "ac"
+                ;; (general--simulate-keys nil "ac")
+                (general--simulate-keys nil "a")
+                (general--simulate-keys nil "c"))
+              :to-equal "one\n|two")))
+  ;; NOTE this can't be tested either even though it works below with a count
+  (xit "should work when a command is specified"
+    (general-define-key
+     :states 'normal
+     :keymaps 'general-test-mode-map
+     "a" (general-simulate-key (#'evil-delete "iw")))
+    (expect (general-with "|one two" "a")
+            :to-equal "| two"))
+  (it "should work with a prefix argument"
+    (general-define-key
+     :states 'normal
+     :keymaps 'general-test-mode-map
+     "a" (general-simulate-key "j" :keymap evil-motion-state-map)
+     "b" (general-simulate-key (#'evil-delete "iw")))
+    (expect (general-with "|one\ntwo\nthree"
+              "2a")
+            :to-equal "one\ntwo\n|three")
+    (expect (general-with "|one two"
+              "2b")
+            :to-equal "|two")
+    ;; should not affect next command
+    (let ((general--simulate-as-is t))
+      (expect (general-with "|one\ntwo\nthree\nfour\nfive"
+                "2aa")
+              :to-equal "one\ntwo\nthree\n|four\nfive")
+      (expect (general-with "|one two\nthree\nfour"
+                "2ba")
+              :to-equal "two\n|three\nfour")))
+  ;; TODO a way to actually test recording the macro
+  (describe "run during macro and evil-repeat recording/playback"
+    (it "should work in the basic case"
+      (general-define-key
+       :states 'normal
+       :keymaps 'general-test-mode-map
+       "a" (general-simulate-key "j" :keymap evil-motion-state-map))
+      (expect (general-with "|one\ntwo\nthree"
+                (evil-declare-repeat #'evil-next-line)
+                "a.")
+              :to-equal "one\ntwo\n|three")
+      (evil-declare-motion #'evil-next-line))
+    ;; can't test but works manually
+    (xit "should work when a command is specified"
+      (general-define-key
+       :states 'normal
+       :keymaps 'general-test-mode-map
+       "a" (general-simulate-key (#'evil-delete "iw")))
+      (expect (general-with "|one two" "a.")
+              :to-equal "|two"))
+    (it "should work with a prefix argument"
+      (general-define-key
+       :states 'normal
+       :keymaps 'general-test-mode-map
+       "a" (general-simulate-key "j" :keymap evil-motion-state-map))
+      (evil-declare-repeat #'evil-next-line)
+      (expect (general-with "|one\ntwo\nthree\nfour\nfive" "2a.")
+              :to-equal "one\ntwo\nthree\nfour\n|five")
+      (evil-declare-motion #'evil-next-line)
+      ;; (expect (general-with "|one\ntwo\nthree\nfour\nfive"
+      ;;           (evil-set-register ?\q "2a")
+      ;;           "2a@q")
+      ;;         :to-equal "one\ntwo\nthree\nfour\n|five")
+      )
+    (it "should test whether the command is repeatable when lookup is used"
+      (general-define-key
+       :states 'normal
+       :keymaps 'general-test-mode-map
+       "a" (general-simulate-key "j" :keymap evil-motion-state-map)
+       "b" (general-simulate-key "k" :keymap evil-motion-state-map))
+      (evil-declare-repeat #'evil-next-line)
+      (let ((general--simulate-as-is t))
+        ;; should repeat next line and not previous line
+        (expect (general-with "|one\ntwo\nthree\nfour\nfive" "2ab.")
+                :to-equal "one\ntwo\nthree\n|four\nfive"))
+      (evil-declare-motion #'evil-next-line))))
+
 
 ;; ** General Key Dispatch
 ;; TODO
@@ -941,15 +1109,14 @@ Return t if successful or a cons corresponding to the failed key and def."
               "b" #'c
               "c" #'b)))
   (it "should support keymap and state aliases"
-    (let ((general-keymap-aliases '((temp . general-temp-map))))
-      (general-translate-key 'n 'temp
-        "a" "b"
-        "b" "c"
-        "c" "a")
-      (expect (general-test-keys 'normal general-temp-map
-                "a" #'b
-                "b" #'c
-                "c" #'a))))
+    (general-translate-key 'n 'temp
+      "a" "b"
+      "b" "c"
+      "c" "a")
+    (expect (general-test-keys 'normal general-temp-map
+              "a" #'b
+              "b" #'c
+              "c" #'a)))
   (xit "should support 'local and 'global")
   (it "should use kbd when `general-implicit-kbd' is non-nil"
     (general-translate-key nil 'general-temp-map

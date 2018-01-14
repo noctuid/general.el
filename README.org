@@ -382,29 +382,37 @@ See [[http://endlessparentheses.com/define-context-aware-keys-in-emacs.html][thi
 
 ** Functions/Macros to Aid Key Definition
 *** Simulating Keypresses
-General provides a macro called ~general-simulate-keys~ that can be used to simulate a key sequence. In some cases, this can be used similarly to a keyboard macro, but it has some advantages. Unlike with a keyboard macro, prefix arguments will work for the command the key simulates. The key simulated does not have to correspond to the full key sequence for a command. In these cases [[https://github.com/justbur/emacs-which-key][which-key]] will show the keys bound under the simulated prefix. For example:
+General provides a macro called ~general-simulate-key~ that can be used to simulate a key sequence. In some cases, this can be used similarly to a keyboard macro, but it has some advantages. Unlike with a keyboard macro, prefix arguments will work for the command the key simulates. Also, the key simulated does not have to correspond to the full key sequence for a command. In these cases [[https://github.com/justbur/emacs-which-key][which-key]] will show the keys bound under the simulated prefix. For example:
 #+begin_src emacs-lisp
-(general-nmap "SPC" (general-simulate-keys "C-c"))
+(general-nmap "SPC" (general-simulate-key "C-c"))
 #+end_src
 
-~general-simulate-key~ can take an optional argument (for use with evil only) that will cause the keys to be simulated in emacs state. This allows something like the following to work:
+Note that when a named prefix keymap/command exists (e.g. ~help-command~), you should prefer to bind directly to that. ~general-simulate-key~ is more useful when you don't know the exact command/keymap that should be simulated. However, it is usually preferable to use a menu-item in this case:
 #+begin_src emacs-lisp
-(general-nmap "j" (general-simulate-keys "C-n" t))
+(general-nmap "RET"
+              '(menu-item
+                "Act as the command bound to C-c C-c" nil
+                :filter (lambda (&optional _)
+                          (key-binding (kbd "C-c C-c")))))
+#+end_src
+This has the additional advantage of showing the exact command that will be executed with =C-h k= and is recommended over ~general-simulate-key~ whenever possible.
+
+~general-simulate-key~ also supports keyword arguments (=:state= and =:keymap=) to control the context the keys are simulated in. For example:
+#+begin_src emacs-lisp
+(general-nmap "j" (general-simulate-key "C-n" :state 'emacs))
 #+end_src
 
-The key section can also be replaced by a list of a command and keys (e.g. ~(general-simulate-keys (#'evil-delete "iw"))~). See the next section for a reasonable use case for this feature.
+The key argument can also be replaced by a list of a command and keys (e.g. ~(general-simulate-keys (#'evil-delete "iw"))~). See the next section for a reasonable use case for this feature.
 
-Also note that ~general-simulate-keys~ creates a named function with a docstring, so which-key and ~describe-key~ will work properly for keys bound to a command created with it. The automatically generated function name and docstring can be replaced with optional arguments:
+~general-simulate-keys~ creates a named function with a docstring, so which-key and ~describe-key~ will work properly for keys bound to a command created with it. The automatically generated function name and docstring can be replaced with keyword arguments:
 #+begin_src emacs-lisp
-(general-nmap "SPC" (general-simulate-keys
-                     "C-c" t
-                     "Simulate C-c in emacs state with SPC."
-                     general-SPC-simulates-C-c))
+(general-nmap "SPC" (general-simulate-key "C-c"
+                      :state 'emacs
+                      :name general-SPC-simulates-C-c
+                      :docstring "Simulate C-c in emacs state with SPC."))
 #+end_src
 
-Make sure that you don't bind a key to simulate itself (e.g. ~(general-emap "C-n" (general-simulate-keys "C-n" t))~) as it wouldn't do anything (and would cause an infinite loop).
-
-Another thing to be aware of is that if a command name is not specified, the resulting ~general-simulate-...~ command will always be repeated with ~evil-repeat~ (since the name of the command that will end up running is not necessarily known). If you would like to change this, you can use ~evil-declare-not-repeat~ with the name of the resulting simulate command. On the other hand, if a command name is specified, the simulate command will be repeated depending on the repeat property of that command.
+Make sure that you don't bind a key to simulate itself (e.g. ~(general-emap "C-n" (general-simulate-keys "C-n" :state 'emacs))~) as this will cause an infinite loop.
 
 *** Mapping Under Non-prefix Keys
 This functionality is mainly targeted at evil users, but it could potentially be useful for non-evil users as well. In vim you can bind something like =cow= without a problem. With evil, =c= is bound to ~evil-change~, so you can't bind directly to =cow=. A workaround for this case is to bind a key in ~evil-operator-state-map~, but this won't work, for example, if you wanted to bind =ctb= or =cw= to something special. I've come up with a more general workaround, ~general-key-dispatch~. Consider the following example:
@@ -412,19 +420,19 @@ This functionality is mainly targeted at evil users, but it could potentially be
 (general-nmap "c"
               (general-key-dispatch 'evil-change
                 "ow" 'toggle-word-wrap
-                "w" (general-simulate-keys ('evil-change "iw"))
+                "w" (general-simulate-key ('evil-change "iw"))
                 "tb" 'some-command
                 "c" 'evil-change-whole-line
                 ;; could be used for other operators where there
                 ;; isn't an existing command for the linewise version:
-                ;; "c" (general-simulate-keys ('evil-change "c"))
+                ;; "c" (general-simulate-key ('evil-change "c"))
                 ))
 (general-vmap "c" 'evil-change)
 #+end_src
 
 In this example, the function created will execute any of the mapped key sequences or fall back to ~evil-change~. For example, =ow= is mapped, so =cow= will run ~toggle-word-wrap~. On the other hand, =b= is not mapped, so =cb= will act the same as =cb= would by default. Counts and repeating should still work for both the mapped keys and fallback command. Because evil handles =cc= differently (since =c= is not a motion), =c= must be explicitly bound to ~evil-change-whole-line~ (or to simulate "cc") to keep its behavior. In visual state, =c= is not actually bound by default and will use the normal state command, so to keep =c= working the same in visual state, you should explicitly bind it to ~evil-change~.
 
-Another thing to note is that you can't bind a key in the ~general-key-dispatch~ section to simulate the base key (in this case =c=). For this example, you cant't bind =w= to ~(general-simulate-keys "ciw")~. While this won't cause an infinite loop, it won't work either, so you have to use the command name instead. Also, if you use a count in the middle (i.e =c2w=), it will act as =c2w= and not =c2iw=. If anyone cares about this, I could probably add an option to allow changing the count in the middle without immediately falling back to the default command.
+Another thing to note is that you can't bind a key in the ~general-key-dispatch~ section to simulate the base key (in this case =c=). For this example, you cant't bind =w= to ~(general-simulate-key "ciw")~. While this won't cause an infinite loop, it won't work either, so you have to use the command name instead. Also, if you use a count in the middle (i.e =c2w=), it will act as =c2w= and not =c2iw=. If anyone cares about this, I could probably add an option to allow changing the count in the middle without immediately falling back to the default command.
 
 Another possible use is to emulate vim's =imap=. For example, you can recreate the common =jk= to =<esc>= keybinding:
 #+begin_src emacs-lisp
@@ -456,7 +464,7 @@ If you are using ~general-key-dispatch~ with a timeout to mirror a prefix key's 
 #+end_src
 If you bind more keys under your prefix later on in normal state, they will still be available when pressing the prefix in insert state without needing to re-evaluate the ~general-key-dispatch~.
 
-Like with ~general-simulate-keys~ used with a command name, the behavior of ~evil-repeat~ will depend on the command that ends up running. Having repeating work correctly requires handling a lot of edge cases, so please make an issue if you find any problems. Note that evil does not support repeating a count that comes before an operator currently, but repeating should work when the count follows the operator key (=3cc= vs =c3c=).
+Like with ~general-simulate-key~ used with a command name, the behavior of ~evil-repeat~ will depend on the command that ends up running. Having repeating work correctly requires handling a lot of edge cases, so please make an issue if you find any problems. Note that evil does not support repeating a count that comes before an operator currently, but repeating should work when the count follows the operator key (=3cc= vs =c3c=).
 
 *** Choosing Definitions Based on Predicates
 :PROPERTIES:
@@ -477,7 +485,9 @@ The =:docstring= keyword can be specified to add a description to the menu-item.
 *** Key "Translation"
 ~general-translate-key~ allows binding a key to the definition of another key in the same keymap (comparable to how vim's keybindings work). Its arguments are the =states= (which can be nil for non-evil keymaps) and =keymaps= (both symbols or lists of symbols like for ~general-define-key~) to bind/look up the key(s) in followed optionally by keyword arguments (currently only =:destructive=) and key/replacement pairs.
 
-This can be particularly useful, for example, when you want make key swaps/cycles en masse. This use case is similar to one for ~general-simulate-keys~ (i.e. make a key act as another key that has a consistent meaning but different commands for different modes without having to individually bind the key to the exact definition in each mode's keymap). However, ~general-simulate-keys~ is not always suitable for this purpose. It can be used to, for example, make =j= in normal state act as =C-n= in emacs state (to use the default "down" navigation key for all modes without needing to individually make keybindings for every mode), but it cannot be used to swap/cycle keys within a single keymap, as this would cause an infinite loop of simulating the other key(s).
+~evil-collection-translate-key~ allows binding a key to the definition of another key in the same keymap (comparable to how vim's keybindings work). Its arguments are the =states= and =keymaps= to bind/look up the key(s) in followed optionally by keyword arguments (currently only =:destructive=) and key/replacement pairs. =states= can be nil for non-evil keymaps, and both =states= and =keymaps= can be a single symbol or a list of symbols.
+
+This can be particularly useful, for example, when you want make key swaps/cycles en masse. This use case is similar to one for ~general-simulate-key~ (i.e. make a key act as another key that has a consistent meaning but different commands for different modes without having to individually bind the key to the exact definition in each mode's keymap). However, ~general-simulate-key~ is not always suitable for this purpose. It can be used to, for example, make =j= in normal state act as =C-n= in emacs state (to use the default "down" navigation key for all modes without needing to individually make keybindings for every mode), but it cannot be used to swap/cycle keys within a single keymap, as this would cause an infinite loop of simulating the other key(s).
 
 An example use case of ~general-translate-key~ is for non-QWERTY users who want to retain the hjkl keyboard positions for movement in dired, mu4e, etc. When using a package that already creates hjkl keybindings for the desired mode(s) (e.g. [[https://github.com/jojojames/evil-collection][evil-collection]]), it is easily possible to make these cycles in a single statement:
 #+begin_src emacs-lisp
@@ -711,7 +721,7 @@ The =:properties=, =:repeat=, and =:jump= keywords can be used to add evil comma
 If you would like for more keywords to be added that correspond to specific properties (like =:repeat=), feel free to make an issue or pull request. For more information on command properties see evil's documentation and [[https://github.com/noctuid/evil-guide#command-properties][here]].
 
 *** User-defined Extended Definition Keywords
-New keywords and functionality can be added by the user by adding a keyword to =general-extended-def-keywords= and creating a corresponding function named ~general-extended-def-:<keyword>~. This function will be passed in =state keymap key def kargs=. =state= and =keymap= are the evil state (nil if none) and keymap that the =key= (internal representation; ~kbd~ already used if necessary) is being bound in. Note that =keymap= will be the symbol for the keymap in case it is needed. To get the actual keymap, using ~general--parse-keymap~ is recommended. =def= is the extended definition itself, and =kargs= is the plist of all the keyword arguments given to the original ~general-define-key~. For examples, see ~general-extended-def-:which-key~ and ~general-extended-def-:properties~.
+New keywords and functionality can be added by the user by adding a keyword to =general-extended-def-keywords= and creating a corresponding function named ~general-extended-def-:<keyword>~. This function will be passed in =state keymap key def kargs=. =state= and =keymap= are the evil state (nil if none) and keymap that the =key= (internal representation; ~kbd~ already used if necessary) is being bound in. Note that =keymap= will be the symbol for the keymap in case it is needed. To get the actual keymap, using ~general--get-keymap~ is recommended. =def= is the extended definition itself, and =kargs= is the plist of all the keyword arguments given to the original ~general-define-key~. For examples, see ~general-extended-def-:which-key~ and ~general-extended-def-:properties~.
 
 Note that the keywords in =general-extended-def-keywords= and their helper keywords can all be specified both globally and locally. Since globally specifying keywords may not always make sense, it is up to the ~general-extended-def-:<keyword>~ function to decide how to handle things. When a keyword can be specified both globally and locally, ~general--getf~ may be useful.
 
@@ -727,7 +737,7 @@ Alternate definers can be used by specifying the =:definer= keyword (globally or
   "key2" '(def2 :definer 'my-other))
 #+end_src
 
-The user-created function should be named ~general-<definer>-define-key~. It will be passed =state keymap key def orig-def kargs=. These arguments are the same as for extended definition functions except for =def= and =orig-def=. =def= is the transformed definition, whereas =orig-def= is the original definition (an extended definition or the same as =def=). Since =orig-def= is not necessarily an extended definition, it may be useful to use ~general--getf~ (which uses ~general--extended-def-p~; see ~general-lispy-define-key~ for an example). Since the keymap passed in is a symbol, ~general--parse-keymap~ may be useful as well. ~key-description~ will also be useful if the underlying definition function uses ~kbd~ (since =key= is the internal representation ready to be passed directly to ~define-key~; note that ~key-description~ will work with both strings and vectors, including something like =[remap kill-line]=)
+The user-created function should be named ~general-<definer>-define-key~. It will be passed =state keymap key def orig-def kargs=. These arguments are the same as for extended definition functions except for =def= and =orig-def=. =def= is the transformed definition, whereas =orig-def= is the original definition (an extended definition or the same as =def=). Since =orig-def= is not necessarily an extended definition, it may be useful to use ~general--getf~ (which uses ~general--extended-def-p~; see ~general-lispy-define-key~ for an example). Since the keymap passed in is a symbol, ~general--get-keymap~ may be useful as well. ~key-description~ will also be useful if the underlying definition function uses ~kbd~ (since =key= is the internal representation ready to be passed directly to ~define-key~; note that ~key-description~ will work with both strings and vectors, including something like =[remap kill-line]=)
 
 *** Wrapping ~evil-define-minor-mode-key~
 :PROPERTIES:
