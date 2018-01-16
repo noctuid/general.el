@@ -734,7 +734,14 @@ The user-created function should be named ~general-<definer>-define-key~. It wil
 :CUSTOM_ID: wrapping-evil-define-minor-mode-key
 :END:
 
-If you want to use ~evil-define-minor-mode-key~ instead of ~evil-define-key*~, you can use =:definer 'minor-mode=. This will simply repurpose =:keymaps= to specify minor mode names instead.
+If you want to use ~evil-define-minor-mode-key~ instead of ~evil-define-key*~, you can use =:definer 'minor-mode=. This will repurpose =:keymaps= to specify minor mode names instead of keymap names:
+#+begin_src emacs-lisp
+(general-define-key
+ :definer 'minor-mode
+ :states 'normal
+ :keymaps 'org-src-mode
+ "RET" #'org-edit-src-exit)
+#+end_src
 
 If you are wondering why you might want to use ~evil-define-minor-mode-key~, see [[https://github.com/noctuid/evil-guide#why-dont-keys-defined-with-evil-define-key-work-immediately][here]].
 
