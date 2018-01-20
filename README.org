@@ -123,7 +123,7 @@ This package provides one main function, ~general-define-key~, for key definitio
 ** Settings and Keyword Arguments
 =general-implicit-kbd= can be set to nil if you want to manually use ~(kbd "keys")~ or if you don't want to use kbd at all.
 
-=general-default-prefix=, =general-default-states=, and =general-default-keymaps= determine the defaults for the corresponding keyword arguments =:prefix=, =:states=, and =:keymaps=. By default, there is no prefix or state (each is nil), and the keymap is ~(quote global)~. Each keymap can either be a quoted keymap or ~(quote global)~ or ~(quote local)~. When the keymap is =local=, the key will be bound only in the current buffer (see [[#buffer-local-keybindings][Buffer Local Keybindings]]). When the keymap is =global=, the key will be bound in ~(current-global-map)~.
+=general-default-prefix=, =general-default-states=, and =general-default-keymaps= determine the defaults for the corresponding keyword arguments =:prefix=, =:states=, and =:keymaps=. By default, there is no prefix or state (each is nil), and the keymap is ~(quote global)~. Each keymap can either be a quoted keymap or ~(quote global)~ or ~(quote local)~. When the keymap is =local=, the key will be bound only in the current buffer (see [[#override-keymaps-and-buffer-local-keybindings][here]]). When the keymap is =global=, the key will be bound in ~(current-global-map)~.
 
 ~general-default-states~ and ~general-default-keymaps~ can be lists or a single element, allowing the user to define keys for multiple evil states or keymaps simultaneously. This can be useful in certain situations to prevent redundant keybindings.
 
@@ -266,6 +266,10 @@ A third macro, ~general-def~, is provided for those who would prefer to use a si
 Note that if you want to use variables to hold keys (e.g. =key-var 'def=), you should use ~general-define-key~ (if those were the first arguments to ~general-def~, it would consider them a state and keymap). Doing this isn't recommended and probably isn't useful. If you want to use a variable specifically with =:prefix= or another keyword argument, that is still supported by ~general-def~.
 
 ** Note for Evil Users
+:PROPERTIES:
+:CUSTOM_ID: notes-for-evil-users
+:END:
+
 When =:states= is specified (or ~general-default-states~ is non-nil), ~general-define-key~ will act as a wrapper around ~evil-define-key~. This means that the following are equivalent:
 #+begin_src emacs-lisp
 (general-define-key :states '(normal visual)
@@ -356,6 +360,10 @@ These are wrappers around ~general-def~ that set a default =:keymaps= (or a defa
 If there is some other combination you would like to use, you can use ~general-create-vim-definer~ or ~general-create-dual-vim-definer~.
 
 ** Override Keymaps and Buffer Local Keybindings
+:PROPERTIES:
+:CUSTOM_ID: override-keymaps-and-buffer-local-keybindings
+:END:
+
 General.el provides the equivalent of =bind-key='s =override-global-map= as =general-override-mode-map= (keymap alias is ='override=). When =general-override-mode= is enabled, keys bound in =general=override-map= will take precedence over keys bound in any other minor mode keymaps.
 
 Note that binding directly in =general-override-mode-map= is only useful for non-evil keybindings. Evil keybindings already override almost all normal keybindings using the same method used here. On the other hand, if you want to override evil keybindings, you have a few options. For reference, first review the [[https://github.com/noctuid/evil-guide#keymap-precedence][precedence for evil keymaps]]. If you want a global evil keybinding to not be overridden by any evil overriding maps (used by =evil-integration.el= for some modes by default), you can use the [[https://github.com/noctuid/evil-guide#preventing-certain-keys-from-being-overridden][previously mentioned method]] and bind that key in an auxiliary keymap since auxiliary maps have precedence over overriding maps (which in turn have precedence over the normal global evil keymaps). Doing this is mainly useful if you want to use ~evil-make-overriding-map~ for specific modes but want to prevent certain global keys from ever being overwritten (e.g. a prefix key for window/file/buffer management). However, if you use evil packages that make keybindings with ~evil-define-key~, this method is not sufficient. If you want your global keybinding to not be overridden by keybindings in any auxiliary maps, you can use an intercept keymap. You can make any keymap an intercept keymap, but it may be convenient to just use =general-override-mode-map= for this purpose since the necessary setup (~evil-make-intercept-map~) has already been performed:
