@@ -891,6 +891,12 @@ Return t if successful or a cons corresponding to the failed key and def."
      "a" (general-simulate-key "C-c" :name general-C-c))
     (expect (general-test-keys 'normal general-temp-map
               "a" #'general-C-c)))
+  (it "should allow specifying a which-key description"
+    (setq which-key-replacement-alist nil)
+    (general-simulate-key "a" :which-key "simulate a")
+    (expect which-key-replacement-alist
+            :to-equal '(((nil . "general-simulate-a")
+                         nil . "simulate a"))))
   (describe "should simulate the keys for a complete binding"
     (it "in the specified keymap"
       (general-define-key

@@ -1529,7 +1529,10 @@ as nil."
 ;;;###autoload
 (cl-defmacro general-simulate-key (keys
                                    &key
-                                   state keymap name docstring (lookup t))
+                                   state keymap
+                                   name docstring
+                                   (lookup t)
+                                   which-key)
   "Create and return a command that simulates KEYS in STATE and KEYMAP.
 KEYS should be a string given in `kbd' notation. It can also be a list of a
 single command followed by a string of the key(s) to simulate after calling that
@@ -1549,6 +1552,9 @@ Generally, you will want to keep LOOKUP non-nil because this will allow checking
 the evil repeat property of matched commands to determine whether or not they
 should be recorded. See the docstring for `general--simulate-keys' for more
 information about LOOKUP.
+
+When a WHICH-KEY description is specified, it will replace the command name in
+the which-key popup.
 
 The advantages of this over a keyboard macro are as follows:
 - Prefix arguments are supported
@@ -1582,6 +1588,11 @@ The advantages of this over a keyboard macro are as follows:
     `(progn
        (eval-after-load 'evil
          '(evil-set-command-property #',name :repeat 'general--simulate-repeat))
+       (when ,which-key
+         (with-eval-after-load 'which-key
+           (push '((nil . ,(symbol-name name))
+                   nil . ,which-key)
+                 which-key-replacement-alist)))
        (defun ,name
            ()
          ,(or docstring
@@ -1680,9 +1691,8 @@ same FALLBACK-COMMAND (e.g. `self-insert-command').
 When INHERIT-KEYMAP is specified, all the keybindings from that keymap will be
 inherited in MAPS.
 
-WHICH-KEY can also be specified, in which case the description WHICH-KEY will
-replace the command name in the which-key popup. Note that this requires a
-version of which-key from after 2016-11-21."
+When a WHICH-KEY description is specified, it will replace the command name in
+the which-key popup."
   (declare (indent 1))
   (let ((name (or name (intern (format "general-dispatch-%s"
                                        (eval fallback-command)))))
@@ -1693,10 +1703,9 @@ version of which-key from after 2016-11-21."
          '(evil-set-command-property #',name :repeat 'general--dispatch-repeat))
        (when ,which-key
          (with-eval-after-load 'which-key
-           (when (boundp 'which-key-replacement-alist)
-             (push '((nil . ,(symbol-name name))
-                     nil . ,which-key)
-                   which-key-replacement-alist))))
+           (push '((nil . ,(symbol-name name))
+                   nil . ,which-key)
+                 which-key-replacement-alist)))
        ;; TODO list all of the bound keys in the docstring
        (defun ,name ()
          ,(or docstring (format (concat "Run %s or something else based"
