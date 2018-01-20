@@ -1033,11 +1033,29 @@ Return t if successful or a cons corresponding to the failed key and def."
         ;; should repeat next line and not previous line
         (expect (general-with "|one\ntwo\nthree\nfour\nfive" "2ab.")
                 :to-equal "one\ntwo\nthree\n|four\nfive"))
-      (evil-declare-motion #'evil-next-line))))
-
+      (evil-declare-motion #'evil-next-line)))
+  (it "should optionally check to see if commands have been remapped"
+    (general-define-key
+     :states 'normal
+     :keymaps 'general-test-mode-map
+     "a" (general-simulate-key ('left-char "C-q a"))
+     [remap left-char] #'right-char)
+    (expect (general-with "b|b" "a")
+            :to-equal "bba|")
+    (general-define-key
+     :states 'normal
+     :keymaps 'general-test-mode-map
+     "a" (general-simulate-key ('left-char "C-q a") :remap nil))
+    (expect (general-with "b|b" "a")
+            :to-equal "a|bb")
+    (general-define-key
+     :states 'normal
+     :keymaps 'general-test-mode-map
+     [remap left-char] nil)))
 
 ;; ** General Key Dispatch
 ;; TODO
+;; - add tests for REMAP
 
 ;; ** General Predicate Dispatch
 (describe "general-predicate-dispatch"

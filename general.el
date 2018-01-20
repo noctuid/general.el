@@ -1315,6 +1315,18 @@ Any local keybindings will be shown first followed by global keybindings."
     (read-only-mode)))
 
 ;; * Functions/Macros to Aid Key Definition
+;; ** Helpers
+(cl-defun general--call-interactively
+    (function &optional (remap t) record-flag keys)
+  "Like `call-interactively' but use the remapped FUNCTION if it exists.
+If REMAP is specified as nil (it is true by default), this is the same as
+`call-interactively'. FUNCTION, RECORD-FLAG, and KEYS are passed to
+`call-interactively'."
+  (when remap
+    (setq function (or (key-binding (kbd (format "<remap> <%s>" function)))
+                       function)))
+  (call-interactively function record-flag keys))
+
 ;; ** Key Simulation
 ;; https://emacs.stackexchange.com/questions/6037/emacs-bind-key-to-prefix/13432#13432
 ;; altered to
@@ -1428,7 +1440,8 @@ leftover keys (or nil if the full KEYS was matched)."
             (substring keys ind len)))))
 
 (cl-defun general--simulate-keys (command keys &optional state keymap
-                                          (lookup t))
+                                          (lookup t)
+                                          (remap t))
   "Simulate COMMAND followed by KEYS in STATE and/or KEYMAP.
 If COMMAND is nil, just simulate KEYS. If STATE and KEYMAP are nil, simulate the
 keys in the current context. When COMMAND is non-nil, STATE and KEYMAP will have
@@ -1438,7 +1451,9 @@ LOOKUP is non-nil, KEYS will be looked up in the correct context to determine if
 any subsequence corresponds to a command or keymap. If a command is matched,
 that command will be called followed by the simulation of any leftover keys. To
 simulate the keys as-is without any lookup, LOOKUP can be explicitly specified
-as nil."
+as nil. When COMMAND has been remapped (i.e. [remap COMMAND] is currently
+bound), the remapped version will be used instead of the original command unless
+REMAP is specified as nil (it is true by default)."
   (let* ((keys (when keys
                  (kbd keys)))
          ;; TODO remove when get rid of `general-simulate-keys'
@@ -1487,7 +1502,7 @@ as nil."
                unread-command-events))))
     (when command
       (let ((this-command command))
-        (call-interactively command)))
+        (general--call-interactively command remap)))
     (setq general--last-simulated-command command)))
 
 ;;;###autoload
@@ -1556,7 +1571,8 @@ as nil."
                                    state keymap
                                    name docstring
                                    (lookup t)
-                                   which-key)
+                                   which-key
+                                   (remap t))
   "Create and return a command that simulates KEYS in STATE and KEYMAP.
 KEYS should be a string given in `kbd' notation. It can also be a list of a
 single command followed by a string of the key(s) to simulate after calling that
@@ -1579,6 +1595,10 @@ information about LOOKUP.
 
 When a WHICH-KEY description is specified, it will replace the command name in
 the which-key popup.
+
+When a command name is specified and that command has been remapped (i.e. [remap
+command] is currently bound), the remapped version will be used instead of the
+original command unless REMAP is specified as nil (it is true by default).
 
 The advantages of this over a keyboard macro are as follows:
 - Prefix arguments are supported
@@ -1642,7 +1662,7 @@ The advantages of this over a keyboard macro are as follows:
                             (t
                              "the current context."))))
          (interactive)
-         (general--simulate-keys ,command ,keys ',state ,keymap ,lookup))
+         (general--simulate-keys ,command ,keys ',state ,keymap ,lookup ,remap))
        #',name)))
 
 (defun general--repeat-abort-p (repeat-prop)
@@ -1692,10 +1712,14 @@ KEYS should be a string given in `kbd' notation."
 ;;;###autoload
 (cl-defmacro general-key-dispatch
     (fallback-command &rest maps
-                      &key timeout inherit-keymap name docstring
+                      &key
+                      timeout
+                      inherit-keymap
+                      name docstring
                       which-key
+                      (remap t)
                       &allow-other-keys)
-  "Create a function that will run FALLBACK-COMMAND or a command from MAPS.
+  "Create and return a command that runs FALLBACK-COMMAND or a command in MAPS.
 MAPS consists of <key> <command> pairs. If a key in MAPS is matched, the
 corresponding command will be run. Otherwise FALLBACK-COMMAND will be run with
 the unmatched keys. So, for example, if \"ab\" was pressed, and \"ab\" is not
@@ -1718,7 +1742,11 @@ When INHERIT-KEYMAP is specified, all the keybindings from that keymap will be
 inherited in MAPS.
 
 When a WHICH-KEY description is specified, it will replace the command name in
-the which-key popup."
+the which-key popup.
+
+When command to be executed has been remapped (i.e. [remap command] is currently
+bound), the remapped version will be used instead of the original command unless
+REMAP is specified as nil (it is true by default)."
   (declare (indent 1))
   (let ((name (or name (intern (format "general-dispatch-%s-%s"
                                        (eval fallback-command)
@@ -1767,10 +1795,11 @@ the which-key popup."
              ;; necessary for evil-this-operator checks because
              ;; evil-define-operator sets evil-this-operator to this-command
              (let ((this-command matched-command))
-               (call-interactively matched-command)))
+               (general--call-interactively matched-command ,remap)))
             (t
              (setq matched-command ,fallback-command)
-             (general--simulate-keys ,fallback-command char)))
+             (general--simulate-keys ,fallback-command char
+                                     nil nil t ,remap)))
            (setq general--last-dispatch-command matched-command)))
        #',name)))
 

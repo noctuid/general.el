@@ -410,7 +410,7 @@ General provides another macro called ~general-key~ that is usually preferable f
 (general-nmap "j" (general-key "C-n" :state 'emacs))
 #+end_src
 
-The advantage of ~general-simulate-key~ over ~general-key~ is that it can be used to simulate a key sequence corresponding to multiple commands or a command followed by a key sequence. The key argument can be replaced by a list of a command and keys (e.g. ~(general-simulate-key ('evil-delete "iw"))~). See the next section for a reasonable use case for this feature.
+The advantage of ~general-simulate-key~ over ~general-key~ is that it can be used to simulate a key sequence corresponding to multiple commands or a command followed by a key sequence. The key argument can be replaced by a list of a command and keys (e.g. ~(general-simulate-key ('evil-delete "iw"))~). See the next section for a reasonable use case for this feature. When a command is specified, general will used the remapped version of it if it exists (e.g. if =[remap evil-delete] 'lispyville-delete= is in an active keymap, ~lispyville-delete~ will be used instead of ~evil-delete~). To use the exact command instead, =:remap nil= can be specified
 
 ~general-simulate-key~ creates a named function with a docstring, so which-key and ~describe-key~ will work properly for keys bound to a command created with it. The automatically generated function name, docstring, and which-key description can be replaced with keyword arguments:
 #+begin_src emacs-lisp
@@ -439,6 +439,8 @@ This functionality is mainly targeted at evil users, but it could potentially be
 #+end_src
 
 ~general-key-dispatch~ is a function-creating macro. In this example, the command created will wait for user input and try to match one of the specified key sequences (e.g. =ow=). If a key sequence is matched, the corresponding command will be executed. Otherwise it will fall back to simulating the fallback command followed by the unmatched keys (using the same mechanism as ~general-simulate-key~). For example, =ow= is bound, so =cow= would run ~toggle-word-wrap~. On the other hand, =b= is not mapped, so =cb= would act the same as =cb= would by default. Counts and repeating should still work for both the mapped keys and fallback command. Because evil handles =cc= differently (since =c= is not a motion), =c= must be explicitly bound to ~evil-change-whole-line~ (or to simulate =('evil-change "c")=) to keep its behavior. =c= is not actually bound in visual state by default, so to keep =c= working the same in visual state, you should explicitly bind it to ~evil-change~.
+
+Like with ~general-simulate-key~, general will first check to see if the command to be executed has been remapped (e.g. if =[remap evil-delete] 'lispyville-delete= is in an active keymap, ~lispyville-delete~ will be used instead of ~evil-delete~). To use the exact command instead, =:remap nil= can be specified.
 
 Another thing to note is that you can't bind a key in the ~general-key-dispatch~ section to simulate the base key (i.e. the key you bind to the resulting command, in this case =c=). For this example, you couldn't bind =w= to ~(general-simulate-key "ciw")~. While this wouldn't cause an infinite loop, it wouldn't work either, so you would have to use the command name instead (e.g ~(general-simulate-key ('evil-change "iw"))~).
 
