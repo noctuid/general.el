@@ -410,7 +410,7 @@ General provides another macro called ~general-key~ that is usually preferable f
 (general-nmap "j" (general-key "C-n" :state 'emacs))
 #+end_src
 
-The advantage of ~general-simulate-key~ over ~general-key~ is that it can be used to simulate a key sequence corresponding to multiple commands or a command followed by a key sequence. The key argument can be replaced by a list of a command and keys (e.g. ~(general-simulate-key (#'evil-delete "iw"))~). See the next section for a reasonable use case for this feature.
+The advantage of ~general-simulate-key~ over ~general-key~ is that it can be used to simulate a key sequence corresponding to multiple commands or a command followed by a key sequence. The key argument can be replaced by a list of a command and keys (e.g. ~(general-simulate-key ('evil-delete "iw"))~). See the next section for a reasonable use case for this feature.
 
 ~general-simulate-key~ creates a named function with a docstring, so which-key and ~describe-key~ will work properly for keys bound to a command created with it. The automatically generated function name, docstring, and which-key description can be replaced with keyword arguments:
 #+begin_src emacs-lisp
@@ -424,33 +424,34 @@ The advantage of ~general-simulate-key~ over ~general-key~ is that it can be use
 Make sure that you don't bind a key to simulate itself (e.g. ~(general-emap "C-n" (general-simulate-key "C-n" :state 'emacs))~) as this will cause an infinite loop.
 
 *** Mapping Under Non-prefix Keys
-This functionality is mainly targeted at evil users, but it could potentially be useful for non-evil users as well. In vim you can bind something like =cow= without a problem. With evil, =c= is bound to ~evil-change~, so you can't bind directly to =cow=. A workaround for this case is to bind a key in ~evil-operator-state-map~, but this won't work, for example, if you wanted to bind =ctb= or =cw= to something special. I've come up with a more general workaround, ~general-key-dispatch~. Consider the following example:
+This functionality is mainly targeted at evil users, but it could potentially be useful for non-evil users as well. In vim you can bind something like =cow= without a problem. With evil, =c= is bound to ~evil-change~, so you can't bind directly to =cow=. A workaround for this case is to bind a key in ~evil-operator-state-map~, but this won't work when operator state is not used (e.g. you want to bind something like =ctb= or =jk= in insert state). I've come up with a more general workaround called ~general-key-dispatch~. Consider the following example:
 #+begin_src emacs-lisp
-(general-nmap "c"
-              (general-key-dispatch 'evil-change
-                "ow" 'toggle-word-wrap
-                "w" (general-simulate-key ('evil-change "iw"))
-                "tb" 'some-command
-                "c" 'evil-change-whole-line
-                ;; could be used for other operators where there
-                ;; isn't an existing command for the linewise version:
-                ;; "c" (general-simulate-key ('evil-change "c"))
-                ))
+(general-nmap "c" (general-key-dispatch 'evil-change
+                    "ow" 'toggle-word-wrap
+                    "tb" 'some-command
+                    "c" 'evil-change-whole-line
+                    ;; alternatively if there was no linewise version:
+                    "c" (general-simulate-key ('evil-change "c"))))
+;; `evil-change' is not bound in `evil-visual-state-map' by default but
+;; inherited from `evil-normal-state-map'
+;; if you don't want "c" to be affected in visual state, you should add this
 (general-vmap "c" 'evil-change)
 #+end_src
 
-In this example, the function created will execute any of the mapped key sequences or fall back to ~evil-change~. For example, =ow= is mapped, so =cow= will run ~toggle-word-wrap~. On the other hand, =b= is not mapped, so =cb= will act the same as =cb= would by default. Counts and repeating should still work for both the mapped keys and fallback command. Because evil handles =cc= differently (since =c= is not a motion), =c= must be explicitly bound to ~evil-change-whole-line~ (or to simulate "cc") to keep its behavior. In visual state, =c= is not actually bound by default and will use the normal state command, so to keep =c= working the same in visual state, you should explicitly bind it to ~evil-change~.
+~general-key-dispatch~ is a function-creating macro. In this example, the command created will wait for user input and try to match one of the specified key sequences (e.g. =ow=). If a key sequence is matched, the corresponding command will be executed. Otherwise it will fall back to simulating the fallback command followed by the unmatched keys (using the same mechanism as ~general-simulate-key~). For example, =ow= is bound, so =cow= would run ~toggle-word-wrap~. On the other hand, =b= is not mapped, so =cb= would act the same as =cb= would by default. Counts and repeating should still work for both the mapped keys and fallback command. Because evil handles =cc= differently (since =c= is not a motion), =c= must be explicitly bound to ~evil-change-whole-line~ (or to simulate =('evil-change "c")=) to keep its behavior. =c= is not actually bound in visual state by default, so to keep =c= working the same in visual state, you should explicitly bind it to ~evil-change~.
 
-Another thing to note is that you can't bind a key in the ~general-key-dispatch~ section to simulate the base key (in this case =c=). For this example, you cant't bind =w= to ~(general-simulate-key "ciw")~. While this won't cause an infinite loop, it won't work either, so you have to use the command name instead. Also, if you use a count in the middle (i.e =c2w=), it will act as =c2w= and not =c2iw=. If anyone cares about this, I could probably add an option to allow changing the count in the middle without immediately falling back to the default command.
+Another thing to note is that you can't bind a key in the ~general-key-dispatch~ section to simulate the base key (i.e. the key you bind to the resulting command, in this case =c=). For this example, you couldn't bind =w= to ~(general-simulate-key "ciw")~. While this wouldn't cause an infinite loop, it wouldn't work either, so you would have to use the command name instead (e.g ~(general-simulate-key ('evil-change "iw"))~).
 
-Another possible use is to emulate vim's =imap=. For example, you can recreate the common =jk= to =<esc>= keybinding:
+Also, if you use a count in the middle (e.g. =c2tb= and =2= is not explicitly bound), the fallback command will be run immediately. If anyone cares about this, feel free to make an issue. I could potentially add an option to allow changing the count in the middle without immediately falling back to the default command.
+
+Another possible use case of ~general-key-dispatch~ is to emulate vim's =imap=. For example, you can recreate the common =jk= to =<esc>= keybinding:
 #+begin_src emacs-lisp
 (general-imap "j"
               (general-key-dispatch 'self-insert-command
                 "k" 'evil-normal-state))
 #+end_src
 
-Commands created in this way now support an optional timeout, meaning you could still insert =jk= (without =C-q= / ~quoted-insert~) like with [[https://www.emacswiki.org/emacs/key-chord.el][key-chord.el]]:
+Commands created in this way support an optional timeout, meaning you could still insert =jk= (without =C-q= / ~quoted-insert~) like with [[https://www.emacswiki.org/emacs/key-chord.el][key-chord.el]]:
 #+begin_src emacs-lisp
 (general-imap "j"
               (general-key-dispatch 'self-insert-command
@@ -458,18 +459,18 @@ Commands created in this way now support an optional timeout, meaning you could 
                 "k" 'evil-normal-state))
 #+end_src
 
-If you are using ~general-key-dispatch~ with a timeout to mirror a prefix key's bindings in insert state, it may also be convenient to use the =:inherit-keymap= keyword. This allows using all your prefix keybindings without the need to re-specify them all in the ~general-key-dispatch~:
+If you are using ~general-key-dispatch~ with a timeout to mirror some prefix keymap in insert state, it may also convenient to use the =:inherit-keymap= keyword. This allows using prefix keybindings without the need to re-specify them in the ~general-key-dispatch~:
 #+begin_src emacs-lisp
 (general-nmap :prefix ","
               :prefix-command 'my-prefix-map
-              "g" #'magit-status)
+              "g" 'magit-status)
 
 (general-imap ","
-              (general-key-dispatch #'self-insert-command
+              (general-key-dispatch 'self-insert-command
                 :timeout 0.25
                 :inherit-keymap my-prefix-map))
 #+end_src
-If you bind more keys under your prefix later on in normal state, they will still be available when pressing the prefix in insert state without needing to re-evaluate the ~general-key-dispatch~.
+If you bind more keys under your prefix later on in normal state, they will still be available when pressing the prefix in insert state without the need to re-evaluate the ~general-key-dispatch~.
 
 By default, ~general-key-dispatch~ will prevent name clashes by appending a unique number to name of the created command (e.g. ~general-dispatch-self-insert-command-G402~). If you would like to reference the created command by name, you can name it yourself using the =:name= keyword argument (e.g. =:name general-insert-prefix-dispatch=).
 
@@ -742,7 +743,7 @@ This is also potentially useful even when rewriting the definitions is not neces
 Alternate definers can be used by specifying the =:definer= keyword (globally or inside an extended definition):
 #+begin_src emacs-lisp
 (general-define-key :definer 'my
-  "key" #'def
+  "key" 'def
   "key2" '(def2 :definer 'my-other))
 #+end_src
 
@@ -759,7 +760,7 @@ If you want to use ~evil-define-minor-mode-key~ instead of ~evil-define-key*~, y
  :definer 'minor-mode
  :states 'normal
  :keymaps 'org-src-mode
- "RET" #'org-edit-src-exit)
+ "RET" 'org-edit-src-exit)
 #+end_src
 
 If you are wondering why you might want to use ~evil-define-minor-mode-key~, see [[https://github.com/noctuid/evil-guide#why-dont-keys-defined-with-evil-define-key-work-immediately][here]].
