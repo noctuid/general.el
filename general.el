@@ -362,7 +362,7 @@ If PREDICATE is nil just return DEF."
 (defun general--lookup-key (state keymap key &optional minor-mode-p)
   "Return the current definition for STATE, KEYMAP, and KEY."
   (when key
-    (let ((keymap (general--parse-keymap state keymap minor-mode-p)))
+    (let ((keymap (general--get-keymap state keymap minor-mode-p)))
       (when keymap
         (let ((def (lookup-key keymap key)))
           (if (and (numberp def) (= def 1))
@@ -460,22 +460,28 @@ definition, only check in FALLBACK-PLIST."
 (declare-function evil-get-minor-mode-keymap "evil-core")
 (declare-function evil-state-property "evil-common")
 (declare-function evil-get-auxiliary-keymap "evil-core")
-;; TODO rename general--get-keymap
-(cl-defun general--parse-keymap (state keymap &optional minor-mode-p)
-  "Transform STATE and the symbol KEYMAP into the appropriate keymap.
+(cl-defun general--get-keymap (state &optional keymap minor-mode-p)
+  "Transform STATE and the symbol or keymap KEYMAP into the appropriate keymap.
 'local  - Return `general-override-local-map' or the evil local keymap
 'global - Return (current-global-map) or the corresponding evil auxiliary map
-else    - Return (symbol-value keymap) or the corresponding evil auxiliary map
+else    - Return keymap, (symbol-value keymap), or the corresponding evil
+          auxiliary map
 
 Note that if STATE is specified, evil needs to be installed and will be
 required."
   (setq keymap (cl-case keymap
                  (global (current-global-map))
                  (local 'local)
-                 (t (symbol-value keymap))))
+                 (t (if (symbolp keymap)
+                        (symbol-value keymap)
+                      keymap))))
   (if state
       (if (require 'evil nil t)
-          (cond (minor-mode-p
+          (cond ((null keymap)
+                 ;; TODO
+                 ;; (or ^ (eq keymap 'global))
+                 (evil-state-property state :keymap t))
+                (minor-mode-p
                  (evil-get-minor-mode-keymap state keymap))
                 ((eq keymap 'local)
                  (evil-state-property state :local-keymap t))
@@ -485,6 +491,8 @@ required."
     (if (eq keymap 'local)
         general-override-local-mode-map
       keymap)))
+(define-obsolete-function-alias 'general--parse-keymap 'general--get-keymap
+  "2018-01-14")
 
 (defun general--remove-keyword-args (rest)
   "Remove all keyword arguments from the list REST.
@@ -510,7 +518,7 @@ state, keymap (the symbol not actual keymap), key (internal representation),
 def (always a plist; normal definitions will automatically be converted), and
 kargs (the original `general-define-key' keyword argument plist; useful when the
 keyword can be used globally or has helper keywords that can be used globally).
-`general--parse-keymap' may be useful for getting the actual keymap from the
+`general--get-keymap' may be useful for getting the actual keymap from the
 keymap symbol. `general--getf' may be useful when a default for a
 keyword (helper or main) can be specified in globally (in kargs) and overridden
 locally (in def).")
@@ -785,7 +793,7 @@ KEYMAP is 'local."
 (defun general-lispy-define-key (_state keymap key def orig-def kargs)
   "A wrapper for `lispy-define-key'."
   (with-eval-after-load 'lispy
-    (let* ((keymap (general--parse-keymap nil keymap))
+    (let* ((keymap (general--get-keymap nil keymap))
            (key (key-description key))
            (plist (general--getf orig-def kargs :lispy-plist)))
       (lispy-define-key keymap key def plist))))
@@ -794,7 +802,7 @@ KEYMAP is 'local."
 (defun general-worf-define-key (_state keymap key def orig-def kargs)
   "A wrapper for `worf-define-key'."
   (with-eval-after-load 'worf
-    (let* ((keymap (general--parse-keymap nil keymap))
+    (let* ((keymap (general--get-keymap nil keymap))
            (key (key-description key))
            (plist (general--getf orig-def kargs :worf-plist)))
       (worf-define-key keymap key def plist))))
@@ -803,7 +811,7 @@ KEYMAP is 'local."
 (defun general-lpy-define-key (_state keymap key def _orig-def _kargs)
   "A wrapper for `lpy-define-key'."
   (with-eval-after-load 'lpy
-    (let* ((keymap (general--parse-keymap nil keymap))
+    (let* ((keymap (general--get-keymap nil keymap))
            (key (key-description key)))
       (lpy-define-key keymap key def))))
 
@@ -829,7 +837,7 @@ is present in original-def or KARGS or whether STATE is non-nil."
         ;; If do this, eval-after-load will become necessary if state specified
         (let ((keymap (if (eq keymap 'local)
                           'local
-                        (general--parse-keymap nil keymap))))
+                        (general--get-keymap nil keymap))))
           (if state
               (general--evil-define-key state keymap key def)
             (general--emacs-define-key keymap key def)))))))
@@ -1307,22 +1315,17 @@ Any local keybindings will be shown first followed by global keybindings."
     (read-only-mode)))
 
 ;; * Functions/Macros to Aid Key Definition
+;; ** Key Simulation
 ;; https://emacs.stackexchange.com/questions/6037/emacs-bind-key-to-prefix/13432#13432
 ;; altered to
 ;; - allow execution in an arbitrary state and keymap
 ;; - create a named function with a docstring
-;; - handle more edge cases like correctly adding evil repeat info
+;; - optionally dynamically lookup the key(s) up in the correct keymap to try to
+;;   match a command to execute instead
+;; - handle more edge cases like correctly working with macros/repeating
 
-;; ** Key Simulation
-(defvar general--last-simulated-command nil
-  "Holds the last simulated command (or nil for incomplete key sequence).")
-
-(defvar general--simulate-next-as-is nil
-  "Whether to fake keys unconditionally in the next `general--simulate-keys'.
-This is used for testing (but could potentially be useful for a user). Since
-`general--simulate-keys' will normally assume it is being run inside a macro
-that was manually recorded, this is needed when executing a keyboard macro that
-ends up running general--simulate-keys for the first time.")
+;; TODO
+;; - rename keys arguments to key for consistency with builtin functions
 
 (declare-function evil-change-state "evil-core")
 (defvar evil-no-display)
@@ -1352,89 +1355,122 @@ when general is compiled)."
          (with-current-buffer buf
            (evil-change-state old-state))))))
 
-(defun general--key-lookup (state keymap &optional keys)
-  "In the keymap for STATE and KEYMAP, look up KEYS.
-Return the keymap that corresponds to STATE and KEYMAP. When KEYS is also
-specified, and there is a matched command or keymap, also return the matched
-command or keymap and the leftover keys. STATE should only be specified when
-evil is in use.
+;;;###autoload
+(cl-defmacro general-key (key &key
+                              state
+                              docstring
+                              accept-default no-remap position)
+  "Act as KEY's definition in the current context.
+This uses an extended menu item's capability of dynamically computing a
+definition. It is recommended over `general-simulate-key' wherever possible. KEY
+should be a string given in `kbd' notation and should correspond to a single
+definition (as opposed to a sequence of commands). When STATE is specified, look
+up KEY with STATE as the current evil state. When specified, DOCSTRING will be
+the menu item's name/description. ACCEPT-DEFAULT, NO-REMAP, and POSITION are
+passed to `key-binding'."
+  `'(menu-item
+     ,(or docstring "")
+     nil
+     :filter
+     (lambda (&optional _)
+       ,(if state
+            `(general--save-state
+               (evil-change-state ,state)
+               (key-binding (kbd ,key) ,accept-default ,no-remap ,position))
+          `(key-binding  (kbd ,key) ,accept-default ,no-remap ,position)))))
 
-Note that if STATE is specified, evil needs to be installed and will be
-required."
-  (when state
-    (or (require 'evil nil t)
-        (error "Evil is required if state is specified")))
-  (let* ((state (if (eq state t)
-                    'emacs
-                  state))
-         (keymap (if (and keymap state)
-                     (evil-get-auxiliary-keymap keymap state)
-                   keymap))
+(defvar general--last-simulated-command nil
+  "Holds the last simulated command (or nil for incomplete key sequence).")
+
+(defvar general--simulate-next-as-is nil
+  "Whether to fake keys unconditionally in the next `general--simulate-keys'.
+This is used for testing (but could potentially be useful for a user). Since
+`general--simulate-keys' will normally assume it is being run inside a macro
+that was manually recorded, this is needed when executing a keyboard macro that
+ends up running `general--simulate-keys' for the first time.")
+
+(defvar general--simulate-as-is nil
+  "Whether to fake the keys unconditionally in any `general--simulate-keys'.")
+
+(defun general--key-binding (keys &optional state keymap)
+  "Look up KEYS in the keymap corresponding to STATE and/or KEYMAP.
+Continually check whether subsequences of KEYS are bound to a command or keymap
+starting with the full KEYS and ending when a match is found or no subsequences
+remain. Unlike `lookup-key' if KEYS is not matched, fall back to checking with
+`key-binding'. If STATE is specified and KEYMAP is not, temporarily switch to
+STATE to look up the keys (this means that keybindings inherited from a
+different evil state can still be detected). Return a list of the match and the
+leftover keys (or nil if the full KEYS was matched)."
+  (let* ((keymap (when keymap
+                   (general--get-keymap state keymap)))
          (len (length keys))
          (ind len)
-         matched-command
-         matched-keymap)
-    (while (and (> ind 0) (not (or matched-command matched-keymap)))
+         match)
+    (while (and (> ind 0) (not match))
       (let* ((key (substring keys 0 ind))
-             (match (cond (keymap
-                           (lookup-key keymap key))
-                          (state
-                           ;; this also works fine when evil-local-mode is off
-                           (general--save-state
-                             (evil-change-state state)
-                             (key-binding key)))
-                          (t
-                           (key-binding key)))))
-        (cond ((commandp match)
-               (setq matched-command match))
-              ((keymapp match)
-               (setq matched-keymap match))
-              (t
-               (cl-decf ind)))))
-    (list :keymap keymap
-          :match (or matched-command matched-keymap)
-          :keys (if (= ind len)
-                    nil
-                  (substring keys ind len)))))
+             (result (cond (keymap
+                            (or (lookup-key keymap key)
+                                (key-binding key)))
+                           (state
+                            ;; this also works fine when evil-local-mode is off
+                            (general--save-state
+                              (evil-change-state state)
+                              (key-binding key)))
+                           (t
+                            (key-binding key)))))
+        (if (or (commandp result)
+                (keymapp result))
+            (setq match result)
+          (cl-decf ind))))
+    (list match
+          (if (= ind len)
+              nil
+            (substring keys ind len)))))
 
-(defun general--simulate-keys (command keys &optional state keymap no-lookup)
-  "Simulate COMMAND followed by KEYS in STATE and KEYMAP.
+(cl-defun general--simulate-keys (command keys &optional state keymap
+                                          (lookup t))
+  "Simulate COMMAND followed by KEYS in STATE and/or KEYMAP.
 If COMMAND is nil, just simulate KEYS. If STATE and KEYMAP are nil, simulate the
 keys in the current context. When COMMAND is non-nil, STATE and KEYMAP will have
-no effect. KEYS should be a string that can be passed to `kbd' or nil, and STATE
-should be a quoted evil state. If KEYS is nil, the COMMAND will just be called
-interactively.
-
-If COMMAND is nil, KEYS will normally be looked up in the correct context to
-determine if any subsequnce corresponds to a command or keymap. If a command is
-matched, that command will be called followed by the simulation of any leftover
-keys. If a keymap is matched, that keymap will be set to the keymap for the next
-command using `set-transient-map'. To simulate the keys as-is without any
-lookup, NO-LOOKUP can be specified as non-nil. The reason you might want to do
-this is that it can fix repeating behavior for incomplete simulations. For
-example, if you simulate \"di\" and then manually type \"w\", repeating will
-only work if you specify NO-LOOKUP as non-nil. You generally don't want to use
-this option. Lookup is useful in other situation. For example, the repeat
-property of matched commands will be used when determining whether or not they
-should be recorded."
-  (let ((keys (when keys
-                (kbd keys))))
-    (unless (or command no-lookup)
-      (let* ((lookup (general--key-lookup state keymap keys))
-             (match (cl-getf lookup :match)))
-        (setq command (when (commandp match)
-                        match)
-              keys (cl-getf lookup :keys)
-              keymap (if (keymapp match)
-                         match
-                       (cl-getf lookup :keymap)))))
-    ;; keys not required since a keymap can be a match for keys
+no effect. KEYS should be a string that can be passed to `kbd' or nil. If KEYS
+is nil, the COMMAND will just be called interactively. If COMMAND is nil and
+LOOKUP is non-nil, KEYS will be looked up in the correct context to determine if
+any subsequence corresponds to a command or keymap. If a command is matched,
+that command will be called followed by the simulation of any leftover keys. To
+simulate the keys as-is without any lookup, LOOKUP can be explicitly specified
+as nil."
+  (let* ((keys (when keys
+                 (kbd keys)))
+         ;; TODO remove when get rid of `general-simulate-keys'
+         (state (if (eq state t)
+                    'emacs
+                  state)))
+    (unless (or command (not lookup))
+      (cl-destructuring-bind (match leftover-keys)
+          (general--key-binding keys state keymap)
+        (cond ((commandp match)
+               (setq command match
+                     keys leftover-keys))
+              ;; not documented because no current use case
+              ;; left in because may be useful later
+              ((and (eq lookup 'always) (keymapp match))
+               (setq keymap match
+                     state nil
+                     ;; should be nil
+                     keys leftover-keys)))))
+    ;; set context for keys
     (when (and keymap (not command))
-      (set-transient-map keymap))
+      ;; TODO is it possible to set transient map and then use e.g.
+      ;; `evil-execute-in-normal-state' (so that commands bound in the motion
+      ;; state auxiliary map could also be executed)?
+      (set-transient-map (general--get-keymap state keymap)))
     (when keys
-      ;; only set prefix-arg when keys (otherwise will also affect next command)
-      (setq prefix-arg current-prefix-arg)
-      (when (or general--simulate-next-as-is
+      ;; only set prefix-arg when only keys
+      ;; (otherwise will also affect the next command)
+      (unless command
+        (setq prefix-arg current-prefix-arg))
+      (when (or general--simulate-as-is
+                general--simulate-next-as-is
                 (not executing-kbd-macro))
         (setq general--simulate-next-as-is nil)
         ;; keys are incorrectly saved as this-command-keys when recording macros
@@ -1456,26 +1492,9 @@ should be recorded."
 
 ;;;###autoload
 (cl-defmacro general-simulate-keys (keys &optional state keymap
-                                         no-lookup docstring name)
-  "Create a function to simulate KEYS in STATE and KEYMAP.
-STATE should only be specified by evil users and can be a quoted evil state or
-t (in which case emacs state will be used). When neither STATE or KEYMAP are
-specified, the keys will be simulated in the current context. Normally the
-generated function will look up KEYS in the correct context to try to match a
-command or keymap. To prevent this lookup, NO-LOOKUP can be specified as
-non-nil. See the docstring for `general--simulate-keys' for some insight as to
-why you might want to use this.
-
-KEYS should be a string given in `kbd' notation. It can also be a list of a
-single command followed by a string of the keys to simulate after calling that
-command. If DOCSTRING is given, it will replace the automatically generated
-docstring. If NAME is given, it will replace the automatically generated
-function name. NAME should not be quoted.
-
-The advantages of this over a keyboard macro are as follows:
-- The user can control the context in which the keys are simulated
-- The user can simulate both a command and keys
-- The user can simulate a partial key sequence (e.g. for a keymap)"
+                                         (lookup t)
+                                         docstring name)
+  "Deprecated. Please use `general-simulate-key' instead."
   (let* ((command (when (listp keys)
                     (car keys)))
          (keys (if (listp keys)
@@ -1528,7 +1547,103 @@ The advantages of this over a keyboard macro are as follows:
                             (t
                              "the current context."))))
          (interactive)
-         (general--simulate-keys ,command ,keys ,state ,keymap ,no-lookup)))))
+         (general--simulate-keys ,command ,keys ,state ,keymap ,lookup)))))
+(make-obsolete 'general-simulate-keys 'general-simulate-key "2018-01-14")
+
+;;;###autoload
+(cl-defmacro general-simulate-key (keys
+                                   &key
+                                   state keymap
+                                   name docstring
+                                   (lookup t)
+                                   which-key)
+  "Create and return a command that simulates KEYS in STATE and KEYMAP.
+KEYS should be a string given in `kbd' notation. It can also be a list of a
+single command followed by a string of the key(s) to simulate after calling that
+command. STATE should only be specified by evil users and should be a quoted
+evil state. KEYMAP should not be quoted. Both STATE and KEYMAP aliases are
+supported (but they have to be set when the macro is expanded). When neither
+STATE or KEYMAP are specified, the key(s) will be simulated in the current
+context.
+
+If NAME is specified, it will replace the automatically generated function name.
+NAME should not be quoted. If DOCSTRING is specified, it will replace the
+automatically generated docstring.
+
+Normally the generated function will look up KEY in the correct context to try
+to match a command. To prevent this lookup, LOOKUP can be specified as nil.
+Generally, you will want to keep LOOKUP non-nil because this will allow checking
+the evil repeat property of matched commands to determine whether or not they
+should be recorded. See the docstring for `general--simulate-keys' for more
+information about LOOKUP.
+
+When a WHICH-KEY description is specified, it will replace the command name in
+the which-key popup.
+
+The advantages of this over a keyboard macro are as follows:
+- Prefix arguments are supported
+- The user can control the context in which the keys are simulated
+- The user can simulate both a named command and keys
+- The user can simulate an incomplete key sequence (e.g. for a keymap)"
+  (declare (indent defun))
+  (let* ((command (when (listp keys)
+                    (car keys)))
+         (keys (if (listp keys)
+                   (cadr keys)
+                 keys))
+         (state (general--unalias (eval state) t))
+         (keymap (general--unalias keymap))
+         (name (or name
+                   (intern (concat
+                            (format "general-simulate-%s"
+                                    (if command
+                                        (eval command)
+                                      ""))
+                            (when command
+                              "-")
+                            (replace-regexp-in-string " " "_" keys)
+                            (when state
+                              (concat "-in-"
+                                      (symbol-name state)
+                                      "-state"))
+                            (when keymap
+                              (concat "-in-"
+                                      (symbol-name keymap))))))))
+    `(progn
+       (eval-after-load 'evil
+         '(evil-set-command-property #',name :repeat 'general--simulate-repeat))
+       (when ,which-key
+         (with-eval-after-load 'which-key
+           (push '((nil . ,(symbol-name name))
+                   nil . ,which-key)
+                 which-key-replacement-alist)))
+       (defun ,name
+           ()
+         ,(or docstring
+              (concat "Simulate "
+                      (when command
+                        (concat "`"
+                                (symbol-name (eval command))
+                                "' then "))
+                      "'"
+                      keys
+                      "' in "
+                      (cond ((and state keymap)
+                             (concat (symbol-name state)
+                                     " state in `"
+                                     (symbol-name keymap)
+                                     "'."))
+                            (keymap
+                             (concat (symbol-name keymap)
+                                     "."))
+                            (state
+                             (concat (symbol-name state)
+                                     " state."))
+                            (t
+                             "the current context."))))
+         (interactive)
+         (general--simulate-keys ,command ,keys ',state ,keymap ,lookup))
+       #',name)))
 
 (defun general--repeat-abort-p (repeat-prop)
   "Return t if repeat recording should be aborted based on REPEAT-PROP."
@@ -1600,9 +1715,8 @@ same FALLBACK-COMMAND (e.g. `self-insert-command').
 When INHERIT-KEYMAP is specified, all the keybindings from that keymap will be
 inherited in MAPS.
 
-WHICH-KEY can also be specified, in which case the description WHICH-KEY will
-replace the command name in the which-key popup. Note that this requires a
-version of which-key from after 2016-11-21."
+When a WHICH-KEY description is specified, it will replace the command name in
+the which-key popup."
   (declare (indent 1))
   (let ((name (or name (intern (format "general-dispatch-%s"
                                        (eval fallback-command)))))
@@ -1613,10 +1727,9 @@ version of which-key from after 2016-11-21."
          '(evil-set-command-property #',name :repeat 'general--dispatch-repeat))
        (when ,which-key
          (with-eval-after-load 'which-key
-           (when (boundp 'which-key-replacement-alist)
-             (push '((nil . ,(symbol-name name))
-                     nil . ,which-key)
-                   which-key-replacement-alist))))
+           (push '((nil . ,(symbol-name name))
+                   nil . ,which-key)
+                 which-key-replacement-alist)))
        ;; TODO list all of the bound keys in the docstring
        (defun ,name ()
          ,(or docstring (format (concat "Run %s or something else based"
@@ -1730,7 +1843,7 @@ non-nil, all related swaps/cycles should be done in the same invocation."
     (dolist (state states)
       (setq keymap-name (general--unalias keymap-name)
             state (general--unalias state t))
-      (let* ((keymap (general--parse-keymap state keymap-name))
+      (let* ((keymap (general--get-keymap state keymap-name))
              (backup-keymap (intern (format "general-%s%s-backup-map"
                                             keymap-name
                                             (if state
