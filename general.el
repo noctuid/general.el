@@ -1327,19 +1327,6 @@ Any local keybindings will be shown first followed by global keybindings."
 ;; TODO
 ;; - rename keys arguments to key for consistency with builtin functions
 
-(defvar general--last-simulated-command nil
-  "Holds the last simulated command (or nil for incomplete key sequence).")
-
-(defvar general--simulate-next-as-is nil
-  "Whether to fake keys unconditionally in the next `general--simulate-keys'.
-This is used for testing (but could potentially be useful for a user). Since
-`general--simulate-keys' will normally assume it is being run inside a macro
-that was manually recorded, this is needed when executing a keyboard macro that
-ends up running `general--simulate-keys' for the first time.")
-
-(defvar general--simulate-as-is nil
-  "Whether to fake the keys unconditionally in any `general--simulate-keys'.")
-
 (declare-function evil-change-state "evil-core")
 (defvar evil-no-display)
 (defvar evil-state)
@@ -1367,6 +1354,43 @@ when general is compiled)."
        (when (buffer-live-p buf)
          (with-current-buffer buf
            (evil-change-state old-state))))))
+
+;;;###autoload
+(cl-defmacro general-key (key &key
+                              state
+                              docstring
+                              accept-default no-remap position)
+  "Act as KEY's definition in the current context.
+This uses an extended menu item's capability of dynamically computing a
+definition. It is recommended over `general-simulate-key' wherever possible. KEY
+should be a string given in `kbd' notation and should correspond to a single
+definition (as opposed to a sequence of commands). When STATE is specified, look
+up KEY with STATE as the current evil state. When specified, DOCSTRING will be
+the menu item's name/description. ACCEPT-DEFAULT, NO-REMAP, and POSITION are
+passed to `key-binding'."
+  `'(menu-item
+     ,(or docstring "")
+     nil
+     :filter
+     (lambda (&optional _)
+       ,(if state
+            `(general--save-state
+               (evil-change-state ,state)
+               (key-binding (kbd ,key) ,accept-default ,no-remap ,position))
+          `(key-binding  (kbd ,key) ,accept-default ,no-remap ,position)))))
+
+(defvar general--last-simulated-command nil
+  "Holds the last simulated command (or nil for incomplete key sequence).")
+
+(defvar general--simulate-next-as-is nil
+  "Whether to fake keys unconditionally in the next `general--simulate-keys'.
+This is used for testing (but could potentially be useful for a user). Since
+`general--simulate-keys' will normally assume it is being run inside a macro
+that was manually recorded, this is needed when executing a keyboard macro that
+ends up running `general--simulate-keys' for the first time.")
+
+(defvar general--simulate-as-is nil
+  "Whether to fake the keys unconditionally in any `general--simulate-keys'.")
 
 (defun general--key-binding (keys &optional state keymap)
   "Look up KEYS in the keymap corresponding to STATE and/or KEYMAP.

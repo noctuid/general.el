@@ -5,6 +5,10 @@
 A general is a leader. -- onioncheese
 #+END_QUOTE
 
+* Recent Changes
+** 2018-01-20: ~general-simulate-keys~ is now obsolete
+Please switch to ~general-key~ or ~general-simulate-key~. Note that keyword arguments have replaced the positional arguments of ~general-simulate-keys~. ~general-simulate-keys~ will likely be removed sometime in the future.
+
 * About
 =general.el= provides a more convenient way to bind keys in emacs for both evil and non-evil users. ~general-define-key~ allows defining multiple keys at once, implicitly wrapping key strings with ~(kbd ...)~, having named prefix key sequences (like the leader key in vim), and much more.
 
@@ -387,32 +391,37 @@ General provides a macro called ~general-simulate-key~ that can be used to simul
 (general-nmap "SPC" (general-simulate-key "C-c"))
 #+end_src
 
-Note that when a named prefix keymap/command exists (e.g. ~help-command~), you should prefer to bind directly to that. ~general-simulate-key~ is more useful when you don't know the exact command/keymap that should be simulated. However, it is usually preferable to use a menu-item in this case:
+Note that when a named prefix keymap/command exists (e.g. ~help-command~), you should prefer to bind directly to that. If the key you want to simulate is always bound to the same keymap, you can still bind directly to it even if it is unnamed:
 #+begin_src emacs-lisp
-(general-nmap "RET"
-              '(menu-item
-                "Act as the command bound to C-c C-c" nil
-                :filter (lambda (&optional _)
-                          (key-binding (kbd "C-c C-c")))))
+(general-nmap "SPC" (key-binding (kbd "C-c")))
 #+end_src
-This has the additional advantage of showing the exact command that will be executed with =C-h k= and is recommended over ~general-simulate-key~ whenever possible.
 
-~general-simulate-key~ also supports keyword arguments (=:state= and =:keymap=) to control the context the keys are simulated in. For example:
+General provides another macro called ~general-key~ that is usually preferable for simulating a key that corresponds to a single definition. If you actually need to simulate a key that is bound to a keymap, which-key may not work correctly with ~general-key~, but for keys corresponding to commands, ~general-key~ should be used instead of ~general-simulate-key~. Unlike ~general-simulate-key~, which creates a function, ~general-key~ expands to an extended menu item like ~general-predicate-dispatch~. This is a simpler and more direct approach that has the advantage of showing the docstring for the exact command with =C-h k=. If the key to act as is unbound, key lookup can continue (like if =:predicate= returns nil), so having a fallback keybinding is possible unlike with ~general-simulate-key~.
+
+~general-key~ may be useful when you want to have a key act as another without having to bind it to the exact command in every relevant keymap:
+#+begin_src emacs-lisp
+(general-nmap "RET" (general-key "C-c C-c"))
+#+end_src
+
+~general-simulate-key~ and ~general-key~ also support keyword arguments (=:state= and =:keymap=) to control the context the keys are simulated in. For example:
 #+begin_src emacs-lisp
 (general-nmap "j" (general-simulate-key "C-n" :state 'emacs))
+;; `general-key' supports :state only`
+(general-nmap "j" (general-key "C-n" :state 'emacs))
 #+end_src
 
-The key argument can also be replaced by a list of a command and keys (e.g. ~(general-simulate-keys (#'evil-delete "iw"))~). See the next section for a reasonable use case for this feature.
+The advantage of ~general-simulate-key~ over ~general-key~ is that it can be used to simulate a key sequence corresponding to multiple commands or a command followed by a key sequence. The key argument can be replaced by a list of a command and keys (e.g. ~(general-simulate-key (#'evil-delete "iw"))~). See the next section for a reasonable use case for this feature.
 
-~general-simulate-keys~ creates a named function with a docstring, so which-key and ~describe-key~ will work properly for keys bound to a command created with it. The automatically generated function name and docstring can be replaced with keyword arguments:
+~general-simulate-key~ creates a named function with a docstring, so which-key and ~describe-key~ will work properly for keys bound to a command created with it. The automatically generated function name, docstring, and which-key description can be replaced with keyword arguments:
 #+begin_src emacs-lisp
 (general-nmap "SPC" (general-simulate-key "C-c"
                       :state 'emacs
                       :name general-SPC-simulates-C-c
-                      :docstring "Simulate C-c in emacs state with SPC."))
+                      :docstring "Simulate C-c in emacs state with SPC."
+                      :which-key "Simulate C-c"))
 #+end_src
 
-Make sure that you don't bind a key to simulate itself (e.g. ~(general-emap "C-n" (general-simulate-keys "C-n" :state 'emacs))~) as this will cause an infinite loop.
+Make sure that you don't bind a key to simulate itself (e.g. ~(general-emap "C-n" (general-simulate-key "C-n" :state 'emacs))~) as this will cause an infinite loop.
 
 *** Mapping Under Non-prefix Keys
 This functionality is mainly targeted at evil users, but it could potentially be useful for non-evil users as well. In vim you can bind something like =cow= without a problem. With evil, =c= is bound to ~evil-change~, so you can't bind directly to =cow=. A workaround for this case is to bind a key in ~evil-operator-state-map~, but this won't work, for example, if you wanted to bind =ctb= or =cw= to something special. I've come up with a more general workaround, ~general-key-dispatch~. Consider the following example:
