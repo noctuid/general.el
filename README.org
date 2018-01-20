@@ -450,8 +450,6 @@ Another possible use is to emulate vim's =imap=. For example, you can recreate t
                 "k" 'evil-normal-state))
 #+end_src
 
-If you plan on using more than one of these with ~self-insert-command~, you'll need to use the =:name= keyword argument to prevent the newly created functions from clobbering each other.
-
 Commands created in this way now support an optional timeout, meaning you could still insert =jk= (without =C-q= / ~quoted-insert~) like with [[https://www.emacswiki.org/emacs/key-chord.el][key-chord.el]]:
 #+begin_src emacs-lisp
 (general-imap "j"
@@ -472,6 +470,8 @@ If you are using ~general-key-dispatch~ with a timeout to mirror a prefix key's 
                 :inherit-keymap my-prefix-map))
 #+end_src
 If you bind more keys under your prefix later on in normal state, they will still be available when pressing the prefix in insert state without needing to re-evaluate the ~general-key-dispatch~.
+
+By default, ~general-key-dispatch~ will prevent name clashes by appending a unique number to name of the created command (e.g. ~general-dispatch-self-insert-command-G402~). If you would like to reference the created command by name, you can name it yourself using the =:name= keyword argument (e.g. =:name general-insert-prefix-dispatch=).
 
 Like with ~general-simulate-key~ used with a command name, the behavior of ~evil-repeat~ will depend on the command that ends up running. Having repeating work correctly requires handling a lot of edge cases, so please make an issue if you find any problems. Note that evil does not support repeating a count that comes before an operator currently, but repeating should work when the count follows the operator key (=3cc= vs =c3c=).
 
