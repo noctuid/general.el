@@ -608,7 +608,7 @@ run on it)."
            ;; index of keymap in :keymaps
            (keymap-index (cl-dotimes (ind (length keymaps))
                            (when (eq (nth ind keymaps) keymap)
-                             (cl-return-from nil ind))))
+                             (cl-return ind))))
            (mode (let ((mode (if (and major-modes (listp major-modes))
                                  (nth keymap-index major-modes)
                                major-modes)))
@@ -1764,9 +1764,8 @@ When command to be executed has been remapped (i.e. [remap command] is currently
 bound), the remapped version will be used instead of the original command unless
 REMAP is specified as nil (it is true by default)."
   (declare (indent 1))
-  (let ((name (or name (intern (format "general-dispatch-%s-%s"
-                                       (eval fallback-command)
-                                       (cl-gensym)))))
+  (let ((name (or name (cl-gensym (format "general-dispatch-%s-"
+                                          (eval fallback-command)))))
         ;; remove keyword arguments from maps
         (maps (car (general--remove-keyword-args maps))))
     `(progn
@@ -1836,6 +1835,7 @@ to determine whether to abort recording."
              (evil-clear-command-keys))))))
 
 ;; ** Predicate Dispatch
+;;;###autoload
 (cl-defmacro general-predicate-dispatch
     (fallback-def &rest defs
                   &key docstring
