@@ -193,8 +193,6 @@ Return t if successful or a cons corresponding to the failed key and def."
        :states 'normal
        "a" 'a)
       (expect (general-test-keys 'normal (current-global-map)
-                "a" #'a))
-      (expect (general-test-keys nil evil-normal-state-map
                 "a" nil))
       (expect (general-test-keys nil evil-normal-state-map
                 "a" #'a))))
