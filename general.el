@@ -195,19 +195,19 @@ This is an alist of a state to keybindings.")
 (defcustom general-describe-keybinding-sort-function nil
   "Function used to sort keybindings for `general-describe-keybindings'."
   :group 'general
-  :type 'function)
+  :type '(choice function (const nil)))
 
 (defcustom general-describe-state-sort-function
   #'general--sort-evil-state-conses
   "Function used to sort the states conses for `general-describe-keybindings'."
   :group 'general
-  :type 'function)
+  :type '(choice function (const nil)))
 
 (defcustom general-describe-keymap-sort-function nil
   "Function used to sort the keymap conses`general-keybindings' for
 `general-describe-keybindings'."
   :group 'general
-  :type 'function)
+  :type '(choice function (const nil)))
 
 (defcustom general-describe-priority-keymaps
   '(local
@@ -238,6 +238,7 @@ the stored previous definition). When set to nil, it will only be updated when
 the key was previously unbound."
   :group 'general
   ;; can't think of a use case, but add 'always if requested
+  ;; t is equivalent of on-change
   :type '(choice
           (const :tag "When definition has changed" on-change)
           (const :tag "When the key was previously unbound" nil)))
