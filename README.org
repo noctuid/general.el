@@ -5,7 +5,15 @@
 A general is a leader. -- onioncheese
 #+END_QUOTE
 
-* Recent Changes
+* Recent Major Changes                                             :noexport:
+** 2018-01-20 ~general-create-vim-definer~ and ~general-create-dual-vim-definer~ have been removed
+~general-create-definer~ is now used instead in ~general-evil-setup~. Additionally, =general-vim-definer-default= is obsolete and will be removed eventually. The second argument to ~evil-setup~ is no longer used and will also be removed eventually.
+
+** 2018-01-20 =:states 'normal= is now the same as =:keymaps 'normal=
+=:keymaps 'global :states 'normal= will now bind in ~evil-normal-state-keymap~ as opposed to the normal state auxiliary keymap of ~(current-global-map)~ (see [[#note-for-evil-users][Note for Evil Users]]). It is not recommended to bind in a state and ~(current-global-map)~. If you want to prevent certain keys from being overridden, please use evil intercept keymaps instead.
+
+If you update general, please make sure that you are also using a recent version of evil.
+
 ** 2018-01-20: ~general-simulate-keys~ is now obsolete
 Please switch to ~general-key~ or ~general-simulate-key~. Note that keyword arguments have replaced the positional arguments of ~general-simulate-keys~. ~general-simulate-keys~ will likely be removed sometime in the future.
 
@@ -266,46 +274,19 @@ A third macro, ~general-def~, is provided for those who would prefer to use a si
 Note that if you want to use variables to hold keys (e.g. =key-var 'def=), you should use ~general-define-key~ (if those were the first arguments to ~general-def~, it would consider them a state and keymap). Doing this isn't recommended and probably isn't useful. If you want to use a variable specifically with =:prefix= or another keyword argument, that is still supported by ~general-def~.
 
 ** Note for Evil Users
-:PROPERTIES:
-:CUSTOM_ID: notes-for-evil-users
-:END:
-
-When =:states= is specified (or ~general-default-states~ is non-nil), ~general-define-key~ will act as a wrapper around ~evil-define-key~. This means that the following are equivalent:
+When =:states= is specified (or ~general-default-states~ is non-nil), ~general-define-key~ will act as a wrapper around ~evil-define-key*~. ~evil-define-key*~ now directly supports the symbol =global= for the keymap argument, so the following are equivalent:
 #+begin_src emacs-lisp
-(general-define-key :states '(normal visual)
-                    "j" 'my-j)
-
-(evil-define-key '(normal visual) (current-global-map)
-  "j" 'my-j)
+(general-define-key
+ ;; (default)
+ ;; :keymaps 'global
+ :states '(normal visual)
+ ...)
+(general-define-key
+ :keymaps '(normal visual)
+ ...)
 #+end_src
 
-In general, you should avoid using =:states= like this if you don't have a reason to. The standard way to define global keybindings for an evil state is as follows:
-#+begin_src emacs-lisp
-(define-key evil-normal-state-map "j" 'my-j)
-(define-key evil-visual-state-map "j" 'my-j)
-;; or
-(evil-global-set-key 'normal "j" 'my-j)
-(evil-global-set-key 'visual "j" 'my-j)
-#+end_src
-
-These are the equivalents with general.el:
-#+begin_src emacs-lisp
-(general-define-key :keymaps '(evil-normal-state-map evil-visual-state-map)
-                    "j" 'my-j)
-;; using the shorthand symbols
-(general-define-key :keymaps '(normal visual)
-                    "j" 'my-j)
-;; using a vim definer
-(general-evil-setup)
-(general-nvmap "j" 'my-j)
-#+end_src
-
-Note that keybindings made for normal state in the global map will override keybindings made for =evil-normal-state-map=. The keybinding may not change immediately if you do this in a buffer though. The potentially practical use for binding in the global map is to [[https://github.com/noctuid/evil-guide#preventing-certain-keys-from-being-overridden][prevent certain keys from being overriden]]. If you are using ~general-def~ (or a definer built on ~general-def~), you will need to specify the ='global= if you want this behavior:
-#+begin_src emacs-lisp
-(general-def 'normal 'global ...)
-;; or
-(general-nmap 'global ...)
-#+end_src
+Note that this previously was not the case and ~(general-define-key :states 'normal ...)~ would bind in the normal state auxiliary map for ~(current-global-map)~. Since auxiliary maps have a higher precedence than evil global and override keymaps, this was previously mentioned as one possible way of preventing certain keybindings from being overridden. However, this is not a reliable method. Keys bound in auxiliary maps can override keys bound in other auxiliary maps, for example, and keys bound in evil local or minor-mode keymaps will always override keys bound in regular auxiliary maps. If you need this functionality, please use evil intercept keymaps instead (see [[#override-keymaps-and-buffer-local-keybindings][Override Keymaps]]).
 
 ** Keymap/State Aliases
 To prevent the need to type out long keymap names like =evil-inner-text-objects-map=, general allows the user to specify shorthand names for keymaps by altering =general-keymap-aliases= (and for states by altering =general-state-aliases=). These are alists of either an alias or a list of aliases to the full keymap name:
@@ -325,12 +306,12 @@ By default, the global evil state and text object keymaps have aliases. This all
 ;; or
 (general-define-key :keymaps 'm ...)
 #+end_src
-Note that this is different from using =:states 'motion= (see [[#notes-for-evil-users][Notes for Evil Users]]). See =general-keymap-aliases= for all default aliases.
+See =general-keymap-aliases= for all default aliases.
 
 All keymap symbols are immediately processed by ~general--unalias~. By overriding this function, it would be possible to, for example, automatically append =-map= or =-mode-map= to keymap names that don't end in =-map= or do something more complicated to create a generic shorthand without having manually specify all aliases. This is not recommended as it could potentially become confusing (and would currently break =:definer 'minor-mode=), but if anyone would find this useful, feel free to make an issue, and I'll consider adding it as an option.
 
-** Vim-like Wrappers
-~general-evil-setup~ is used to generate key definition functions that are named similarly to vim's. Currently, the following functions are created:
+** Vim-like Definers
+~general-evil-setup~ can be used to generate key definition functions that are named similarly to vim's. Currently, the following functions will be created:
 
 - ~general-imap~
 - ~general-emap~
@@ -339,25 +320,24 @@ All keymap symbols are immediately processed by ~general--unalias~. By overridin
 - ~general-omap~
 - ~general-mmap~
 - ~general-rmap~
-- ~general-otomap~
-- ~general-itomap~
 - ~general-iemap~
 - ~general-nvmap~
+- ~general-otomap~
+- ~general-itomap~
 - ~general-tomap~
 
-These are wrappers around ~general-def~ that set a default =:keymaps= (or a default =:states=). You can see the help text for each for a more specific description. ~general-evil-setup~ takes two optional arguments. If the first is non-nil, shorter aliases for these functions such as ~nmap~ will be created. If the second is non-nil, the function will default to setting =:states= (if a default exists) and using the global map instead of =:keymaps= (see [[#notes-for-evil-users][Notes for Evil Users]]). This can be altered later by setting =general-vim-definer-default=.
+These are wrappers around ~general-def~ created with ~general-create-definer~ that set the default =:states=. You can see the help text for each for a more specific description. ~general-evil-setup~ can be called with a non-nil argument (i.e. ~(general-evil-setup t)~) to create non-prefixed aliases for these definers (e.g. ~nmap~).
 
-=:states= will automatically be set instead of =:keymaps= if the user manually specifies keymaps and a default for =:states= was specified (there is no inner text object state, for example):
+Here is an example using ~general-nmap~:
 #+begin_src emacs-lisp
-;; define in evil-normal-state-map (set default :keymaps)
+(general-evil-setup)
+;; define in evil-normal-state-map
 (general-nmap ...)
-;; define in the normal state auxiliary map for org-mode-map (set default :states)
+;; define in the normal state auxiliary map for org-mode-map
 (general-nmap org-mode-map ...)
 ;; or
 (general-nmap :keymaps 'org-mode-map ...)
 #+end_src
-
-If there is some other combination you would like to use, you can use ~general-create-vim-definer~ or ~general-create-dual-vim-definer~.
 
 ** Override Keymaps and Buffer Local Keybindings
 :PROPERTIES:

@@ -187,6 +187,17 @@ Return t if successful or a cons corresponding to the failed key and def."
      "a" nil)
     (expect (general-test-keys 'normal general-temp-map
               "a" nil)))
+  (it "should use the evil global keymaps for :keymaps 'global :states ..."
+    (let ((evil-normal-state-map (make-sparse-keymap)))
+      (general-define-key
+       :states 'normal
+       "a" 'a)
+      (expect (general-test-keys 'normal (current-global-map)
+                "a" #'a))
+      (expect (general-test-keys nil evil-normal-state-map
+                "a" nil))
+      (expect (general-test-keys nil evil-normal-state-map
+                "a" #'a))))
   (xit "should allow defining/undefining keys in multiple states and keymaps")
   (it "should support keymap/state aliasing"
     (let ((evil-normal-state-map (make-sparse-keymap)))
@@ -701,55 +712,36 @@ Return t if successful or a cons corresponding to the failed key and def."
     (expect (general-test-keys 'insert general-temp-map
               "d" #'d))))
 
-;; ** Vim Definers
-(describe "wrappers created with `general-create-vim-definer'"
+;; ** User-created Definers
+(describe "wrappers created with `general-create-definer'"
   (before-all
-    (general-create-dual-vim-definer general-nmap 'normal)
-    (general-create-vim-definer general-itomap 'evil-inner-text-objects-map))
-  (it "should set a default :keymaps"
+    (general-create-definer general-nmap :states 'normal))
+  (after-each
+    (setq general-temp-map (make-sparse-keymap)))
+  (it "should use the specified arguments by default"
     (let ((evil-normal-state-map (make-sparse-keymap)))
-      (general-nmap "a" #'a)
-      (expect (general-test-keys nil evil-normal-state-map
-                "a" #'a))
-      (expect (general-test-keys 'normal (current-global-map)
-                "a" nil))))
-  (it "should set a default :states if `general-vim-definer-default' is 'states"
-    (let ((evil-normal-state-map (make-sparse-keymap))
-          (general-vim-definer-default 'states))
       (general-nmap "a" 'a)
-      (expect (general-test-keys 'normal (current-global-map)
-                "a" #'a))
       (expect (general-test-keys nil evil-normal-state-map
-                "a" nil))
-      (general-nmap "a" nil)))
-  (it "should set a default :states if the user manually specifies keymaps"
-    (let ((evil-normal-state-map (make-sparse-keymap)))
-      (general-nmap general-test-mode-map "a" #'a)
-      (general-nmap :keymaps 'general-test-mode-map "b" #'b)
-      (expect (general-test-keys 'normal general-test-mode-map
-                "a" #'a
-                "b" #'b))
-      (expect (general-test-keys nil evil-normal-state-map
-                "a" nil
-                "b" nil))))
-  (it "should never set :states if none were given"
-    (let ((evil-inner-text-objects-map (make-sparse-keymap))
-          (evil-normal-state-map (make-sparse-keymap)))
-      (let ((general-vim-definer-default 'states))
-        (general-itomap "a" #'a))
-      ;; should work even though not intended usage
-      (general-itomap evil-normal-state-map "b" #'b)
-      (general-itomap :keymaps 'evil-normal-state-map "c" #'c)
-      (expect (general-test-keys nil evil-inner-text-objects-map
-                "a" #'a
-                "b" nil
-                "c" nil))
-      (expect (general-test-keys nil evil-normal-state-map
-                "b" #'b
-                "c" #'c)))))
-
-;; ** Other User-created Definers
-;; TODO
+                "a" #'a)))
+    (general-nmap
+      :keymaps 'general-temp-map
+      "a" #'a)
+    (expect (general-test-keys 'normal general-temp-map
+              "a" #'a)))
+  (it "should allow positional arguments (general-def)"
+    (general-nmap general-temp-map
+      "a" #'a)
+    (expect (general-test-keys 'normal general-temp-map
+              "a" #'a)))
+  (it "should allow overriding the default arguments"
+    (general-nmap
+      :states 'visual
+      :keymaps 'general-temp-map
+      "a" #'a)
+    (expect (general-test-keys 'normal general-temp-map
+              "a" nil))
+    (expect (general-test-keys 'visual general-temp-map
+              "a" #'a))))
 
 ;; ** Use-package Keyword
 (describe "the :general use-package keyword"

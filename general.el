@@ -125,6 +125,9 @@ default keymaps. If 'states, set the default states."
           (const :tag "Default to setting :keymaps" keymaps)
           (const :tag "Default to setting :states" states)
           (const :tag "Use the initial default" nil)))
+(make-obsolete-variable 'general-vim-definer-default
+                        "This functionality is no longer necessary."
+                        "2018-01-20")
 
 (defvar general-keybindings nil
   "Holds all the keybindings created with `general-define-key' (and wrappers).
@@ -291,6 +294,14 @@ local version."
         general--maps-alist-updated t))
 
 (cl-pushnew 'general-maps-alist emulation-mode-map-alists)
+
+(defun general-local-map ()
+  "Return `general-override-local-mode-map'.
+Also turn on `general-override-local-mode' and update `general-maps-alist'."
+  (general-override-local-mode)
+  (unless general--maps-alist-updated
+    (general--update-maps-alist))
+  general-override-local-mode-map)
 
 ;; * General Helpers
 (defun general--unalias (symbol &optional statep)
@@ -460,37 +471,47 @@ definition, only check in FALLBACK-PLIST."
 (declare-function evil-get-minor-mode-keymap "evil-core")
 (declare-function evil-state-property "evil-common")
 (declare-function evil-get-auxiliary-keymap "evil-core")
-(cl-defun general--get-keymap (state &optional keymap minor-mode-p)
+(cl-defun general--get-keymap (state &optional keymap
+                                     minor-mode
+                                     ignore-special)
   "Transform STATE and the symbol or keymap KEYMAP into the appropriate keymap.
-'local  - Return `general-override-local-map' or the evil local keymap
-'global - Return (current-global-map) or the corresponding evil auxiliary map
-else    - Return keymap, (symbol-value keymap), or the corresponding evil
-          auxiliary map
+If MINOR-MODE and STATE are non-nil, use `evil-get-minor-mode-keymap'. If
+IGNORE-SPECIAL is non-nil, do not try to resolve the \"special\" keymaps 'global
+and 'local. In this case, the only thing this function will do is return the
+actually keymap if KEYMAP is a symbol besides 'global or 'local. Otherwise the
+keymap returned depends on whether STATE is specified. Note that if STATE is
+specified, evil needs to be installed and will be required.
 
-Note that if STATE is specified, evil needs to be installed and will be
-required."
-  (setq keymap (cl-case keymap
-                 (global (current-global-map))
-                 (local 'local)
-                 (t (if (symbolp keymap)
-                        (symbol-value keymap)
-                      keymap))))
+STATE nil:
+'local  - Run/return `general-local-map'
+'global - Run/return `current-global-map'
+else    - Return keymap or (symbol-value keymap)
+
+STATE non-nil:
+'local  - Return the corresponding evil local map
+'global - Return the corresponding evil global map
+else    - Return the corresponding evil auxiliary or minor mode map"
+  (when (and (symbolp keymap)
+             (not (memq keymap '(global local))))
+    (setq keymap (symbol-value keymap)))
+  (when ignore-special
+    (cl-return-from general--get-keymap keymap))
   (if state
       (if (require 'evil nil t)
-          (cond ((null keymap)
-                 ;; TODO
-                 ;; (or ^ (eq keymap 'global))
+          (cond ((or (null keymap)
+                     (eq keymap 'global))
                  (evil-state-property state :keymap t))
-                (minor-mode-p
+                (minor-mode
                  (evil-get-minor-mode-keymap state keymap))
                 ((eq keymap 'local)
                  (evil-state-property state :local-keymap t))
                 (t
                  (evil-get-auxiliary-keymap keymap state t t)))
         (error "Evil is required if state is specified"))
-    (if (eq keymap 'local)
-        general-override-local-mode-map
-      keymap)))
+    (cl-case keymap
+      (global (current-global-map))
+      (local (general-local-map))
+      (t keymap))))
 (define-obsolete-function-alias 'general--parse-keymap 'general--get-keymap
   "2018-01-14")
 
@@ -751,38 +772,6 @@ form (e.g. an extended definition)."
              and collect def)))
 
 ;; * Helper Key Definers
-(defun general--emacs-local-set-key (key func)
-  "Bind KEY to FUNC for only the current buffer.
-This will automatically turn on `general-override-local-mode' and update
-`general-maps-alist'."
-  (general-override-local-mode)
-  (unless general--maps-alist-updated
-    (general--update-maps-alist))
-  (define-key general-override-local-mode-map key func))
-
-(defun general--emacs-define-key (keymap &rest maps)
-  "A wrapper for `define-key' and general's `general--emacs-local-set-key'.
-KEYMAP determines which keymap the MAPS will be defined in. When KEYMAP is
-is 'local, the MAPS will be bound only in the current buffer. MAPS is any
-number of paired keys and commands"
-  (declare (indent 1))
-  (while maps
-    (if (eq keymap 'local)
-        (general--emacs-local-set-key (pop maps) (pop maps))
-      (define-key keymap (pop maps) (pop maps)))))
-
-(declare-function evil-local-set-key "evil-core")
-(declare-function evil-define-key* "evil-core")
-(defun general--evil-define-key (state keymap key def)
-  "A wrapper for `evil-define-key' and `evil-local-set-key'.
-In STATE and KEYMAP, bind KEY to DEF. `evil-local-set-key' is used when
-KEYMAP is 'local."
-  (declare (indent defun))
-  (with-eval-after-load 'evil
-    (if (eq keymap 'local)
-        (evil-local-set-key state key def)
-      (evil-define-key* state keymap key def))))
-
 (declare-function evil-define-minor-mode-key "evil-core")
 (defun general-minor-mode-define-key (state mode key def _orig-def _kargs)
   "A wrapper for `evil-define-minor-mode-key'."
@@ -815,11 +804,13 @@ KEYMAP is 'local."
            (key (key-description key)))
       (lpy-define-key keymap key def))))
 
+(declare-function evil-define-key* "evil-core")
 (defun general--define-key-dispatch (state keymap maps kargs)
   "In STATE (if non-nil) and KEYMAP, bind MAPS.
 MAPS is composed of triplets of (key parsed-def original-def). This function
-determines the appropriate base definer function to use based whether :definer
-is present in original-def or KARGS or whether STATE is non-nil."
+determines the appropriate base definer function to use based depending on
+whether :definer is present in original-def or KARGS or whether STATE is
+non-nil if no custom definer is specified."
   (while maps
     (let* ((key (pop maps))
            (def (pop maps))
@@ -829,18 +820,15 @@ is present in original-def or KARGS or whether STATE is non-nil."
           (funcall (intern (format "general-%s-define-key"
                                    (symbol-name definer)))
                    state keymap key def orig-def kargs)
-        ;; purposely keeping state nil for now
-        ;; TODO could potentially eliminate --(emacs|evil)-define-key in the
-        ;; future; evil-define-key* (keymap prompt) and --emacs-local-set-key
-        ;; (turning on minor mode) do additional things that would need to be
-        ;; replicated
-        ;; If do this, eval-after-load will become necessary if state specified
-        (let ((keymap (if (eq keymap 'local)
-                          'local
-                        (general--get-keymap nil keymap))))
-          (if state
-              (general--evil-define-key state keymap key def)
-            (general--emacs-define-key keymap key def)))))))
+        (cond (state
+               ;; just to get the symbol-value of the keymap when it is not
+               ;; global/local
+               (setq keymap (general--get-keymap nil keymap nil t))
+               (with-eval-after-load 'evil
+                 (evil-define-key* state keymap key def)))
+              (t
+               (setq keymap (general--get-keymap nil keymap))
+               (define-key keymap key def)))))))
 
 (defun general--define-key
     (states keymap maps non-normal-maps global-maps kargs)
@@ -1072,17 +1060,6 @@ keywords that are used for each corresponding custom DEFINER."
          (cl-gensym (format "general-define-key-in-%s" keymap)))))))
 
 ;;;###autoload
-(defmacro general-create-definer (name &rest args)
-  "A helper macro to create key definitions functions.
-This allows the creation of key definition functions that
-will use a certain keymap, evil state, and/or prefix key by default.
-NAME will be the function name and ARGS are the keyword arguments that
-are intended to be the defaults."
-  `(defun ,name (&rest args)
-     ;; can still override keywords afterwards (first keyword takes precedence)
-     (apply #'general-define-key (append args (list ,@args)))))
-
-;;;###autoload
 (defmacro general-emacs-define-key (keymaps &rest args)
   "A wrapper for `general-define-key' that is similar to `define-key'.
 It has a positional argument for KEYMAPS (that will not be overridden by a later
@@ -1143,6 +1120,24 @@ correspond to keybindings."
        `(general-emacs-define-key ,@args))
       (2
        `(general-evil-define-key ,@args)))))
+
+;;;###autoload
+(defmacro general-create-definer (name &rest defaults)
+  "A helper macro to create wrappers for `general-def'.
+This can be used to create key definers that will use a certain keymap, evil
+state, prefix key, etc. by default. NAME is the wrapper name and DEFAULTS are
+the default arguments."
+  (declare (indent defun))
+  `(defmacro ,name (&rest args)
+     (declare (indent defun))
+     ,(format
+       "A wrapper for `general-def'.
+
+It has the following defaults:
+%s"
+       defaults)
+     ;; can still override keywords afterwards (first keyword takes precedence)
+     `(general-def ,@args ,@',defaults)))
 
 (defun general--starter-arg-p (arg)
   "Return whether ARG is a keyword or positional argument for a key definer."
@@ -1709,6 +1704,17 @@ KEYS should be a string given in `kbd' notation."
                                  (char-to-string key)
                                (vector key))))))
 
+(defun general--emacs-define-key (keymap &rest maps)
+  "A wrapper for `define-key' and general's `general--emacs-local-set-key'.
+KEYMAP determines which keymap the MAPS will be defined in. When KEYMAP is
+is 'local, the MAPS will be bound only in the current buffer. MAPS is any
+number of paired keys and commands"
+  (declare (indent 1))
+  (while maps
+    (if (eq keymap 'local)
+        (general--emacs-local-set-key (pop maps) (pop maps))
+      (define-key keymap (pop maps) (pop maps)))))
+
 ;;;###autoload
 (cl-defmacro general-key-dispatch
     (fallback-command &rest maps
@@ -2011,103 +2017,39 @@ SYMBOLS and FUNCTIONS can be single items or lists."
 
 ;; * Optional Setup
 ;;;###autoload
-(defmacro general-create-vim-definer
-    (name keymaps &optional states default-to-states)
-  "A helper function to create vim-like wrappers over `general-define-key'.
-The function created will be called NAME and will have the keymaps default to
-KEYMAPS or the states default to STATES (both should be quoted). If
-DEFAULT-TO-STATES is non-nil, :states STATES will be used. Otherwise :keymaps
-KEYMAPS will be used. This can be overriden later by setting the global
-`general-vim-definer-default' option."
-  `(defmacro ,name (&rest args)
-     ,(format
-       "A wrapper for `general-def'.
-
-It has one the following defaults depending on `general-vim-definer-default':
-:keymaps
-%s
-
-:states
-%s
-
-When `general-vim-definer-default' is nil, default to setting %s.
-
-If the default :states is nil,the :keymaps default will be used no matter what.
-If the default :states is non-nil and the user specifies keymaps (with :keymaps
-or the positional argument), the default :states will be used."
-       keymaps
-       states
-       (if default-to-states
-           ":states"
-         ":keymaps"))
-     (let ((default-to-states
-             (cl-case general-vim-definer-default
-               (states t)
-               (keymaps nil)
-               (t ,default-to-states))))
-       `(general-def ,@args
-          ,@(if (and ,states
-                     (or default-to-states
-                         (cl-getf args :keymaps)
-                         (general--positional-arg-p (car args))))
-                '(:states ,states)
-              '(:keymaps ,keymaps))))))
-
-;;;###autoload
-(defmacro general-create-dual-vim-definer
-    (name states &optional default-to-states)
-  "Like `general-create-vim-definer', create a \"vim definer\" called NAME.
-Only the short names in the STATES list need to be specified, but this will only
-work for valid evil states."
-  `(general-create-vim-definer
-    ,name
-    ;; could alternatively just do ,states (difference is the docstring)
-    ',(let ((states (eval states)))
-        (if (listp states)
-            (mapcar #'general--evil-keymap-for-state states)
-          (general--evil-keymap-for-state states)))
-    ,states
-    ,default-to-states))
-
-;;;###autoload
-(defmacro general-evil-setup (&optional short-names default-to-states)
+(defun general-evil-setup (&optional short-names _)
   "Set up some basic equivalents for vim mapping functions.
 This creates global key definition functions for the evil states.
 Specifying SHORT-NAMES as non-nil will create non-prefixed function
 aliases such as `nmap' for `general-nmap'."
-  `(progn
-     (general-create-dual-vim-definer general-imap 'insert ,default-to-states)
-     (general-create-dual-vim-definer general-emap 'emacs ,default-to-states)
-     (general-create-dual-vim-definer general-nmap 'normal ,default-to-states)
-     (general-create-dual-vim-definer general-vmap 'visual ,default-to-states)
-     (general-create-dual-vim-definer general-mmap 'motion ,default-to-states)
-     (general-create-dual-vim-definer general-omap 'operator ,default-to-states)
-     (general-create-dual-vim-definer general-rmap 'replace ,default-to-states)
-     ;; these two don't have corresponding states
-     (general-create-vim-definer general-itomap 'evil-inner-text-objects-map)
-     (general-create-vim-definer general-otomap 'evil-outer-text-objects-map)
-     (general-create-dual-vim-definer general-iemap
-                                      '(insert emacs)
-                                      ,default-to-states)
-     (general-create-dual-vim-definer general-nvmap
-                                      '(normal visual)
-                                      ,default-to-states)
-     (general-create-vim-definer general-tomap
-                                 '(evil-outer-text-objects-map
-                                   evil-inner-text-objects-map))
-     (when ,short-names
-       (defalias 'imap #'general-imap)
-       (defalias 'emap #'general-emap)
-       (defalias 'nmap #'general-nmap)
-       (defalias 'vmap #'general-vmap)
-       (defalias 'mmap #'general-mmap)
-       (defalias 'omap #'general-omap)
-       (defalias 'rmap #'general-rmap)
-       (defalias 'itomap #'general-itomap)
-       (defalias 'otomap #'general-otomap)
-       (defalias 'iemap #'general-iemap)
-       (defalias 'nvmap #'general-nvmap)
-       (defalias 'tomap #'general-tomap))))
+  (general-create-definer general-imap :states 'insert)
+  (general-create-definer general-emap :states 'emacs)
+  (general-create-definer general-nmap :states 'normal)
+  (general-create-definer general-vmap :states 'visual)
+  (general-create-definer general-mmap :states 'motion)
+  (general-create-definer general-omap :states 'operator)
+  (general-create-definer general-rmap :states 'replace)
+  (general-create-definer general-iemap :states '(insert emacs))
+  (general-create-definer general-nvmap :states '(normal visual))
+  ;; these two don't have corresponding states
+  (general-create-definer general-itomap :keymaps 'evil-inner-text-objects-map)
+  (general-create-definer general-otomap :keymaps 'evil-outer-text-objects-map)
+  (general-create-definer general-tomap
+    :keymaps '(evil-outer-text-objects-map
+               evil-inner-text-objects-map))
+  (when short-names
+    (defalias 'imap #'general-imap)
+    (defalias 'emap #'general-emap)
+    (defalias 'nmap #'general-nmap)
+    (defalias 'vmap #'general-vmap)
+    (defalias 'mmap #'general-mmap)
+    (defalias 'omap #'general-omap)
+    (defalias 'rmap #'general-rmap)
+    (defalias 'iemap #'general-iemap)
+    (defalias 'nvmap #'general-nvmap)
+    (defalias 'itomap #'general-itomap)
+    (defalias 'otomap #'general-otomap)
+    (defalias 'tomap #'general-tomap)))
 
 ;; * Use-package Integration
 (with-eval-after-load 'use-package-core
