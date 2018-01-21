@@ -10,7 +10,7 @@ A general is a leader. -- onioncheese
 =general-default-prefix=, =general-default-non-normal-prefix=, =general-default-global-prefix=, =general-default-states=, and =general-default-keymaps= still work. However, they will eventually be removed, so please switch to using ~general-create-definer~ if you want to use a definer with different defaults.
 
 ** 2018-01-20 ~general-create-vim-definer~ and ~general-create-dual-vim-definer~ have been removed
-~general-create-definer~ should now be used instead as it is now capable of the same functionality (~general-evil-setup~ now uses it). Additionally, ~general-vim-definer-default~ is obsolete and will be removed eventually. The second argument to ~general-evil-setup~ is no longer used and will also be removed eventually.
+~general-create-definer~ should now be used instead as it is now capable of the same functionality (~general-evil-setup~ now uses it). Additionally, ~general-vim-definer-default~ is obsolete and will be removed eventually. The second argument to ~general-evil-setup~ is no longer used and will also be removed eventually. The vim definers will now always set the default =:states= (and never the default =:keymaps=) because of the change below.
 
 ** 2018-01-20 =:states 'normal= is now the same as =:keymaps 'normal=
 =:keymaps 'global :states 'normal= will now bind in ~evil-normal-state-keymap~ as opposed to the normal state auxiliary keymap of ~(current-global-map)~ (see [[#note-for-evil-users][Note for Evil Users]]). It is not recommended to bind in a state and ~(current-global-map)~. If you want to prevent certain keys from being overridden, please use evil intercept keymaps instead.
