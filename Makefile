@@ -2,6 +2,7 @@ emacs ?= emacs
 
 cask:
 	$(shell EMACS=$(emacs) cask --verbose --debug)
+	$(shell EMACS=$(emacs) cask update --versbose --debug)
 
 test:
 	@echo "Using $(shell which $(emacs))..."
