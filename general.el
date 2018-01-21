@@ -43,8 +43,12 @@
   :prefix 'general-)
 
 (defcustom general-implicit-kbd t
-  "Whether to implicitly wrap a (kbd) around keybindings.
-This applies to the prefix key as well."
+  "Whether to implicitly wrap a (kbd) around `general-define-key' keys.
+This applies to the prefix key as well. This option is provided to make it easy
+  to transition from other key definers to `general-define-key'. It does not
+  apply to other helpers such as `general-key', `general-key-dispatch', and
+  `general-translate-key'. These will always use `kbd' on keys that are
+  strings."
   :group 'general
   :type 'boolean)
 
@@ -326,8 +330,8 @@ If STATEP is non-nil, check `general-state-aliases' instead of
   (intern (concat "evil-" (symbol-name state) "-state-map")))
 
 (defun general--kbd (key)
-  "Use `kbd' on KEY when `general-implicit-kbd' is non-nil."
-  (if general-implicit-kbd
+  "Use `kbd' on KEY when it is a string."
+  (if (stringp key)
       (kbd key)
     key))
 
@@ -756,18 +760,17 @@ apply a predicate if there is one."
 
 (defun general--parse-maps (state keymap maps kargs)
   "Rewrite MAPS so that the definitions are bindable.
-This includes possibly parsing extended definitions. MAPS will be altered to
-turn key binding pairs into triples in the form of (key parsed-def original-def)
-where parsed-def is the bindable form and original-def is the unaltered
-form (e.g. an extended definition)."
+This includes possibly calling `kbd' on keys and parsing extended definitions.
+MAPS will be altered to turn key binding pairs into triples in the form of (key
+parsed-def original-def) where parsed-def is the bindable form and original-def
+is the unaltered form (e.g. an extended definition)."
   (let (def2)
     (cl-loop for (key def) on maps by 'cddr
              do (setq def2 (general--parse-def state keymap key def kargs))
              unless (eq def2 :ignore)
              collect key
-             and collect (if (and general-implicit-kbd
-                                  (stringp def2))
-                             (kbd def2)
+             and collect (if general-implicit-kbd
+                             (general--kbd def2)
                            def2)
              and collect def)))
 
@@ -1383,8 +1386,10 @@ passed to `key-binding'."
        ,(if state
             `(general--save-state
                (evil-change-state ,state)
-               (key-binding (kbd ,key) ,accept-default ,no-remap ,position))
-          `(key-binding  (kbd ,key) ,accept-default ,no-remap ,position)))))
+               (key-binding (general--kbd ,key) ,accept-default ,no-remap
+                            ,position))
+          `(key-binding (general--kbd ,key) ,accept-default ,no-remap
+                        ,position)))))
 
 (defvar general--last-simulated-command nil
   "Holds the last simulated command (or nil for incomplete key sequence).")
@@ -1450,7 +1455,7 @@ as nil. When COMMAND has been remapped (i.e. [remap COMMAND] is currently
 bound), the remapped version will be used instead of the original command unless
 REMAP is specified as nil (it is true by default)."
   (let* ((keys (when keys
-                 (kbd keys)))
+                 (general--kbd keys)))
          ;; TODO remove when get rid of `general-simulate-keys'
          (state (if (eq state t)
                     'emacs
@@ -1704,17 +1709,6 @@ KEYS should be a string given in `kbd' notation."
                                  (char-to-string key)
                                (vector key))))))
 
-(defun general--emacs-define-key (keymap &rest maps)
-  "A wrapper for `define-key' and general's `general--emacs-local-set-key'.
-KEYMAP determines which keymap the MAPS will be defined in. When KEYMAP is
-is 'local, the MAPS will be bound only in the current buffer. MAPS is any
-number of paired keys and commands"
-  (declare (indent 1))
-  (while maps
-    (if (eq keymap 'local)
-        (general--emacs-local-set-key (pop maps) (pop maps))
-      (define-key keymap (pop maps) (pop maps)))))
-
 ;;;###autoload
 (cl-defmacro general-key-dispatch
     (fallback-command &rest maps
@@ -1774,6 +1768,7 @@ REMAP is specified as nil (it is true by default)."
                                 (eval fallback-command)))
          (interactive)
          (let ((map (make-sparse-keymap))
+               (maps (list ,@maps))
                (invoked-keys (this-command-keys))
                (timeout ,timeout)
                (inherit-keymap ,inherit-keymap)
@@ -1783,10 +1778,8 @@ REMAP is specified as nil (it is true by default)."
                timed-out-p)
            (when inherit-keymap
              (set-keymap-parent map inherit-keymap))
-           (if general-implicit-kbd
-               (general--emacs-define-key map
-                 ,@(general--apply-prefix-and-kbd nil maps))
-             (general--emacs-define-key map ,@maps))
+           (while maps
+             (define-key map (general--kbd (pop maps)) (pop maps)))
            (while (progn
                     (if timeout
                         (with-timeout (timeout (setq timed-out-p t))
@@ -1863,15 +1856,14 @@ should be a symbol corresponding to the keymap to make the translations in or a
 list of keymap names. Keymap and state aliases are supported (as well as 'local
 and 'global for KEYMAPS). MAPS corresponds to a list of translations (key
 replacement pairs). For example, specifying \"a\" \"b\" will bind \"a\" to
-\"b\"'s definition in the keymap. When `general-implicit-kbd' is non-nil, `kbd'
-will be used on the keys and their replacements. If DESTRUCTIVE is non-nil, the
-keymap will be destructively altered without a backup being created. If
-DESTRUCTIVE is nil, a backup of the keymap will be stored on the initial
-invocation, and future invocations will always look up keys in the backup
-keymap. On the other hand, if DESTRUCTIVE is non-nil, calling this function
-multiple times with \"a\" \"b\" \"b\" \"a\", for example, would continue to swap
-and unswap the definitions of these keys. This means that when DESTRUCTIVE is
-non-nil, all related swaps/cycles should be done in the same invocation."
+\"b\"'s definition in the keymap. If DESTRUCTIVE is non-nil, the keymap will be
+destructively altered without creating a backup. If DESTRUCTIVE is nil, a backup
+of the keymap will be stored on the initial invocation, and future invocations
+will always look up keys in the backup keymap. On the other hand, if DESTRUCTIVE
+is non-nil, calling this function multiple times with \"a\" \"b\" \"b\" \"a\",
+for example, would continue to swap and unswap the definitions of these keys.
+This means that when DESTRUCTIVE is non-nil, all related swaps/cycles should be
+done in the same invocation."
   (declare (indent defun))
   (unless (listp keymaps)
     (setq keymaps (list keymaps)))

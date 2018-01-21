@@ -129,7 +129,7 @@ Vim-like definitions:
 This package provides one main function, ~general-define-key~, for key definitions for both evil and non-evil users. If you do not like keyword arguments or would like to create your own key-defining functions, this package also allows for these things.
 
 ** Settings and Keyword Arguments
-=general-implicit-kbd= can be set to nil if you want to manually use ~(kbd "keys")~ or if you don't want to use kbd at all.
+=general-implicit-kbd= can be set to nil if you want to manually use ~(kbd "keys")~. This option is mainly provided to make it easy to transition to ~general-define-key~ or ~general-def~ from other key definers with search and replace and therefore only applies to ~general-define-key~ (and wrappers). ~kbd~ will always be called on string keys for other helpers such as ~general-key~, ~general-key-dispatch~, and ~general-translate-key~.
 
 =general-default-prefix=, =general-default-states=, and =general-default-keymaps= determine the defaults for the corresponding keyword arguments =:prefix=, =:states=, and =:keymaps=. By default, there is no prefix or state (each is nil), and the keymap is ~(quote global)~. Each keymap can either be a quoted keymap or ~(quote global)~ or ~(quote local)~. When the keymap is =local=, the key will be bound only in the current buffer (see [[#override-keymaps-and-buffer-local-keybindings][here]]). When the keymap is =global=, the key will be bound in ~(current-global-map)~.
 
