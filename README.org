@@ -6,6 +6,9 @@ A general is a leader. -- onioncheese
 #+END_QUOTE
 
 * Recent Major Changes                                             :noexport:
+** 2018-01-21 =general-default-...= variables are obsolete
+=general-default-prefix=, =general-default-non-normal-prefix=, =general-default-global-prefix=, =general-default-states=, and =general-default-keymaps= still work. However, they will eventually be removed, so please switch to using ~general-create-definer~ if you want to use a definer with different defaults.
+
 ** 2018-01-20 ~general-create-vim-definer~ and ~general-create-dual-vim-definer~ have been removed
 ~general-create-definer~ is now used instead in ~general-evil-setup~. Additionally, =general-vim-definer-default= is obsolete and will be removed eventually. The second argument to ~evil-setup~ is no longer used and will also be removed eventually.
 
@@ -51,7 +54,7 @@ This package was initially created due to frustration with the popularity of [[h
 
 
 * Basic Setup
-Since general provides variables for defaults to the various keyword arguments, you can use it in a very specific way. For example, you could set =general-default-prefix= to a prefix of your choosing and only use it for defining prefix keys. I personally don't change any of these variables and use it in a more general way for all my keybindings. The main advantage of using ~general-define-key~ (or a wrapper for it) even in cases where its extra functionality may be not used is that all keybindings are recorded and can be displayed later with ~general-describe-keybindings~.
+The main advantage of using ~general-define-key~ (or a wrapper for it) even in cases where its extra functionality may be not used is that all keybindings are recorded and can be displayed later with ~general-describe-keybindings~.
 
 ** Non-evil
 #+begin_src emacs-lisp
@@ -82,26 +85,25 @@ Since general provides variables for defaults to the various keyword arguments, 
 ** Evil
 #+begin_src emacs-lisp
 (require 'general)
-;; bind a key globally in normal state; keymaps must be quoted
-(setq general-default-keymaps 'evil-normal-state-map)
 ;; bind j and k in normal state globally
 (general-define-key
+ :keymaps 'normal
  "j" 'evil-next-visual-line
  "k" 'evil-previous-visual-line)
 
 ;; bind gj and gk
-(general-define-key :prefix "g"
-                    "j" 'evil-next-line
-                    "k" 'evil-previous-line)
+(general-define-key
+ :prefix "g"
+ :keymaps 'normal
+ "j" 'evil-next-line
+ "k" 'evil-previous-line)
 
 ;; named prefix key
 (setq my-leader1 ",")
-(general-define-key :prefix my-leader1
-                    "f" 'find-file)
-
-;; a default prefix sequence
-(setq general-default-prefix ",")
-(general-define-key "f" 'find-file)
+(general-define-key
+ :prefix my-leader1
+ :keymaps 'normal
+ "f" 'find-file)
 
 ;; bind a key in multiple states
 (general-define-key :keymaps 'org-mode-map
@@ -125,17 +127,18 @@ Vim-like definitions:
 (mmap "j" 'evil-next-visual-line
       "k" 'evil-previous-visual-line)
 #+end_src
+
 * More Details
 This package provides one main function, ~general-define-key~, for key definitions for both evil and non-evil users. If you do not like keyword arguments or would like to create your own key-defining functions, this package also allows for these things.
 
 ** Settings and Keyword Arguments
 =general-implicit-kbd= can be set to nil if you want to manually use ~(kbd "keys")~. This option is mainly provided to make it easy to transition to ~general-define-key~ or ~general-def~ from other key definers with search and replace and therefore only applies to ~general-define-key~ (and wrappers). ~kbd~ will always be called on string keys for other helpers such as ~general-key~, ~general-key-dispatch~, and ~general-translate-key~.
 
-=general-default-prefix=, =general-default-states=, and =general-default-keymaps= determine the defaults for the corresponding keyword arguments =:prefix=, =:states=, and =:keymaps=. By default, there is no prefix or state (each is nil), and the keymap is ~(quote global)~. Each keymap can either be a quoted keymap or ~(quote global)~ or ~(quote local)~. When the keymap is =local=, the key will be bound only in the current buffer (see [[#override-keymaps-and-buffer-local-keybindings][here]]). When the keymap is =global=, the key will be bound in ~(current-global-map)~.
+=:prefix=, =:states=, and =:keymaps= are the most basic keyword arguments. By default, there is no prefix or state (each is nil), and the keymap is ~(quote global)~. Each keymap can either be a quoted keymap or ~(quote global)~ or ~(quote local)~. When the keymap is =local=, the key will be bound only in the current buffer (see [[#override-keymaps-and-buffer-local-keybindings][here]]). When the keymap is =global=, the key will be bound in ~(current-global-map)~ (or the corresponding evil global map if =:states= is specified).
 
-~general-default-states~ and ~general-default-keymaps~ can be lists or a single element, allowing the user to define keys for multiple evil states or keymaps simultaneously. This can be useful in certain situations to prevent redundant keybindings.
+=:states= and =:keymaps= can be lists or a single element, allowing the user to define keys for multiple evil states or keymaps simultaneously. This can be useful in certain situations to prevent redundant keybindings.
 
-Using a different prefix for the insert and emacs states (or any state in =general-non-normal-states=) can be done with =:non-normal-prefix= or =:global-prefix=. By default, =:prefix= will apply to all keys, but if one (or both) of the other prefix keywords is specified, =:prefix= will only apply to evil states not listed in =general-non-normal-states=. This is also the case for the global evil keymaps such as =evil-normal-state-map=. =:non-normal-prefix= will always only apply to the non-normal states. =:global-prefix= will always apply to all keys. The corresponding default variables are =general-default-non-normal-prefix= and =general-default-global-prefix=. For example, this command will bind =SPC /= to swiper in normal state and =M-SPC /= to swiper in emacs and insert state:
+Using a different prefix for the insert and emacs states (or any state in =general-non-normal-states=) can be done with =:non-normal-prefix= or =:global-prefix=. By default, =:prefix= will apply to all keys, but if one (or both) of the other prefix keywords is specified, =:prefix= will only apply to evil states not listed in =general-non-normal-states=. This is also the case for the global evil keymaps such as =evil-normal-state-map=. =:non-normal-prefix= will always only apply to the non-normal states. =:global-prefix= will always apply to all keys. For example, this command will bind =SPC /= to swiper in normal state and =M-SPC /= to swiper in emacs and insert state:
 #+begin_src emacs-lisp
 (general-define-key :states '(normal insert emacs)
                     :keymaps 'text-mode-map
@@ -274,7 +277,7 @@ A third macro, ~general-def~, is provided for those who would prefer to use a si
 Note that if you want to use variables to hold keys (e.g. =key-var 'def=), you should use ~general-define-key~ (if those were the first arguments to ~general-def~, it would consider them a state and keymap). Doing this isn't recommended and probably isn't useful. If you want to use a variable specifically with =:prefix= or another keyword argument, that is still supported by ~general-def~.
 
 ** Note for Evil Users
-When =:states= is specified (or ~general-default-states~ is non-nil), ~general-define-key~ will act as a wrapper around ~evil-define-key*~. ~evil-define-key*~ now directly supports the symbol =global= for the keymap argument, so the following are equivalent:
+When =:states= is specified, ~general-define-key~ will act as a wrapper around ~evil-define-key*~. ~evil-define-key*~ now directly supports the symbol =global= for the keymap argument, so the following are equivalent:
 #+begin_src emacs-lisp
 (general-define-key
  ;; (default)

@@ -56,6 +56,9 @@ This applies to the prefix key as well. This option is provided to make it easy
   "The default prefix key sequence to use."
   :group 'general
   :type 'string)
+(make-obsolete-variable 'general-default-prefix
+                        "This functionality will be removed in the future."
+                        "2018-01-21")
 
 (defcustom general-default-non-normal-prefix nil
   "The default prefix key sequence to use for the 'emacs and 'insert states.
@@ -67,6 +70,9 @@ and keymaps. If this is specified `general-default-prefix' or the arg to :prefix
 will not be used when binding keys in the insert and emacs states."
   :group 'general
   :type 'string)
+(make-obsolete-variable 'general-default-non-normal-prefix
+                        "This functionality will be removed in the future."
+                        "2018-01-21")
 
 (defcustom general-default-global-prefix nil
   "The default prefix key sequence to use for all evil states.
@@ -78,6 +84,9 @@ prefix for one or both state types (insert and emacs vs. the other states),
 just use `general-default-prefix'/:prefix by itself."
   :group 'general
   :type 'string)
+(make-obsolete-variable 'general-default-global-prefix
+                        "This functionality will be removed in the future."
+                        "2018-01-21")
 
 (define-widget 'general-state 'lazy
   "General's evil state type."
@@ -99,6 +108,9 @@ Non-evil users should keep this nil."
   :group 'general
   :type '(choice general-state
                  (set general-state)))
+(make-obsolete-variable 'general-default-states
+                        "This functionality will be removed in the future."
+                        "2018-01-21")
 
 (defcustom general-non-normal-states '(insert emacs hybrid iedit-insert)
   "List of \"non-normal\" evil states (used with :non-normal-prefix). When
@@ -119,6 +131,9 @@ Non-evil users should keep this nil."
   :group 'general
   :type '(choice general-keymap
                  (repeat general-keymap)))
+(make-obsolete-variable 'general-default-keymaps
+                        "This functionality will be removed in the future."
+                        "2018-01-21")
 
 (defcustom general-vim-definer-default nil
   "Whether set the states or keymaps in a `general-create-vim-definer' function.
