@@ -417,6 +417,14 @@ Return t if successful or a cons corresponding to the failed key and def."
                 "," nil
                 "C-, f g" #'comma-f-g
                 "M-, f g" #'comma-f-g))
+      ;; case where non-normal maps but no non-normal-prefix
+      (general-define-key
+       :states 'insert
+       :keymaps 'general-temp-map
+       :global-prefix "C-,"
+       "a" #'comma-a)
+      (expect (general-test-keys 'insert general-temp-map
+                "C-, a" #'comma-a))
       (let ((evil-normal-state-map (make-sparse-keymap))
             (evil-insert-state-map (make-sparse-keymap)))
         ;; TODO with just prefix and global and just prefix and non-normal
