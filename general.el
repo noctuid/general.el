@@ -867,7 +867,8 @@ to bind the keys with by calling `general--define-key-dispatch'."
                                            general-non-normal-states))))
              (valid-maps (list (cond ((and non-normal-maps non-normal-p)
                                       non-normal-maps)
-                                     ((and global-maps non-normal-p))
+                                     ((and global-maps non-normal-p)
+                                      nil)
                                      (t
                                       maps))
                                global-maps)))
