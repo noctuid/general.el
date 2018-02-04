@@ -1217,10 +1217,140 @@ Return t if successful or a cons corresponding to the failed key and def."
     (makunbound 'general-dummy-var-with-setter)))
 
 ;; ** Hooks
-;; TODO
+(describe "general-add-hook and general-remove-hook"
+  (before-each
+    (makunbound 'general--test-hook)
+    (defvar general--test-hook nil)
+    (makunbound 'general--test-hook2)
+    (defvar general--test-hook2 nil))
+  (it "should act as a drop in replacement for `add-hook' or `remove-hook'"
+    ;; add
+    (general-add-hook 'general--test-hook #'b)
+    (general-add-hook 'general--test-hook #'a)
+    (general-add-hook 'general--test-hook #'c t)
+    (expect general--test-hook
+            :to-equal (list #'a #'b #'c))
+    (with-temp-buffer
+      (general-add-hook 'general--test-hook #'d t))
+    (expect general--test-hook
+            :to-equal (list #'a #'b #'c #'d))
+    (with-temp-buffer
+      (general-add-hook 'general--test-hook #'e t t))
+    (expect general--test-hook
+            :to-equal (list #'a #'b #'c #'d))
+    ;; remove
+    (general-remove-hook 'general--test-hook #'a)
+    (general-remove-hook 'general--test-hook #'b)
+    (general-remove-hook 'general--test-hook #'c)
+    (general-remove-hook 'general--test-hook #'d)
+    (expect (null general--test-hook)))
+  (it "should allow the hooks and functions to be lists"
+    ;; add
+    (general-add-hook '(general--test-hook
+                        general--test-hook2)
+                      (list #'b #'a))
+    (expect general--test-hook
+            :to-equal (list #'a #'b))
+    (expect general--test-hook2
+            :to-equal (list #'a #'b))
+    (general-add-hook '(general--test-hook
+                        general--test-hook2)
+                      (list #'c #'d)
+                      t)
+    (expect general--test-hook
+            :to-equal (list #'a #'b #'c #'d))
+    (expect general--test-hook2
+            :to-equal (list #'a #'b #'c #'d))
+    ;; remove
+    (general-remove-hook '(general--test-hook
+                           general--test-hook2)
+                         (list #'a #'b #'c #'d))
+    (expect (null general--test-hook))
+    (expect (null general--test-hook2)))
+  (it "should allow lambdas as functions"
+    ;; add
+    (general-add-hook 'general--test-hook (lambda ()))
+    (expect general--test-hook
+            :to-equal (list (lambda ())))
+    (general-add-hook 'general--test-hook (list (lambda () 1)) t)
+    (expect general--test-hook
+            :to-equal (list (lambda ())
+                            (lambda () 1)))
+    ;; remove
+    (general-remove-hook 'general--test-hook (lambda ()))
+    (general-remove-hook 'general--test-hook (list (lambda () 1)))
+    (expect (null general--test-hook))))
 
 ;; ** Advice
-;; TODO
+(describe "general-advice-add and general-advice-remove"
+  (before-all
+    (define-error 'general--test-error "Error")
+    (define-error 'general--test-error2 "Error 2")
+    (defun general--error ()
+      (signal 'general--test-error nil))
+    (defun general--error2 ()
+      (signal 'general--test-error2 nil)))
+  (before-each
+    (fmakunbound 'general--test-func)
+    (setplist 'general--test-func nil)
+    (defun general--test-func () 1)
+    (fmakunbound 'general--test-func2)
+    (setplist 'general--test-func nil)
+    (defun general--test-func2 () 2))
+  (it "should act as a drop in replacement for `advice-add' or `advice-remove'"
+    ;; add
+    (general-advice-add 'general--test-func :before #'general--error)
+    (expect (general--test-func)
+            :to-throw 'general--test-error)
+    ;; remove
+    (general-advice-remove 'general--test-func #'general--error)
+    (expect (general--test-func)
+            :to-equal 1))
+  (it "should allow the symbols and functions to be lists"
+    ;; add
+    (general-advice-add '(general--test-func
+                          general--test-func2)
+                        :before
+                        (list #'general--error #'general--error2))
+    (expect (general--test-func)
+            :to-throw 'general--test-error2)
+    (expect (general--test-func2)
+            :to-throw 'general--test-error2)
+    ;; remove
+    (general-advice-remove '(general--test-func general--test-func2)
+                           #'general--error2)
+    (expect (general--test-func)
+            :to-throw 'general--test-error)
+    (expect (general--test-func2)
+            :to-throw 'general--test-error)
+    (general-advice-add '(general--test-func
+                          general--test-func2)
+                        :before
+                        (list #'general--error #'general--error2))
+    (general-advice-remove '(general--test-func general--test-func2)
+                           (list #'general--error #'general--error2))
+    (expect (general--test-func)
+            :to-equal 1)
+    (expect (general--test-func2)
+            :to-equal 2))
+  (it "should allow lambdas as functions"
+    ;; add
+    (general-advice-add 'general--test-func
+                        :before (lambda () (signal 'general--test-error nil)))
+    (expect (general--test-func)
+            :to-throw 'general--test-error)
+    (general-advice-add 'general--test-func
+                        :before
+                        (list (lambda () (signal 'general--test-error2 nil))))
+    (expect (general--test-func)
+            :to-throw 'general--test-error2)
+    ;; remove
+    (general-remove-advice 'general--test-func
+                           (lambda () (signal 'general--test-error nil)))
+    (general-remove-advice 'general--test-func
+                           (list (lambda () (signal 'general--test-error2 nil))))
+    (expect (general--test-func)
+            :to-equal 1)))
 
 (provide 'test-general)
 ;;; test-general.el ends here

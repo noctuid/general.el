@@ -1971,10 +1971,13 @@ variables comments."
 ;;;###autoload
 (defun general-add-hook (hooks functions &optional append local)
   "A drop-in replacement for `add-hook'.
-HOOKS and FUNCTIONS can be single items or lists."
+Unlike `add-hook', HOOKS and FUNCTIONS can be single items or lists. APPEND and
+LOCAL are passed directly to `add-hook'."
   (unless (listp hooks)
     (setq hooks (list hooks)))
-  (unless (listp functions)
+  (unless (and (listp functions)
+               ;; lambda
+               (not (functionp functions)))
     (setq functions (list functions)))
   (dolist (hook hooks)
     (dolist (func functions)
@@ -1983,10 +1986,13 @@ HOOKS and FUNCTIONS can be single items or lists."
 ;;;###autoload
 (defun general-remove-hook (hooks functions &optional local)
   "A drop-in replacement for `remove-hook'.
-HOOKS and FUNCTIONS can be single items or lists."
+Unlike `remove-hook', HOOKS and FUNCTIONS can be single items or lists. LOCAL is
+passed directly to `remove-hook'."
   (unless (listp hooks)
     (setq hooks (list hooks)))
-  (unless (listp functions)
+  (unless (and (listp functions)
+               ;; lambdas can be removed
+               (not (functionp functions)))
     (setq functions (list functions)))
   (dolist (hook hooks)
     (dolist (func functions)
@@ -1994,12 +2000,16 @@ HOOKS and FUNCTIONS can be single items or lists."
 
 ;; ** Advice
 ;;;###autoload
-(defun general-add-advice (symbols where functions &optional props)
+(defun general-advice-add (symbols where functions &optional props)
   "A drop-in replacement for `advice-add'.
-SYMBOLS and FUNCTIONS can be single items or lists."
+SYMBOLS, WHERE, FUNCTIONS, and PROPS correspond to the arguments for
+`advice-add'. Unlike `advice-add', SYMBOLS and FUNCTIONS can be single items or
+lists."
   (unless (listp symbols)
     (setq symbols (list symbols)))
-  (unless (listp functions)
+  (unless (and (listp functions)
+               ;; lambda
+               (not (functionp functions)))
     (setq functions (list functions)))
   (dolist (symbol symbols)
     (dolist (func functions)
@@ -2008,21 +2018,23 @@ SYMBOLS and FUNCTIONS can be single items or lists."
 ;; will actually pull in defalias
 ;; (will work the same though; docstring will be correct)
 ;;;###autoload
-(defalias 'general-advice-add #'general-add-advice)
+(defalias 'general-add-advice #'general-advice-add)
 
 ;;;###autoload
-(defun general-remove-advice (symbols functions)
+(defun general-advice-remove (symbols functions)
   "A drop-in replacement for `advice-remove'.
-SYMBOLS and FUNCTIONS can be single items or lists."
+Unlike `advice-remove', SYMBOLS and FUNCTIONS can be single items or lists."
   (unless (listp symbols)
     (setq symbols (list symbols)))
-  (unless (listp functions)
+  (unless (and (listp functions)
+               ;; lambdas can be removed
+               (not (functionp functions)))
     (setq functions (list functions)))
   (dolist (symbol symbols)
     (dolist (func functions)
       (advice-remove symbol func))))
 
-(defalias 'general-advice-remove #'general-remove-advice)
+(defalias 'general-remove-advice #'general-advice-remove)
 
 ;; * Optional Setup
 ;;;###autoload
