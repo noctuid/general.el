@@ -548,6 +548,19 @@ arguments. The order of arguments will be preserved."
            and collect value into args
            finally (cl-return (list args kargs))))
 
+(defmacro general--ensure-lists (&rest vars)
+  "Ensure that all variables in VARS are lists if they are not already.
+If any variable is a lambda, it will not be considered to be a list. If a var is
+nil, it will be set to (list nil)."
+  `(progn
+     ,@(mapcar (lambda (var)
+                 `(unless (and ,var
+                               (listp ,var)
+                               ;; lambdas are lists
+                               (not (functionp ,var)))
+                    (setq ,var (list ,var))))
+               vars)))
+
 ;; * Extended Key Definition Language
 (defvar general-extended-def-keywords '(:which-key :wk :properties :repeat :jump)
   "Extra keywords that are valid for extended definitions.
@@ -857,8 +870,6 @@ GLOBAL-MAPS to use for the keybindings. This function will rewrite extended
 definitions, add predicates when applicable, and then choose the base function
 to bind the keys with by calling `general--define-key-dispatch'."
   (let ((general--definer-p t))
-    (unless states
-      (setq states (list nil)))
     (dolist (state states)
       (let* ((non-normal-p (if state
                                (memq state general-non-normal-states)
@@ -1019,13 +1030,9 @@ keywords that are used for each corresponding custom DEFINER."
         global-prefix-maps
         kargs)
     ;; don't force the user to wrap a single state or keymap in a list
-    ;; luckily nil is a list
-    (unless (listp states)
-      (setq states (list states)))
+    (general--ensure-lists states keymaps)
     (setq states (mapcar (lambda (state) (general--unalias state t))
                          states))
-    (unless (listp keymaps)
-      (setq keymaps (list keymaps)))
     (setq keymaps (mapcar #'general--unalias keymaps))
     ;; remove keyword arguments from rest var
     (let ((split-maps (general--remove-keyword-args maps)))
@@ -1882,11 +1889,7 @@ for example, would continue to swap and unswap the definitions of these keys.
 This means that when DESTRUCTIVE is non-nil, all related swaps/cycles should be
 done in the same invocation."
   (declare (indent defun))
-  (unless (listp keymaps)
-    (setq keymaps (list keymaps)))
-  (unless (and (listp states)
-               (not (null states)))
-    (setq states (list states)))
+  (general--ensure-lists states keymaps)
   (dolist (keymap-name keymaps)
     (dolist (state states)
       (setq keymap-name (general--unalias keymap-name)
@@ -1973,12 +1976,7 @@ variables comments."
   "A drop-in replacement for `add-hook'.
 Unlike `add-hook', HOOKS and FUNCTIONS can be single items or lists. APPEND and
 LOCAL are passed directly to `add-hook'."
-  (unless (listp hooks)
-    (setq hooks (list hooks)))
-  (unless (and (listp functions)
-               ;; lambda
-               (not (functionp functions)))
-    (setq functions (list functions)))
+  (general--ensure-lists hooks functions)
   (dolist (hook hooks)
     (dolist (func functions)
       (add-hook hook func append local))))
@@ -1988,12 +1986,7 @@ LOCAL are passed directly to `add-hook'."
   "A drop-in replacement for `remove-hook'.
 Unlike `remove-hook', HOOKS and FUNCTIONS can be single items or lists. LOCAL is
 passed directly to `remove-hook'."
-  (unless (listp hooks)
-    (setq hooks (list hooks)))
-  (unless (and (listp functions)
-               ;; lambdas can be removed
-               (not (functionp functions)))
-    (setq functions (list functions)))
+  (general--ensure-lists hooks functions)
   (dolist (hook hooks)
     (dolist (func functions)
       (remove-hook hook func local))))
@@ -2005,12 +1998,7 @@ passed directly to `remove-hook'."
 SYMBOLS, WHERE, FUNCTIONS, and PROPS correspond to the arguments for
 `advice-add'. Unlike `advice-add', SYMBOLS and FUNCTIONS can be single items or
 lists."
-  (unless (listp symbols)
-    (setq symbols (list symbols)))
-  (unless (and (listp functions)
-               ;; lambda
-               (not (functionp functions)))
-    (setq functions (list functions)))
+  (general--ensure-lists symbols functions)
   (dolist (symbol symbols)
     (dolist (func functions)
       (advice-add symbol where func props))))
@@ -2024,12 +2012,7 @@ lists."
 (defun general-advice-remove (symbols functions)
   "A drop-in replacement for `advice-remove'.
 Unlike `advice-remove', SYMBOLS and FUNCTIONS can be single items or lists."
-  (unless (listp symbols)
-    (setq symbols (list symbols)))
-  (unless (and (listp functions)
-               ;; lambdas can be removed
-               (not (functionp functions)))
-    (setq functions (list functions)))
+  (general--ensure-lists symbols functions)
   (dolist (symbol symbols)
     (dolist (func functions)
       (advice-remove symbol func))))
