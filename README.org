@@ -536,6 +536,9 @@ Keys are bound using ~general-define-key~, so they are viewable with ~general-de
   "A" "a")
 #+end_src
 
+*** Automatic Key Unbinding
+To automatically prevent =Key sequence starts with a non-prefix key= errors without the need to explicitly unbind non-prefix keys, users can add ~(general-auto-unbind-keys)~ to their configuration file. This will advise ~define-key~ to unbind any bound subsequence of the =KEY=. Currently, this will only have an effect on general key definers. The advice can later be removed with ~(general-auto-unbind-keys t)~.
+
 ** Creating Extra Keybinding Functions
 The primary purpose of this package is to provide a single function for key definitions that is simple and flexible. Most users probably won't want to use this functionality (apart from ~general-evil-setup~). However, if you would like more specific keybinding functions for certain prefixes, evil states, or keymaps, this package provides macros to generate these functions.
 
@@ -796,5 +799,24 @@ For example:
 #+end_src
 
 * FAQ
+** How do I prevent =Key sequence starts with non-prefix key= errors?
+By default, emacs does not support binding a key sequence where a subsequence of the key is already bound in the same keymap (e.g. you cannot bind =C-a a= to a command in a keymap where =C-a= is already bound to a command).
+
+If you want to be able to bind both key sequences and fall back to the shorter key's command after a timeout or unmatched keypress, see [[#mapping-under-non-prefix-keys][general-key-dispatch]].
+
+Otherwise, you should unbind the non-prefix key. For example:
+#+begin_src emacs-lisp
+(general-define-key
+ :keymaps 'normal
+ :prefix "s"
+ ;; prefix keys are prepended to other keys, so "" refers to the prefix itself
+ "" nil
+ "a" #'def
+ ;; ...
+ )
+#+end_src
+
+If you would rather force key definitions to always be made regardless of whether a subsequence of the key is already bound, [[#automatic-key-unbinding][general can automatically unbind keys when necessary to prevent this error]].
+
 ** Why don't some evil keybindings work (immediately)?
 This is a [[https://github.com/emacs-evil/evil/issues/301][known issue for evil]]. To work around this problem, you can use [[#wrapping-evil-define-minor-mode-key][:definer 'minor-mode]]. See [[https://github.com/noctuid/evil-guide#why-dont-keys-defined-with-evil-define-key-work-immediately][here]] for more information.

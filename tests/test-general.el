@@ -1177,6 +1177,33 @@ Return t if successful or a cons corresponding to the failed key and def."
               "a" #'b
               "b" #'a))))
 
+;; ** Automatic Unbinding
+(describe "general-auto-unbind-keys"
+  (after-each
+    (setq general-temp-map (make-sparse-keymap)))
+  (it "should automatically unbind non-prefix keys to prevent errors"
+    (define-key general-temp-map "a" #'a)
+    (expect (general-define-key
+             :keymaps 'general-temp-map
+             "ab" #'ab)
+            :to-throw)
+    (general-auto-unbind-keys)
+    (expect (define-key general-temp-map "ab" #'ab)
+            :to-throw)
+    ;; general--definer-p
+    (expect (general-define-key
+             :keymaps 'general-temp-map
+             "ab" #'ab
+             "abc" #'abc
+             ;; vector keys
+             [97 98 99 100] #'abcd)
+            :not :to-throw)
+    (general-auto-unbind-keys t)
+    (expect (general-define-eky
+             :keymaps 'general-temp-map
+             "abcde" #'abcde)
+            :to-throw)))
+
 ;; ** Key-chord Helper
 ;; TODO
 

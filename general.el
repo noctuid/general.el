@@ -1930,24 +1930,31 @@ with `general-translate-key') and optionally keyword arguments for
                       collect replacement and collect key))
   `(general-translate-key ,states ,keymaps ,@args))
 
-;; ** Automatic Unbinding
-(defun general-unbind-non-prefix (define-key keymap key def)
-  "If in KEYMAP KEY starts with a non-prefix key, unbind it with DEFINE-KEY."
+;; ** Automatic Key Unbinding
+(defun general-unbind-non-prefix-key (define-key keymap key def)
+  "Use DEFINE-KEY in KEYMAP to unbind an existing non-prefix subsequence of KEY.
+When a general key definer is in use and a subsequnece of KEY is already bound
+in KEYMAP, unbind it using DEFINE-KEY. Always bind KEY to DEF using DEFINE-KEY."
   (when general--definer-p
-    (let ((non-prefix key))
-      (when (stringp non-prefix)
-        (setq non-prefix (string-to-vector non-prefix)))
-      (while (numberp (lookup-key keymap non-prefix))
-        (setq non-prefix (cl-subseq non-prefix 0 -1)))
-      (funcall define-key keymap non-prefix nil)))
+    (let ((key (if (stringp key)
+                   (string-to-vector key)
+                 key)))
+      (while (numberp (lookup-key keymap key))
+        (setq key (cl-subseq key 0 -1)))
+      (funcall define-key keymap key nil)))
   (funcall define-key keymap key def))
 
 ;;;###autoload
-(defun general-auto-unbind-keys ()
+(defun general-auto-unbind-keys (&optional undo)
   "Advise `define-key' to automatically unbind keys when necessary.
-This will prevent errors when a sub-sequence of a key is already bound (e.g.
-the user attempts to bind \"SPC a\" when \"SPC\" is bound)."
-  (general-add-advice 'define-key :around #'general-unbind-non-prefix))
+This will prevent errors when a sub-sequence of a key is already bound (e.g. the
+user attempts to bind \"SPC a\" when \"SPC\" is bound, resulting in a \"Key
+sequnce starts with non-prefix key\" error). When UNDO is non-nil, remove
+advice."
+  (if undo
+      ;; using general versions in case start recording advice for later display
+      (general-advice-remove 'define-key #'general-unbind-non-prefix-key)
+    (general-advice-add 'define-key :around #'general-unbind-non-prefix-key)))
 
 ;; * Functions/Macros to Aid Other Configuration
 ;; ** Settings
