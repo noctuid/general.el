@@ -401,7 +401,13 @@ General provides another macro called ~general-key~ that is usually preferable f
 (general-nmap "j" (general-key "C-n" :state 'emacs))
 #+end_src
 
-The advantage of ~general-simulate-key~ over ~general-key~ is that it can be used to simulate a key sequence corresponding to multiple commands or a command followed by a key sequence. The key argument can be replaced by a list of a command and keys (e.g. ~(general-simulate-key ('evil-delete "iw"))~). See the next section for a reasonable use case for this feature. When a command is specified, general will used the remapped version of it if it exists (e.g. if =[remap evil-delete] 'lispyville-delete= is in an active keymap, ~lispyville-delete~ will be used instead of ~evil-delete~). To use the exact command instead, =:remap nil= can be specified
+The advantage of ~general-simulate-key~ over ~general-key~ is that it can be used to simulate a key sequence corresponding to multiple commands or a command followed by a key sequence. The key argument can be replaced by a list of a command and keys (e.g. ~(general-simulate-key ('evil-delete "iw"))~). For example, the following is possible with ~general-simulate-key~ but not with ~general-key~ or a keyboard macro:
+#+begin_src emacs-lisp
+(general-nmap "s" (general-simulate-key ('evil-ex "s/")))
+#+end_src
+See the next section for another reasonable use case for this feature.
+
+When a command is specified, general will used the remapped version of it if it exists (e.g. if =[remap evil-delete] 'lispyville-delete= is in an active keymap, ~lispyville-delete~ will be used instead of ~evil-delete~). To use the exact command instead, =:remap nil= can be specified
 
 ~general-simulate-key~ creates a named function with a docstring, so which-key and ~describe-key~ will work properly for keys bound to a command created with it. The automatically generated function name, docstring, and which-key description can be replaced with keyword arguments:
 #+begin_src emacs-lisp
