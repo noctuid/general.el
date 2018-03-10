@@ -1,11 +1,20 @@
-[[https://melpa.org/#/general][file:https://melpa.org/packages/general-badge.svg]]
+#+TITLE: General User Manual
+#+AUTHOR: Fox Kiester
+#+LANGUAGE: en
+#+TEXINFO_DIR_CATEGORY: Emacs
+#+TEXINFO_DIR_TITLE: General: (general).
+#+TEXINFO_DIR_DESC: More convenient key definitions.
+
+# NOTE: If you are viewing this in org-mode, it is recommended that you install and enable [[https://github.com/snosov1/toc-org][toc-org]], so that all internal links open correctly
+
+[[https://melpa.org/#/general][file:https://melpa.org/packages/general-badge.svg]] [[https://travis-ci.org/noctuid/general.el][file:https://travis-ci.org/noctuid/general.el.svg?branch=master]]
 
 [[https://github.com/noctuid/general.el][file:http://i.imgur.com/SXA66y7.png]]
 #+BEGIN_QUOTE
 A general is a leader. -- onioncheese
 #+END_QUOTE
 
-* Recent Major Changes                                             :noexport:
+* Recent Breaking Changes                                          :noexport:
 ** 2018-01-21 =general-default-...= variables are obsolete
 =general-default-prefix=, =general-default-non-normal-prefix=, =general-default-global-prefix=, =general-default-states=, and =general-default-keymaps= still work. However, they will eventually be removed, so please switch to using ~general-create-definer~ if you want to use a definer with different defaults.
 
@@ -20,10 +29,59 @@ If you update general, please make sure that you are also using a recent version
 ** 2018-01-20: ~general-simulate-keys~ is now obsolete
 Please switch to ~general-key~ or ~general-simulate-key~. Note that keyword arguments have replaced the positional arguments of ~general-simulate-keys~. ~general-simulate-keys~ will likely be removed sometime in the future.
 
-* About
-=general.el= provides a more convenient way to bind keys in emacs for both evil and non-evil users. ~general-define-key~ allows defining multiple keys at once, implicitly wrapping key strings with ~(kbd ...)~, having named prefix key sequences (like the leader key in vim), and much more.
+* Table of Contents                                            :noexport:TOC:
+- [[#about][About]]
+- [[#key-features][Key Features]]
+- [[#reading-recommendations][Reading Recommendations]]
+- [[#usage-recommendations-and-documentation-clarifications][Usage Recommendations and Documentation Clarifications]]
+- [[#basic-examples][Basic Examples]]
+  - [[#general-examples][General Examples]]
+  - [[#evil-examples][Evil Examples]]
+  - [[#switching-completely-to-general][Switching Completely to General]]
+- [[#general-define-key-details][~general-define-key~ Details]]
+  - [[#settings-and-keyword-arguments][Settings and Keyword Arguments]]
+  - [[#predicates][Predicates]]
+  - [[#keymapstate-aliases][Keymap/State Aliases]]
+  - [[#general-define-key-wrappers][~general-define-key~ Wrappers]]
+    - [[#positional-argument-wrappers][Positional Argument Wrappers]]
+    - [[#creating-new-key-definers][Creating New Key Definers]]
+    - [[#vim-like-definers][Vim-like Definers]]
+  - [[#note-for-evil-users][Note for Evil Users]]
+- [[#override-keymaps-and-buffer-local-keybindings][Override Keymaps and Buffer Local Keybindings]]
+- [[#displaying-keybindings][Displaying Keybindings]]
+- [[#functionsmacros-to-aid-key-definition][Functions/Macros to Aid Key Definition]]
+  - [[#disclaimer][Disclaimer]]
+  - [[#simulating-keypresses][Simulating Keypresses]]
+  - [[#mapping-under-non-prefix-keys][Mapping Under Non-prefix Keys]]
+  - [[#choosing-definitions-based-on-predicates][Choosing Definitions Based on Predicates]]
+  - [[#key-translation][Key "Translation"]]
+  - [[#automatic-key-unbinding][Automatic Key Unbinding]]
+- [[#non-keybinding-related-configuration-helpers][Non-keybinding-related Configuration Helpers]]
+  - [[#settings][Settings]]
+  - [[#hooks-and-advice][Hooks and Advice]]
+- [[#integration-with-other-packages][Integration with Other Packages]]
+  - [[#use-package-keyword][Use-package Keyword]]
+  - [[#use-with-key-chord][Use with Key-chord]]
+- [[#extended-definition-syntax][Extended Definition Syntax]]
+  - [[#autoloaded-keymaps]["Autoloaded" Keymaps]]
+  - [[#which-key-integration][Which Key Integration]]
+  - [[#evil-command-properties][Evil Command Properties]]
+  - [[#user-defined-extended-definition-keywords][User-defined Extended Definition Keywords]]
+- [[#user-defined-key-definers][User-defined Key Definers]]
+  - [[#wrapping-evil-define-minor-mode-key][Wrapping ~evil-define-minor-mode-key~]]
+  - [[#lispy-integration-wrapping-lispy-define-key][Lispy Integration/ Wrapping ~lispy-define-key~]]
+  - [[#worf-integration-wrapping-worf-define-key][Worf Integration/ Wrapping ~worf-define-key~]]
+  - [[#other-provided-definers][Other Provided Definers]]
+- [[#faq][FAQ]]
+  - [[#how-do-i-prevent-key-sequence-starts-with-non-prefix-key-errors][How do I prevent =Key sequence starts with non-prefix key= errors?]]
+  - [[#why-dont-some-evil-keybindings-work-immediately][Why don't some evil keybindings work (immediately)?]]
 
-This package was initially created due to frustration with the popularity of [[https://github.com/cofi/evil-leader][evil-leader]] despite its strange/poor design and implementation (e.g. unnecessarily relying on a global minor mode, unnecessarily re-implementing some of ~evil-define-key~, not allowing the user to choose the specific states keys are bound in, having a weird syntax and implementation of mode-specific keybindings, etc.). However, this package is now more comparable to [[https://github.com/jwiegley/use-package/blob/master/bind-key.el][bind-key]] (only with a lot more functionality).
+* About
+=general.el= provides a more convenient method for binding keys in emacs (for both evil and non-evil users). Like =use-package=, which provides a convenient, unified interface for managing packages, =general.el= is intended to provide a convenient, unified interface for key definitions. While this package does implement some completely new functionality (such as the ability to make vim-style keybindings under non-prefix keys with an optional timeout), its primary purpose is to build on existing functionality to make key definition more clear and concise. ~general-define-key~ is user-extensible and supports defining multiple keys in multiple keymaps at once, implicitly wrapping key strings with ~(kbd ...)~, using named prefix key sequences (like the leader key in vim), and much more.
+
+One advantage of using ~general-define-key~ (or a wrapper for it) even in cases where its extra functionality isn't necessary and doesn't significantly improve brevity is that all keybindings are recorded and can be displayed later with ~general-describe-keybindings~.
+
+This manual explains the most relevant parts of every =general.el= feature. All user-facing functions, macros, and variables also have docstrings (e.g. accessible with =C-h f= or =C-h v=), so please consult these for further details.
 
 * Key Features
 - Provides a single function, ~general-define-key~, that is usable for all key definition; wrappers are provided as well
@@ -36,7 +94,7 @@ This package was initially created due to frustration with the popularity of [[h
   - ~evil-define-key~ (positional argument for state and keymap)
 - With the =:definer= keyword, ~general-define-key~ can be extended to use any key definition function (e.g. ~evil-define-minor-mode-key~, ~lispy-define-key~, etc.) (unique)
 - With "extended" definitions, user-created keywords can be added globally (in ~general-define-key~) and locally (in an "extended" definition plist) to extend the behavior of ~general-define-key~ (unique)
-- Allows bindings keys in multiple keymaps/states at once (unlike ~bind-key~)
+- Allows binding keys in multiple keymaps/states at once (unlike ~bind-key~)
 - Automatically wraps string keys and definitions with ~kbd~ (this behavior can be turned off for compatibility with ~define-key~)
 - Allows using an arbitrary number of prefix keys or "leaders" of any length (but does not require prefix keys like) (unlike =evil-leader.el=)
 - Allows for automatically creating prefix commands (but does not require creating them like ~bind-key~ does)
@@ -52,113 +110,248 @@ This package was initially created due to frustration with the popularity of [[h
 - Provides other helpers for configuration (e.g. more convenient functions for hooks and advice)
 - Is well tested (unlike =evil-leader.el=)
 
+* Reading Recommendations
+Before using =general.el=, you should first be familiar with ~define-key~, ~global-set-key~, and [[https://www.gnu.org/software/emacs/manual/html_node/emacs/Key-Bindings.html][emacs' key binding system]]. I recommend reading [[https://www.masteringemacs.org/article/mastering-key-bindings-emacs][Mastering Key Bindings in Emacs]] if you are new to emacs.
 
-* Basic Setup
-The main advantage of using ~general-define-key~ (or a wrapper for it) even in cases where its extra functionality may be not used is that all keybindings are recorded and can be displayed later with ~general-describe-keybindings~.
+Similarly, if you are using evil, you should first be familiar with how ~evil-define-key~, ~evil-define-minor-mode-key~, etc. work. If you are a new evil user, I'd recommend looking at my [[https://github.com/noctuid/evil-guide][evil guide]]. The [[https://github.com/noctuid/evil-guide#keybindings-and-states][Keybindings and States]] section in particular may be useful
 
-** Non-evil
+A large number of issues opened on this repository are not specifically related to =general.el= (e.g. user usage or syntax errors that would also occur without ~general-define-key~). While I don't mind generic questions about keybinding issues, you may save yourself some time if you first determine whether or not an issue is related to ~general-define-key~ by, if possible, testing with an equivalent ~define-key~, ~evil-define-key~, etc. statement.
+
+See also the [[#faq][FAQ]] for commonly asked questions.
+
+* Usage Recommendations and Documentation Clarifications
+To facilitate extensibility and easy creation of wrappers, ~general-define-key~ uses keyword arguments to specify everything besides the key definitions, including for the =:states= and =:keymaps=. Since users will most often specify one or both of these keyword arguments, ~general-define-key~ is often less concise than ~define-key~ or ~evil-define-key~. It is for this reason that it is recommended that ~general-define-key~ not be used directly. =general.el= provides wrappers around ~general-define-key~ that take positional arguments, and it is recommended that you use these instead of ~general-define-key~. ~general-create-definer~ can also be used to create a new definer with certain default settings (e.g. prefix settings). For clarity and consistency, examples in the documentation usually use ~general-define-key~ unless the example is explicitly for a wrapper. However, [[#positional-argument-wrappers][~general-def~]] is recommended over ~general-define-key~ as it is more flexible and concise. Positional arguments are /optional but not required/, so ~general-def~ can basically act as a drop-in replacement for many key definers (including ~general-define-key~, ~define-key~, and ~evil-define-key~). Note that ~general-create-definer~ and the =:general= keyword argument for ~use-package~ use ~general-def~. I personally only use ~general-def~.
+
+Since it is more common for commands to not be sharp quoted in key definitions, this package's examples use single quotes for commands. I personally prefer to always properly sharp quote functions, so commands in the actual non-example code are always sharp quoted.
+
+Although ~general-define-key~ will automatically defer keybindings until the specified keymaps exist, you can still use it with ~with-eval-after-load~ or use-package's =:config= keyword whenever it makes sense to. If you have a lot of keybindings, this could potentially shave some fraction of a second off of your startup time.
+
+* Basic Examples
+** General Examples
 #+begin_src emacs-lisp
 (require 'general)
-(setq my-leader1 "C-c")
 
-;; without :keymaps, general-define-key acts similarly to global-set-key
-;; bind "C-c a" and "C-c b" globally
-(general-define-key :prefix my-leader1
-                    "a" 'some-command
-                    "b" 'another-command)
-
-;; or without a prefix
+;; * Global Keybindings
+;; `general-define-key' acts like `global-set-key' when :keymaps is not
+;; specified (because default is :keymaps 'global)
+;; kbd is not necessary and arbitrary amount of key def pairs are allowed
 (general-define-key
- "C-c a" 'some-command
- "C-c b" 'another-command)
+ "M-x" 'amx                             ; or 'smex
+ "C-s" 'counsel-grep-or-swiper)
 
-;; bind a key in a specific keymap (keymaps must be quoted)
-(general-define-key :keymaps 'org-mode-map
-                    "TAB" 'org-cycle)
-
-;; if you prefer an explicit (kbd) or don't want (kbd) at all:
-(setq general-implicit-kbd nil)
+;; * Mode Keybindings
+;; `general-define-key' is comparable to `define-key' when :keymaps is specified
 (general-define-key
- (kbd "C-c a") 'some-command
- (kbd "C-c b") 'another-command)
+ ;; NOTE: keymaps specified with :keymaps must be quoted
+ :keymaps 'org-mode-map
+ "C-c C-q" 'counsel-org-tag
+ ;; ...
+ )
+;; `general-def' can be used instead for `define-key'-like syntax
+(general-def org-mode-map
+  "C-c C-q" 'counsel-org-tag
+  ;; ...
+  )
+
+;; * Prefix Keybindings
+;; :prefix can be used to prevent redundant specification of prefix keys
+(general-define-key
+ :prefix "C-c"
+ ;; bind "C-c a" to 'org-agenda
+ "a" 'org-agenda
+ "b" 'counsel-bookmark
+ "c" 'org-capture)
+
+;; for frequently used prefix keys, the user can create a custom definer with a
+;; default :prefix
+;; using a variable is not necessary, but it may be useful if you want to
+;; experiment with different prefix keys and aren't using `general-create-definer'
+(defconst my-leader "C-c")
+
+(general-create-definer my-leader-def
+  ;; :prefix my-leader
+  ;; or without a variable
+  :prefix "C-c")
+
+;; ** Global Keybindings
+(my-leader-def
+  "a" 'org-agenda
+  "b" 'counsel-bookmark
+  "c" 'org-capture)
+
+;; ** Mode Keybindings
+(my-leader-def
+  :keymaps 'clojure-mode-map
+  ;; bind "C-c C-l"
+  "C-l" 'cider-load-file
+  "C-z" 'cider-switch-to-repl-buffer)
+;; `general-create-definer' creates wrappers around `general-def', so
+;; `define-key'-like syntax is also supported
+(my-leader-def clojure-mode-map
+  "C-l" 'cider-load-file
+  "C-z" 'cider-switch-to-repl-buffer)
+
+;; * Settings
+;; change `auto-revert-interval' after autorevert has been loaded (`setq' will
+;; not work)
+(general-setq auto-revert-interval 10)
 #+end_src
-** Evil
+
+** Evil Examples
 #+begin_src emacs-lisp
 (require 'general)
-;; bind j and k in normal state globally
-(general-define-key
- :keymaps 'normal
- "j" 'evil-next-visual-line
- "k" 'evil-previous-visual-line)
 
-;; bind gj and gk
+;; * Global Keybindings
+;; `general-define-key' acts like `evil-define-key' when :states is specified
 (general-define-key
- :prefix "g"
- :keymaps 'normal
- "j" 'evil-next-line
- "k" 'evil-previous-line)
-
-;; named prefix key
-(setq my-leader1 ",")
+ :states 'motion
+ ;; swap ; and :
+ ";" 'evil-ex
+ ":" 'evil-repeat-find-char)
+;; same as
 (general-define-key
- :prefix my-leader1
- :keymaps 'normal
- "f" 'find-file)
+ :states 'motion
+ ";" 'evil-ex
+ ":" 'evil-repeat-find-char)
+;; `general-def' can be used instead for `evil-global-set-key'-like syntax
+(general-def 'motion
+  ";" 'evil-ex
+  ":" 'evil-repeat-find-char)
 
-;; bind a key in multiple states
-(general-define-key :keymaps 'org-mode-map
-                    :states '(insert emacs)
-                    "<tab>" 'org-cycle)
+;; alternative using `general-translate-key'
+;; swap ; and : in `evil-motion-state-map'
+(general-swap-key nil 'motion
+  ";" ":")
+
+;; * Mode Keybindings
+(general-define-key
+ :states 'normal
+ :keymaps 'emacs-lisp-mode-map
+ ;; or xref equivalent
+ "K" 'elisp-slime-nav-describe-elisp-thing-at-point)
+;; `general-def' can be used instead for `evil-define-key'-like syntax
+(general-def 'normal emacs-lisp-mode-map
+  "K" 'elisp-slime-nav-describe-elisp-thing-at-point)
+
+;; * Prefix Keybindings
+;; :prefix can be used to prevent redundant specification of prefix keys
+;; again, variables are not necessary and likely not useful if you are only
+;; using a definer created with `general-create-definer' for the prefixes
+;; (defconst my-leader "SPC")
+;; (defconst my-local-leader "SPC m")
+
+(general-create-definer my-leader-def
+  ;; :prefix my-leader
+  :prefix "SPC")
+
+(general-create-definer my-local-leader-def
+  ;; :prefix my-local-leader
+  :prefix "SPC m")
+
+;; ** Global Keybindings
+(my-leader-def
+  :keymaps 'normal
+  ;; bind "SPC a"
+  "a" 'org-agenda
+  "b" 'counsel-bookmark
+  "c" 'org-capture)
+;; `general-create-definer' creates wrappers around `general-def', so
+;; `evil-global-set-key'-like syntax is also supported
+(my-leader-def 'normal
+  "a" 'org-agenda
+  "b" 'counsel-bookmark
+  "c" 'org-capture)
+
+;; to prevent your leader keybindings from ever being overridden (e.g. an evil
+;; package may bind "SPC"), use :keymaps 'override
+(general-override-mode)
+(my-leader-def
+  :states 'normal
+  :keymaps 'override
+  "a" 'org-agenda)
+;; or
+(my-leader-def 'normal 'override
+  "a" 'org-agenda)
+
+;; ** Mode Keybindings
+(my-local-leader-def
+  :states 'normal
+  :keymaps 'org-mode-map
+  "y" 'org-store-link
+  "p" 'org-insert-link
+  ;; ...
+  )
+;; `general-create-definer' creates wrappers around `general-def', so
+;; `evil-define-key'-like syntax is also supported
+(my-local-leader-def 'normal org-mode-map
+  "y" 'org-store-link
+  "p" 'org-insert-link
+  ;; ...
+  )
+
+;; * Setings
+;; change evil's search module after evil has been loaded (`setq' will not work)
+(general-setq evil-search-module 'evil-search)
 #+end_src
 
 Vim-like definitions:
 #+begin_src emacs-lisp
 (general-evil-setup)
 ;; all keywords arguments are still supported
-(general-nmap :prefix "SPC"
-              "p" 'helm-mini)
+(general-nmap
+  :prefix "SPC"
+  "p" 'helm-mini)
 
 ;; bind in motion state (inherited by the normal, visual, and operator states)
-(general-mmap "j" 'evil-next-visual-line
-              "k" 'evil-previous-visual-line)
+(general-mmap
+  ";" 'evil-ex
+  ":" 'evil-repeat-find-char)
 
 ;; alternatively, for shorter names
 (general-evil-setup t)
-(mmap "j" 'evil-next-visual-line
-      "k" 'evil-previous-visual-line)
+(mmap
+  ";" 'evil-ex
+  ":" 'evil-repeat-find-char)
 #+end_src
 
-* More Details
-This package provides one main function, ~general-define-key~, for key definitions for both evil and non-evil users. If you do not like keyword arguments or would like to create your own key-defining functions, this package also allows for these things.
+** Switching Completely to General
+It is possible to gradually switch to using general by using it only for new configuration and slowly converting old configuration if desired. If you would like to quickly convert all keybindings in your init file to use general so that they show up with ~general-describe-keybindings~, you can potentially use regexp replace. For example, you could use =M-< C-M-% \(global-set-key\|define-key\|evil-global-set-key\|evil-define-key\) RET general-def RET !=. The evil equivalent would be =:%s/\(global-set-key\|define-key\|evil-global-set-key\|evil-define-key\)/general-def/g=.
+
+There are two caveats. The old key definers all require using ~kbd~. This means that you will either have to remove every ~kbd~ in these key definers (e.g. =:%s/(kbd ?\(.*?\))/\1/gc=; you should likely confirm whether each ~kbd~ should be removed) or set =general-implicit-kbd= to nil for the old configuration. Furthermore, ~general-def~ can only correctly replace definer statements where the first specified key is a string or vector. It will not work correctly to replace a definer that uses a variable for the first key (e.g. ~(global-set-key my-key 'command)~ cannot be replaced with ~general-def~).
+
+If you decide to do this, please make sure that your configuration is backed up, and test this out to make sure that there are no errors before permanently changing your configuration.
+
+* ~general-define-key~ Details
+This package provides one main function, ~general-define-key~, for key definitions for both evil and non-evil users. It is recommended you use the provided wrappers around it or create your own with ~general-create-definer~, but first you should understand the keyword arguments provided by ~general-define-key~.
 
 ** Settings and Keyword Arguments
 =general-implicit-kbd= can be set to nil if you want to manually use ~(kbd "keys")~. This option is mainly provided to make it easy to transition to ~general-define-key~ or ~general-def~ from other key definers with search and replace and therefore only applies to ~general-define-key~ (and wrappers). ~kbd~ will always be called on string keys for other helpers such as ~general-key~, ~general-key-dispatch~, and ~general-translate-key~.
 
-=:prefix=, =:states=, and =:keymaps= are the most basic keyword arguments. By default, there is no prefix or state (each is nil), and the keymap is ~(quote global)~. Each keymap can either be a quoted keymap or ~(quote global)~ or ~(quote local)~. When the keymap is =local=, the key will be bound only in the current buffer (see [[#override-keymaps-and-buffer-local-keybindings][here]]). When the keymap is =global=, the key will be bound in ~(current-global-map)~ (or the corresponding evil global map if =:states= is specified).
+=:prefix=, =:states=, and =:keymaps= are the most basic keyword arguments. By default, there is no prefix or state (each is nil), and the keymap is ='global=. Each keymap can either be a quoted keymap, quoted [[#keymapstate-aliases][keymap alias]], ='global=, or ='local=. This is the biggest contrast between ~general-define-key~ and other definers such as ~define-key~, where the keymap is passed in directly. Note that the provided wrappers such as ~general-def~ do not require quoting keymaps. When the keymap is ='local=, the key will be bound only in the current buffer (see [[#override-keymaps-and-buffer-local-keybindings][here]] for more details). When the keymap is ='global=, the key will be bound in ~(current-global-map)~ (or the corresponding evil global map if =:states= is specified; see [[#note-for-evil-users][Note for Evil Users]] for more information).
 
-=:states= and =:keymaps= can be lists or a single element, allowing the user to define keys for multiple evil states or keymaps simultaneously. This can be useful in certain situations to prevent redundant keybindings.
+=:states= and =:keymaps= can be lists or a single element, allowing the user to define keys for multiple evil states or keymaps simultaneously. This can be useful in certain situations to prevent redundancy.
 
 Using a different prefix for the insert and emacs states (or any state in =general-non-normal-states=) can be done with =:non-normal-prefix= or =:global-prefix=. By default, =:prefix= will apply to all keys, but if one (or both) of the other prefix keywords is specified, =:prefix= will only apply to evil states not listed in =general-non-normal-states=. This is also the case for the global evil keymaps such as =evil-normal-state-map=. =:non-normal-prefix= will always only apply to the non-normal states. =:global-prefix= will always apply to all keys. For example, this command will bind =SPC /= to swiper in normal state and =M-SPC /= to swiper in emacs and insert state:
 #+begin_src emacs-lisp
-(general-define-key :states '(normal insert emacs)
-                    :keymaps 'text-mode-map
-                    :prefix "SPC"
-                    :non-normal-prefix "M-SPC"
-                    "/" 'swiper)
+(general-define-key
+ :keymaps '(normal insert emacs)
+ :prefix "SPC"
+ :non-normal-prefix "M-SPC"
+ "/" 'swiper)
 #+end_src
 
 If you would like to create a named prefix keymap for your prefix keys, you can also specify =:prefix-command= and/or =:prefix-map=. All prefix keys will then be bound to the prefix command or prefix keymap in the correct keymaps. If =:prefix-command= is specified, ~define-prefix-command~ will be used with =prefix-map= and =prefix-name= passed in as additional arguments to ~define-prefix-command~. If only =:prefix-map= is specified, a prefix keymap alone will be created with a menu item/prompt corresponding to =:prefix-name=. Note that existing prefix commands/keymaps will not be redefined, so reevaluating a general.el form that uses =:prefix-command= or =:prefix-map= will not clear the previously created keymap.
 #+begin_src emacs-lisp
-(general-define-key :states '(normal insert emacs)
-                    :keymaps 'text-mode-map
-                    :prefix "SPC"
-                    :non-normal-prefix "M-SPC"
-                    :prefix-command 'my-prefix-command
-                    :prefix-map 'my-prefix-map
-                    "/" 'swiper)
+(general-define-key
+ :keymaps '(normal insert emacs)
+ :prefix "SPC"
+ :non-normal-prefix "M-SPC"
+ :prefix-command 'my-prefix-command
+ :prefix-map 'my-prefix-map
+ "/" 'swiper)
 #+end_src
 
-General is flexible in allowing you to choose how you write things, so if the above would be something you'd use often, you could create a function with the above state and prefix keyword arguments as defaults using ~general-create-definer~ and write the definition like this:
+General is flexible in allowing you to choose how you write things, so if the above would be something you'd use often, you could create a function with the above keyword arguments as defaults using [[#creating-new-key-definers][~general-create-definer~]] and write the definition like this:
 #+begin_src emacs-lisp
 (my-normal-and-insert-define-key "/" 'swiper)
 #+end_src
@@ -170,7 +363,231 @@ The =:infix= keyword can be used to sandwich keys in between all of the specifie
 
 There is also a =:predicate= keyword for giving a condition under which a map should be active.
 
-** Displaying Keybindings
+** Predicates
+The user can use the ~:predicate~ keyword to specify a condition under which the map(s) should be active. For example:
+#+begin_src emacs-lisp
+(general-define-key
+ :keymaps 'local
+ :predicate '(eobp)
+ "<right>" 'beginning-of-buffer)
+#+end_src
+
+~<right>~ will now behave normally except at the end of the buffer where it will jump to the beginning of the buffer. Note that with ~:predicate~, you can still only have a key bound once in a single keymap. If you want to have a key take different actions depending on conditions in a single keymap, see [[#choosing-definitions-based-on-predicates][Choosing Definition Based on Predicates]].
+
+See [[http://endlessparentheses.com/define-context-aware-keys-in-emacs.html][this post]] for more information about how this works.
+
+** Keymap/State Aliases
+To prevent the need to type out long keymap names like =evil-inner-text-objects-map=, general allows the user to specify shorthand names for keymaps by altering =general-keymap-aliases= (and for states by altering =general-state-aliases=). These are alists of either an alias or a list of aliases to the full keymap name:
+#+begin_src emacs-lisp
+(push '(help . help-map) general-keymap-aliases)
+;; or
+(push '((h help) . help-map) general-keymap-aliases)
+;; or (emacs 25+)
+(setf (alist-get 'help general-keymap-aliases) 'help-map)
+;; or (emacs 25+)
+(setf (alist-get '(h help) general-keymap-aliases) 'help-map)
+
+;; now
+(general-define-key :keymaps 'help ...)
+;; is the same as
+(general-define-key :keymaps 'help-map ...)
+#+end_src
+
+Note that earlier entries in the alist take precedence.
+
+By default, the global evil state and text object keymaps have aliases. This allows for using the same syntax as ~evil-global-set-key~ and ~evil-define-key~:
+#+begin_src emacs-lisp
+(general-define-key :keymaps 'motion ...)
+;; or
+(general-define-key :keymaps 'm ...)
+#+end_src
+See =general-keymap-aliases= for all default aliases.
+
+All keymap symbols are immediately processed by ~general--unalias~. By overriding this function, it would be possible to, for example, automatically append =-map= or =-mode-map= to keymap names that don't end in =-map= or do something more complicated to create a generic shorthand without having manually specify all aliases. This is not recommended as it could potentially become confusing (and would currently break =:definer 'minor-mode=), but if anyone would find this useful, feel free to make an issue, and I'll consider adding it as an option.
+
+** ~general-define-key~ Wrappers
+*** Positional Argument Wrappers
+When defining keys in specific keymaps and states, using positional arguments can be shorter. General has two macros that can basically act as drop-in replacements for ~define-key~ and ~evil-define-key~ and another macro that can basically act is a drop-in replacement for both of those and more. They are ~general-emacs-define-key~, ~general-evil-define-key~, and ~general-def~ respectively. These are simply wrappers for ~general-define-key~ that pass the positional arguments to the corresponding keywords. However, for compatibility with ~define-key~ and ~evil-define-key~, it is not necessary to quote keymaps. Both keymaps and states can be left quoted or unquoted (regardless of whether they are lists).
+
+For example, the following are all equivalent:
+#+begin_src emacs-lisp
+(general-define-key
+ :keymaps 'org-mode-map
+ "M-n" 'org-next-visible-heading
+ "M-p" 'org-previous-visible-heading)
+
+(general-emacs-define-key org-mode-map
+  "M-n" 'org-next-visible-heading
+  "M-p" 'org-previous-visible-heading)
+
+;; rough equivalent with define-key
+(with-eval-after-load 'org-mode
+  (define-key org-mode-map (kbd "M-n") 'org-next-visible-heading)
+  (define-key org-mode-map (kbd "M-p") 'org-previous-visible-heading))
+#+end_src
+
+Similarly, the following are all equivalent:
+#+begin_src emacs-lisp
+(general-define-key
+ :states '(normal visual)
+ :keymaps 'org-mode-map
+ "gj" 'org-next-visible-heading
+ "gk" 'org-previous-visible-heading)
+
+(general-evil-define-key '(normal visual) org-mode-map
+  "gj" 'org-next-visible-heading
+  "gk" 'org-previous-visible-heading)
+
+;; equivalent with evil-define-key
+(evil-define-key '(normal visual) org-mode-map
+  "gj" 'org-next-visible-heading
+  "gk" 'org-previous-visible-heading)
+#+end_src
+
+The actual behavior of these two macros is the same as ~general-define-key~. You can still use ~general-define-key~'s keyword arguments after the positional arguments (however, =:keymaps= and =:states= will not override the positional arguments):
+#+begin_src emacs-lisp
+;; these are both valid
+(general-emacs-define-key 'global
+  :prefix "C-c"
+  "/" 'swiper)
+
+(general-evil-define-key 'normal org-mode-map
+  :prefix "SPC"
+  "g" 'worf-goto)
+#+end_src
+
+As for ~global-set-key~ and ~evil-global-set-key~, wrappers are not needed. By default ~general-define-key~ acts like ~global-set-key~, and ~general-emacs-define-key~ can also act like ~global-evil-set-key~ using the symbols for evil's states (see [[#keymapstate-aliases][keymap aliases]]).
+
+The third macro, ~general-def~, is provided for those who would prefer to use a single, succinctly named definer for all of the previous cases. It will act the same as ~general-define-key~, ~general-emacs-define-key~, or ~general-evil-define-key~ depending on the number of positional arguments.
+#+begin_src emacs-lisp
+;; use `general-define-key' when no "positional" arguments
+(general-def
+  "key" 'def
+  ...)
+;; example equivalents
+(general-define-key "key" 'def)
+(global-set-key (kbd "key") 'def)
+
+;; use `general-emacs-define-key' when one "positional" argument
+(general-def org-mode-map
+  "key" 'def
+  ...)
+;; example equivalent
+(define-key org-mode-map (kbd "key") 'def)
+;; act like `evil-global-set-key'
+(general-def 'normal
+  "key" 'def
+  ...)
+;; example equivalents
+(evil-global-set-key 'normal (kbd "key") 'def)
+(evil-define-key 'normal 'global (kbd "key") 'def)
+
+;; use `general-evil-define-key' when two "positional" arguments
+(general-def 'normal org-mode-map
+  "key" 'def
+  ...)
+;; example equivalent
+(evil-define-key 'normal org-mode-map (kbd "key") 'def)
+#+end_src
+
+Note that if you want to use variables to hold keys (e.g. =key-var 'def=), you should use ~general-define-key~. If those were the first arguments to ~general-def~, it would consider them a state and keymap. Using variables for keys isn't recommended and probably isn't useful. If you want to use a variable specifically with =:prefix= or another keyword argument, that is still supported by ~general-def~.
+
+*** Creating New Key Definers
+The ~general-create-definer~ macro can create definers that wrap ~general-def~ but with certain default settings. For example, it can be used to create a definer that will default to a certain prefix (like ~evil-leader~ does):
+#+begin_src emacs-lisp
+;; basic example
+(general-create-definer my-leader-def
+  :prefix "C-c")
+;; bind "C-c o" to `other-window'
+(my-leader-def "o" 'other-window)
+
+;; more complex example
+(general-create-definer tyrant-def
+  :states '(normal insert emacs)
+  :prefix "SPC"
+  :non-normal-prefix "M-SPC"
+  :prefix-command 'tyrant-prefix-command
+  :prefix-map 'tyrant-prefix-map)
+;; globally bind "SPC /" in normal state and "M-SPC /" in the insert/emacs
+;; states to `swiper'
+(tyrant-def "/" 'swiper)
+
+;; for org-mode, bind "SPC o" in normal state and "M-SPC /" in the insert/emacs
+;; states to `counsel-org-goto'
+(tyrant-def org-mode-map "o" 'counsel-org-goto)
+;; same as
+(tyrant-def :keymaps 'org-mode-map "o" 'counsel-org-goto)
+#+end_src
+
+*** Vim-like Definers
+~general-evil-setup~ can be used to generate key definition functions that are named similarly to vim's. Currently, the following functions will be created:
+
+- ~general-imap~
+- ~general-emap~
+- ~general-nmap~
+- ~general-vmap~
+- ~general-omap~
+- ~general-mmap~
+- ~general-rmap~
+- ~general-iemap~
+- ~general-nvmap~
+- ~general-otomap~
+- ~general-itomap~
+- ~general-tomap~
+
+These are wrappers around ~general-def~ created with ~general-create-definer~ that set the default =:states=. You can see the help text for each for a more specific description. ~general-evil-setup~ can be called with a non-nil argument (i.e. ~(general-evil-setup t)~) to create non-prefixed aliases for these definers (e.g. ~nmap~).
+
+Here is an example using ~general-nmap~:
+#+begin_src emacs-lisp
+(general-evil-setup)
+;; define in evil-normal-state-map
+(general-nmap "key" 'def ...)
+;; define in the normal state auxiliary map for org-mode-map
+(general-nmap org-mode-map "key" 'def ...)
+;; same as
+(general-nmap :keymaps 'org-mode-map "key" 'def ...)
+#+end_src
+
+** Note for Evil Users
+When =:states= is specified, ~general-define-key~ will act as a wrapper around ~evil-define-key*~. ~evil-define-key*~ now directly supports the symbol =global= for the keymap argument, so the following are equivalent:
+#+begin_src emacs-lisp
+(general-define-key
+ ;; (default)
+ ;; :keymaps 'global
+ :states '(normal visual)
+ ...)
+(general-define-key
+ :keymaps '(normal visual)
+ ...)
+#+end_src
+
+Note that this previously was not the case and ~(general-define-key :states 'normal ...)~ would bind in the normal state auxiliary map for ~(current-global-map)~. Since auxiliary maps have a higher precedence than evil global and override keymaps, this was previously mentioned as one possible way of preventing certain keybindings from being overridden. However, this is not a reliable method. Keys bound in auxiliary maps can override keys bound in other auxiliary maps, for example, and keys bound in evil local or minor-mode keymaps will always override keys bound in regular auxiliary maps. If you need this functionality, please use evil intercept keymaps instead (see [[#override-keymaps-and-buffer-local-keybindings][Override Keymaps]]).
+
+* Override Keymaps and Buffer Local Keybindings
+General.el provides the equivalent of =bind-key='s =override-global-map= as =general-override-mode-map= (keymap alias is ='override=). When =general-override-mode= is enabled, keys bound in =general-override-mode-map= will take precedence over keys bound in any other minor mode keymaps.
+
+General also provides a local equivalent called =general-override-local-mode= which is used to add support for buffer-local keybindings (with higher precedence than mode keybindings) by specifying =:keymaps 'local=. Unlike with the global override mode, =:keymaps 'local= should always be used instead of the actual keymap name since =:keymaps 'local= will cause general.el to automatically turn on the corresponding minor mode and perform some necessary extra setup. Note that this is not the same as using ~local-set-key~ (which will bind the key for the current buffer's major mode, affecting other buffers). When =:states= is specified with =:keymaps 'local=, ~evil-local-set-key~ will be used instead.
+
+Note that binding directly in =general-override-mode-map= (i.e. no =:states= specified) is only useful for non-evil keybindings. Evil keybindings already override almost all normal emacs keybindings using the same method used here (i.e. evil keymaps are in =emulation-mode-map-alists=). The main exceptions where evil keybindings will be overridden by non-evil keybindings are noted [[https://github.com/noctuid/evil-guide#what-overrides-evil][here]] with explanations on how to deal with these cases. To understand which evil keybindings override others, review the [[https://github.com/noctuid/evil-guide#keymap-precedence][precedence for evil keymaps]]. If you want a global evil keybinding to not be overridden by any other evil keymaps (e.g. overriding keymaps created in =evil-integration.el= or auxiliary keymaps created by some evil package), you can use intercept keymaps. You can make any keymap an intercept keymap, but it may be convenient to just use =general-override-mode-map= for this purpose since the necessary setup (~evil-make-intercept-map~) has already been performed:
+#+begin_src emacs-lisp
+(general-override-mode)
+
+;; keybindings that should not be overriden
+(general-define-key
+ :states 'normal
+ :keymaps 'override
+ :prefix "SPC"
+ "f" 'find-file)
+
+;; the above has precedence over the following (excerpt from evil-collection)
+;; "SPC f" will still work as `find-file'
+(evil-define-key 'normal transmission-mode-map
+  (kbd "SPC") 'scroll-up-command)
+#+end_src
+
+Note that by default, evil keybindings made with =:keymaps 'override= will override even those made with =:keymaps 'local=.
+
+* Displaying Keybindings
 General keeps track of all your keybindings and allows presenting them as tables in an org buffer using ~general-describe-keybindings~. By default, they will be displayed in this order:
 
 - Buffer local keybindings (i.e. =:keymaps 'local=)
@@ -205,178 +622,11 @@ For reference, keybindings are stored in an alist. Here is what is passed to eac
 
 To actually change how the keybinding table is printed, the user could override  ~general--print-map~.
 
-** Positional Argument Wrappers
-When you're defining keys in specific keymaps and states, using positional arguments can be shorter. General has two macros that can basically act as drop-in replacements for ~define-key~ and ~evil-define-key~. They are ~general-emacs-define-key~ and ~general-evil-define-key~. These are simply wrappers for ~general-define-key~ that pass the positional arguments to the corresponding keywords. However, for compatibility with ~define-key~ and ~evil-define-key~, it is not necessary to quote keymaps. Both keymaps and states can be left quoted or unquoted (regardless of whether they are lists).
+* Functions/Macros to Aid Key Definition
+** Disclaimer
+Key simulation (for ~general-simulate-key~ and ~general-key-dispatch~ but not for ~general-key~) can result in duplicate keys being recorded for keyboard macros and evil repeating. To work around this issue, =general.el= will discard these duplicate keys during macro playback (i.e. =executing-kbd-macro= is non-nil). So far, this seems to be a reliable method for getting macros and repeating to work correctly with key simulation. However, it is hard (and maybe impossible) to test some of these cases automatically since it involves simulating keys that in turn simulate keys, and, for example, I haven't found a way to correctly simulate recording a macro in these cases. Therefore, if you find any issues with macro playback or evil repeating when using ~general-simulate-key~ or ~general-key-dispatch~, please make an issue.
 
-For example, the following are equivalent:
-#+begin_src emacs-lisp
-(general-define-key :keymaps 'org-mode-map
-                    "M-n" 'org-next-visible-heading
-                    "M-p" 'org-previous-visible-heading)
-(general-emacs-define-key org-mode-map
-  "M-n" 'org-next-visibl-heading
-  "M-p" 'org-previous-visible-heading)
-
-;; rough equivalent with define-key
-(with-eval-after-load 'org-mode
-  (define-key org-mode-map (kbd "M-n") 'org-next-visible-heading)
-  (define-key org-mode-map (kbd "M-p") 'org-previous-visible-heading))
-#+end_src
-
-And the following are equivalent:
-#+begin_src emacs-lisp
-(general-define-key :states '(normal visual)
-                    :keymaps 'org-mode-map
-                    "gj" 'org-next-visible-heading
-                    "gk" 'org-previous-visible-heading)
-(general-evil-define-key '(normal visual) org-mode-map
-  "gj" 'org-next-visible-heading
-  "gk" 'org-previous-visible-heading)
-
-;; equivalent with evil-define-key
-(evil-define-key '(normal visual) org-mode-map
-  "gj" 'org-next-visible-heading
-  "gk" 'org-previous-visible-heading)
-#+end_src
-
-The actual behavior of these two macros is the same as ~general-define-key~. You can still use ~general-define-key~'s keyword arguments after the positional arguments (however, =:keymaps= and =:states= will not override the positional arguments):
-#+begin_src emacs-lisp
-;; these are both valid
-(general-emacs-define-key 'global
-  :prefix "C-c"
-  "/" 'swiper)
-
-(general-evil-define-key 'normal org-mode-map
-  :prefix "SPC"
-  "g" 'worf-goto)
-#+end_src
-
-As for ~global-set-key~ and ~global-evil-set-key~, wrappers are not needed. By default ~general-define-key~ acts like ~global-set-key~, and ~general-emacs-define-key~ can also act like ~global-evil-set-key~ using the symbols for evil's states.
-
-A third macro, ~general-def~, is provided for those who would prefer to use a single, succinctly named definer for all of the previous cases. It will act the same as ~general-define-key~, ~general-emacs-define-key~, or ~general-evil-define-key~ depending on the number of positional arguments.
-#+begin_src emacs-lisp
-;; use general-define-key
-(general-def
-  "key" 'def
-  ...)
-
-;; use general-emacs-define-key
-(general-def org-mode-map
-  "key" 'def
-  ...)
-(general-def 'normal
-  "key" 'def
-  ...)
-
-;; use general-evil-define-key
-(general-def 'normal org-mode-map
-  "key" 'def
-  ...)
-#+end_src
-
-Note that if you want to use variables to hold keys (e.g. =key-var 'def=), you should use ~general-define-key~ (if those were the first arguments to ~general-def~, it would consider them a state and keymap). Doing this isn't recommended and probably isn't useful. If you want to use a variable specifically with =:prefix= or another keyword argument, that is still supported by ~general-def~.
-
-** Note for Evil Users
-When =:states= is specified, ~general-define-key~ will act as a wrapper around ~evil-define-key*~. ~evil-define-key*~ now directly supports the symbol =global= for the keymap argument, so the following are equivalent:
-#+begin_src emacs-lisp
-(general-define-key
- ;; (default)
- ;; :keymaps 'global
- :states '(normal visual)
- ...)
-(general-define-key
- :keymaps '(normal visual)
- ...)
-#+end_src
-
-Note that this previously was not the case and ~(general-define-key :states 'normal ...)~ would bind in the normal state auxiliary map for ~(current-global-map)~. Since auxiliary maps have a higher precedence than evil global and override keymaps, this was previously mentioned as one possible way of preventing certain keybindings from being overridden. However, this is not a reliable method. Keys bound in auxiliary maps can override keys bound in other auxiliary maps, for example, and keys bound in evil local or minor-mode keymaps will always override keys bound in regular auxiliary maps. If you need this functionality, please use evil intercept keymaps instead (see [[#override-keymaps-and-buffer-local-keybindings][Override Keymaps]]).
-
-** Keymap/State Aliases
-To prevent the need to type out long keymap names like =evil-inner-text-objects-map=, general allows the user to specify shorthand names for keymaps by altering =general-keymap-aliases= (and for states by altering =general-state-aliases=). These are alists of either an alias or a list of aliases to the full keymap name:
-#+begin_src emacs-lisp
-(push '(help . help-map) general-keymap-aliases)
-;; or
-(push '((h help) . help-map) general-keymap-aliases)
-;; now
-(general-define-key :keymaps 'help ...)
-;; is the same as
-(general-define-key :keymaps 'help-map ...)
-#+end_src
-
-By default, the global evil state and text object keymaps have aliases. This allows for using the same syntax as ~evil-global-set-key~ and ~evil-define-key~:
-#+begin_src emacs-lisp
-(general-define-key :keymaps 'motion ...)
-;; or
-(general-define-key :keymaps 'm ...)
-#+end_src
-See =general-keymap-aliases= for all default aliases.
-
-All keymap symbols are immediately processed by ~general--unalias~. By overriding this function, it would be possible to, for example, automatically append =-map= or =-mode-map= to keymap names that don't end in =-map= or do something more complicated to create a generic shorthand without having manually specify all aliases. This is not recommended as it could potentially become confusing (and would currently break =:definer 'minor-mode=), but if anyone would find this useful, feel free to make an issue, and I'll consider adding it as an option.
-
-** Vim-like Definers
-~general-evil-setup~ can be used to generate key definition functions that are named similarly to vim's. Currently, the following functions will be created:
-
-- ~general-imap~
-- ~general-emap~
-- ~general-nmap~
-- ~general-vmap~
-- ~general-omap~
-- ~general-mmap~
-- ~general-rmap~
-- ~general-iemap~
-- ~general-nvmap~
-- ~general-otomap~
-- ~general-itomap~
-- ~general-tomap~
-
-These are wrappers around ~general-def~ created with ~general-create-definer~ that set the default =:states=. You can see the help text for each for a more specific description. ~general-evil-setup~ can be called with a non-nil argument (i.e. ~(general-evil-setup t)~) to create non-prefixed aliases for these definers (e.g. ~nmap~).
-
-Here is an example using ~general-nmap~:
-#+begin_src emacs-lisp
-(general-evil-setup)
-;; define in evil-normal-state-map
-(general-nmap ...)
-;; define in the normal state auxiliary map for org-mode-map
-(general-nmap org-mode-map ...)
-;; or
-(general-nmap :keymaps 'org-mode-map ...)
-#+end_src
-
-** Override Keymaps and Buffer Local Keybindings
-:PROPERTIES:
-:CUSTOM_ID: override-keymaps-and-buffer-local-keybindings
-:END:
-
-General.el provides the equivalent of =bind-key='s =override-global-map= as =general-override-mode-map= (keymap alias is ='override=). When =general-override-mode= is enabled, keys bound in =general=override-map= will take precedence over keys bound in any other minor mode keymaps.
-
-Note that binding directly in =general-override-mode-map= is only useful for non-evil keybindings. Evil keybindings already override almost all normal keybindings using the same method used here. On the other hand, if you want to override evil keybindings, you have a few options. For reference, first review the [[https://github.com/noctuid/evil-guide#keymap-precedence][precedence for evil keymaps]]. If you want a global evil keybinding to not be overridden by any evil overriding maps (used by =evil-integration.el= for some modes by default), you can use the [[https://github.com/noctuid/evil-guide#preventing-certain-keys-from-being-overridden][previously mentioned method]] and bind that key in an auxiliary keymap since auxiliary maps have precedence over overriding maps (which in turn have precedence over the normal global evil keymaps). Doing this is mainly useful if you want to use ~evil-make-overriding-map~ for specific modes but want to prevent certain global keys from ever being overwritten (e.g. a prefix key for window/file/buffer management). However, if you use evil packages that make keybindings with ~evil-define-key~, this method is not sufficient. If you want your global keybinding to not be overridden by keybindings in any auxiliary maps, you can use an intercept keymap. You can make any keymap an intercept keymap, but it may be convenient to just use =general-override-mode-map= for this purpose since the necessary setup (~evil-make-intercept-map~) has already been performed:
-#+begin_src emacs-lisp
-(general-define-key
- :states 'normal
- :keymaps 'override
- ...)
-;; has precedence over
-(general-define-key
- :states 'normal
- :keymaps 'org-mode-map)
-#+end_src
-
-General also provides a local equivalent called =general-override-local-mode= which is used to add support for buffer-local keybindings (with higher precedence than minor mode keybindings) by specifying =:keymaps 'local=. Unlike with the global override mode, =:keymaps 'local= should always be used instead of the actual keymap name since =:keymaps 'local= will cause general.el to automatically turn on the corresponding minor mode and perform some necessary extra setup. Note that this is not the same as using ~local-set-key~ (which will bind the key for the current buffer's major mode). When =:states= is specified with =:keymaps 'local=, ~evil-local-set-key~ will be used instead.
-
-** Predicates
-The user can use the ~:predicate~ keyword to specify a condition under which the map(s) should be active. For example:
-#+begin_src emacs-lisp
-(general-define-key :keymaps 'local
-                    :predicate '(eobp)
-                    "<right>" 'beginning-of-buffer)
-#+end_src
-
-~<right>~ will now behave normally except at the end of the buffer where it will jump to the beginning of the buffer. Note that with ~:predicate~, you can still only have a key bound once in a single keymap. If you want to have a key take different actions depending on conditions in a single keymap, see [[#choosing-definitions-based-on-predicates][Choosing Definition Based on Predicates]].
-
-See [[http://endlessparentheses.com/define-context-aware-keys-in-emacs.html][this post]] for more information about how this works.
-
-** Functions/Macros to Aid Key Definition
-*** Simulating Keypresses
+** Simulating Keypresses
 General provides a macro called ~general-simulate-key~ that can be used to simulate a key sequence. In some cases, this can be used similarly to a keyboard macro, but it has some advantages. Unlike with a keyboard macro, prefix arguments will work for the command the key simulates. Also, the key simulated does not have to correspond to the full key sequence for a command. In these cases [[https://github.com/justbur/emacs-which-key][which-key]] will show the keys bound under the simulated prefix. For example:
 #+begin_src emacs-lisp
 (general-nmap "SPC" (general-simulate-key "C-c"))
@@ -420,7 +670,7 @@ When a command is specified, general will used the remapped version of it if it 
 
 Make sure that you don't bind a key to simulate itself (e.g. ~(general-emap "C-n" (general-simulate-key "C-n" :state 'emacs))~) as this will cause an infinite loop.
 
-*** Mapping Under Non-prefix Keys
+** Mapping Under Non-prefix Keys
 This functionality is mainly targeted at evil users, but it could potentially be useful for non-evil users as well. In vim you can bind something like =cow= without a problem. With evil, =c= is bound to ~evil-change~, so you can't bind directly to =cow=. A workaround for this case is to bind a key in ~evil-operator-state-map~, but this won't work when operator state is not used (e.g. you want to bind something like =ctb= or =jk= in insert state). I've come up with a more general workaround called ~general-key-dispatch~. Consider the following example:
 #+begin_src emacs-lisp
 (general-nmap "c" (general-key-dispatch 'evil-change
@@ -475,11 +725,7 @@ By default, ~general-key-dispatch~ will prevent name clashes by appending a uniq
 
 Like with ~general-simulate-key~ used with a command name, the behavior of ~evil-repeat~ will depend on the command that ends up running. Having repeating work correctly requires handling a lot of edge cases, so please make an issue if you find any problems. Note that evil does not support repeating a count that comes before an operator currently, but repeating should work when the count follows the operator key (=3cc= vs =c3c=).
 
-*** Choosing Definitions Based on Predicates
-:PROPERTIES:
-:CUSTOM_ID: choosing-definitions-based-on-predicates
-:END:
-
+** Choosing Definitions Based on Predicates
 ~general-predicate-dispatch~ can be used to generate a ~menu-item~ that will behave differently based on the provided predicates. It takes a fallback definition as the first argument and then a list of predicates and alternate definitions (which can be commands, keymaps, etc.). Predicates are checked in order. If no predicate is matched and the fallback command is nil, then the mapping will be ignored (the keymap with the next highest precedence, if one exists, will be checked for the pressed key(s)).
 
 #+begin_src emacs-lisp
@@ -489,9 +735,9 @@ Like with ~general-simulate-key~ used with a command name, the behavior of ~evil
                       (eolp) 'beginning-of-line))
 #+end_src
 
-The =:docstring= keyword can be specified to add a description to the menu-item.
+The =:docstring= keyword can be specified to add a description to the extended menu item.
 
-*** Key "Translation"
+** Key "Translation"
 ~general-translate-key~ allows binding a key to the definition of another key in the same keymap (comparable to how vim's keybindings work). Its arguments are the =states= (which can be nil for non-evil keymaps) and =keymaps= (both symbols or lists of symbols like for ~general-define-key~) to bind/look up the key(s) in followed optionally by keyword arguments (currently only =:destructive=) and key/replacement pairs.
 
 ~evil-collection-translate-key~ allows binding a key to the definition of another key in the same keymap (comparable to how vim's keybindings work). Its arguments are the =states= and =keymaps= to bind/look up the key(s) in followed optionally by keyword arguments (currently only =:destructive=) and key/replacement pairs. =states= can be nil for non-evil keymaps, and both =states= and =keymaps= can be a single symbol or a list of symbols.
@@ -518,7 +764,9 @@ An example use case of ~general-translate-key~ is for non-QWERTY users who want 
     "l" "i"))
 #+end_src
 
-By default, the first invocation of ~general-translate-key~ will make a backup of the keymap. Each subsequent invocation will look up keys in the backup instead of the original. This means that a call to ~general-translate-key~ will always have the same behavior even if evaluated multiple times. When =:destructive t= is specified, keys are looked up in the keymap as it is currently. This means that a call to ~general-translate-key~ that swapped two keys would continue to swap/unswap them with each call. Therefore when =:destructive t= is used, all cycles/swaps must be done within a single call to ~general-translate-key~. To make a comparison to vim keybindings, =:destructive t= is comparable to vim's ~map~, =:destructive nil= is comparable to vim's ~noremap~ (where the "original" keybindings are those that existed in the keymap when the ~general-translate-key~ was first used), and generally you will want to use ~noremap~ (=:destructive nil=).
+By default, the first invocation of ~general-translate-key~ will make a backup of the keymap. Each subsequent invocation will look up keys in the backup instead of the original. This means that a call to ~general-translate-key~ will always have the same behavior even if evaluated multiple times. When =:destructive t= is specified, keys are looked up in the keymap as it is currently. This means that a call to ~general-translate-key~ that swapped two keys would continue to swap/unswap them with each call. Therefore when =:destructive t= is used, all cycles/swaps must be done within a single call to ~general-translate-key~. To make a comparison to vim keybindings, =:destructive t= is comparable to vim's ~map~, and =:destructive nil= is comparable to vim's ~noremap~ (where the "original" keybindings are those that existed in the keymap when ~general-translate-key~ was first used).
+
+You'll almost always want to use the default behavior (especially in your init file). The limitation of =:destructive nil= is that you can't translate a key to another key that was defined after the first ~evil-collection-translate-key~, so =:destructive t= may be useful for interactive experimentation.
 
 Note that general state and keymap aliases (as well as =local= and =global=) and =general-implicit-kbd= are supported by ~general-translate-key~:
 #+begin_src emacs-lisp
@@ -542,27 +790,42 @@ Keys are bound using ~general-define-key~, so they are viewable with ~general-de
   "A" "a")
 #+end_src
 
-*** Automatic Key Unbinding
-To automatically prevent =Key sequence starts with a non-prefix key= errors without the need to explicitly unbind non-prefix keys, users can add ~(general-auto-unbind-keys)~ to their configuration file. This will advise ~define-key~ to unbind any bound subsequence of the =KEY=. Currently, this will only have an effect on general key definers. The advice can later be removed with ~(general-auto-unbind-keys t)~.
+** Automatic Key Unbinding
+To automatically prevent =Key sequence starts with a non-prefix key= errors without the need to explicitly unbind non-prefix keys, you can add ~(general-auto-unbind-keys)~ to your configuration file. This will advise ~define-key~ to unbind any bound subsequence of the =KEY=. Currently, this will only have an effect for =general.el= key definers. The advice can later be removed with ~(general-auto-unbind-keys t)~.
 
-** Creating Extra Keybinding Functions
-The primary purpose of this package is to provide a single function for key definitions that is simple and flexible. Most users probably won't want to use this functionality (apart from ~general-evil-setup~). However, if you would like more specific keybinding functions for certain prefixes, evil states, or keymaps, this package provides macros to generate these functions.
+The reason that advice is used is because ~general-define-key~ does not always define keys in the same manner. Because customer definers are supported with =:definer=, ~general-define-key~ does not have the necessary information to handle every case itself.
 
-The ~general-create-definer~ macro can create functions for more succinctly defining keys. This is basically the same as naming a function with different defaults. For example, it can also be used to create a function that will always default to a certain prefix (like ~evil-leader~ does):
+As a final note, if you, for example, bind =s= to a command using ~general-define-key~ and then later bind =s <key>= to something, =s= will still show up in ~general-describe-keybindings~ even though it's no longer bound. Since this is preventable by simply removing the initial unused keybinding, I likely will not try to add a workaround to fix this.
+
+* Non-keybinding-related Configuration Helpers
+General.el also provides a few helper functions/macros for other configuration purposes. They are intended to be slightly more convenient versions of functions/macros provided by default.
+
+** Settings
+~general-setq~ is a stripped-down ~customize-set-variable~ that can act as a drop-in replacement for ~setq~. Some variables defined with ~defcustom~ specify a custom setter with =:set= that must be used for changes to take effect (e.g. =auto-revert-interval=). ~setq~ cannot be used to set such variables correctly if the corresponding package has already been loaded, but ~general-setq~ will correctly use the custom setter when necessary. The benefit of ~general-setq~ over ~customize-set-variable~ is that it can be used to set multiple variables at once. It does not do everything ~customize-set-variable~ does (e.g. it cannot be used interactively, does not attempt to load variable dependencies, and does not allow the user to specify comments). From some basic testing, it is 10x to 100x faster because of this, but the speed difference should not be noticeable if you aren't setting thousands of variables during emacs initialization.
+
+Here's an example using variables that have a custom setter:
 #+begin_src emacs-lisp
-(general-create-definer my-leader1 :keymaps 'global :prefix "C-c")
-;; bind "C-c o" to other-window
-(my-leader1 "o" 'other-window)
+(general-setq auto-revert-interval 10
+              evil-want-Y-yank-to-eol t
+              evil-search-module 'evil-search)
 #+end_src
 
-The user could also set ~general-default-prefix~, ~general-default-state~, or ~general-default-keymap~ to a different value within a function to achieve a similar effect.
+Note that ~setq~ will work as expected as long it is used before the corresponding package is loaded, but with ~customize-set-variable~ or ~general-setq~, you do not need to worry about whether or not the package has been loaded. If you decide to use ~general-setq~, I'd recommend aliasing it to something shorter like ~gsetq~.
 
-As another example, one could make an extra vim definer using ~general-create-dual-vim-definer~:
+** Hooks and Advice
+~general-add-hook~, ~general-remove-hook~, ~general-advice-add~, and ~general-advice-remove~ all act as drop-in replacements for their corresponding functions but allow lists for some of the arguments. The hook functions allow specifying lists for the hooks and functions, and the advice functions allow specifying lists for the symbols and functions. Because I don't like the difference in naming for the default advice functions, ~general-add-advice~ and ~general-remove-advice~ are also provided as aliases.
+
+For example:
 #+begin_src emacs-lisp
-(general-create-dual-vim-definer nviemap '(normal visual insert emacs))
+(general-add-hook my-lisp-mode-hooks
+                  (list #'lispy-mode #'rainbow-delimiters-mode))
+;; note that setting the :jump command property is recommended instead of this
+(general-add-advice (list #'git-gutter:next-hunk
+                          #'git-gutter:previous-hunk)
+                    :before #'evil-set-jump)
 #+end_src
-As previously mentioned, how the newly created function creates keybindings can be altered by setting =general-vim-definer-default=. Unlike with ~general-create-definer~, you can't specify defaults for other keyword arguments with ~general-create-dual-vim-definer~. If anyone would like to be able to do this to, for example, set a default prefix for the created function, feel free to make an issue.
 
+* Integration with Other Packages
 ** Use-package Keyword
 General also optionally provides a use-package keyword. =:general= is similar to =:bind= in that it implies =:defer t= and will create autoloads for the bound commands (though this is usually not necessary). The keyword is followed by one or more lists containing arguments for ~general-def~; there is no difference in syntax:
 #+begin_src emacs-lisp
@@ -603,7 +866,7 @@ General provides a simple function that will rewrite a string into a key-chord v
 
 Note that the order of the keys does matter unlike with the default ~key-chord-define~.
 
-** Extended Definition Syntax
+* Extended Definition Syntax
 General.el supports some extra per-definition keywords. It has "type" keywords that give general.el some extra information to use to create definitions (e.g. =:prefix-command= and =:keymap=) and other keywords that will alter or ignore definitions (e.g. =:predicate= and =:ignore=).
 
 There is also a system to allow users to support their own keywords. Note that anything done with external user functions can have side effects but cannot alter the definition directly (to do that, a custom definer should be created instead). As an example, the which-key functionality described later in this section does not need to alter the definition, so it is implemented just as user-defined keyword would be.
@@ -635,7 +898,7 @@ Global keywords that can be overridden locally:
 
 The default value for a keyword is =nil= unless otherwise specified.
 
-*** "Autoloaded" Keymaps
+** "Autoloaded" Keymaps
 As the first example, an extended definition can be used to create an "autoload" for a keymap like use-package's =:bind-keymap= keyword does:
 #+begin_src emacs-lisp
 (general-define-key
@@ -648,7 +911,7 @@ Using this feature, a key can be bound to a keymap that does not exist yet and s
 
 =:keymap= must be specified in this case so that the unbound symbol can be distinguished as a keymap rather than a command. For other extended definitions, you can simply specify the definition as the first item in the list or explicitly use the =:def= keyword.
 
-*** Which Key Integration
+** Which Key Integration
 If you are not already familiar with which-key's replacement system, please see the docstring for ~which-key-replacement-alist~ if you don't understand any of the examples or information here.
 
 There are several benefits to using general.el to add which-key replacements. The main benefit is that because the keys and definition are already specified, general.el can automatically assemble the match cons. This reuse of information saves a little space since it is not necessary to make an additional call to ~which-key-add-key-based-replacements~ with the key information. It is also useful since which-key does not currently provide any convenience function for creating a replacement that matches a binding (you have to manually add to ~which-key-replacement-alist~).
@@ -669,24 +932,29 @@ The =:which-key= keyword can be used with the =:major-modes= keyword (locally or
 
 Here are some examples:
 #+begin_src emacs-lisp
-(general-define-key :keymaps 'normal :prefix "SPC"
-  ;; unbind SPC and give it a title for which-key (see echo area)
-  "" '(nil :which-key "my lieutenant general prefix")
-  ;; bind nothing but give SPC f a description for which-key
-  "f" '(:ignore t :which-key "file prefix")
-  ;; use a cons as a replacement
-  "g" '(:ignore t :wk ("g-key" . "git prefix"))
-  ;; for a keymap, only the keys will be matched;
-  ;; :no-match-binding is not necessary
-  "p" '(:keymap projectile-command-map :wk "projectile prefix")
-  ...)
+(general-define-key
+ :prefix "SPC"
+ :keymaps 'normal
+ ;; unbind SPC and give it a title for which-key (see echo area)
+ "" '(nil :which-key "my lieutenant general prefix")
+ ;; bind nothing but give SPC f a description for which-key
+ "f" '(:ignore t :which-key "file prefix")
+ ;; use a cons as a replacement
+ "g" '(:ignore t :wk ("g-key" . "git prefix"))
+ ;; toggle lispy; use a function as a replacement to show if currently on
+ "l" '(lispy-mode :wk my-lispy-which-key-display)
+ ;; for a keymap, only the keys will be matched;
+ ;; :no-match-binding is not necessary
+ "p" '(:keymap projectile-command-map :wk "projectile prefix")
+ ...)
 
-(general-define-key :keymaps 'help-map
-  ;; allow keys before bound keys in match
-  ;; since binding in a prefix map
-  :wk-full-keys nil
-  ;; make a prefix-command and add description
-  "A" '(:prefix-command apropos-prefix-map :which-key "apropos"))
+(general-define-key
+ :keymaps 'help-map
+ ;; allow keys before bound keys in match
+ ;; since binding in a prefix map
+ :wk-full-keys nil
+ ;; make a prefix-command and add description
+ "A" '(:prefix-command apropos-prefix-map :which-key "apropos"))
 
 ;; an equivalent of the above
 (general-define-key :keymaps 'help-map
@@ -709,7 +977,7 @@ Here are some examples:
  ...)
 #+end_src
 
-*** Evil Command Properties
+** Evil Command Properties
 The =:properties=, =:repeat=, and =:jump= keywords can be used to add evil command properties:
 #+begin_src emacs-lisp
 (general-define-key
@@ -732,12 +1000,12 @@ The =:properties=, =:repeat=, and =:jump= keywords can be used to add evil comma
 #+end_src
 If you would like for more keywords to be added that correspond to specific properties (like =:repeat=), feel free to make an issue or pull request. For more information on command properties see evil's documentation and [[https://github.com/noctuid/evil-guide#command-properties][here]].
 
-*** User-defined Extended Definition Keywords
+** User-defined Extended Definition Keywords
 New keywords and functionality can be added by the user by adding a keyword to =general-extended-def-keywords= and creating a corresponding function named ~general-extended-def-:<keyword>~. This function will be passed in =state keymap key def kargs=. =state= and =keymap= are the evil state (nil if none) and keymap that the =key= (internal representation; ~kbd~ already used if necessary) is being bound in. Note that =keymap= will be the symbol for the keymap in case it is needed. To get the actual keymap, using ~general--get-keymap~ is recommended. =def= is the extended definition itself, and =kargs= is the plist of all the keyword arguments given to the original ~general-define-key~. For examples, see ~general-extended-def-:which-key~ and ~general-extended-def-:properties~.
 
 Note that the keywords in =general-extended-def-keywords= and their helper keywords can all be specified both globally and locally. Since globally specifying keywords may not always make sense, it is up to the ~general-extended-def-:<keyword>~ function to decide how to handle things. When a keyword can be specified both globally and locally, ~general--getf~ may be useful.
 
-** User-defined Key Definers
+* User-defined Key Definers
 In addition to being able to add new keywords for extended definitions, the user can also create their own key definers. These are potentially useful when you want to do something to rewrite a definition (e.g. like ~lispy-define-key~ does) as that is not possible with user-defined extended definition keywords.
 
 This is also potentially useful even when rewriting the definitions is not necessary if some package already provides some key definer that does some additional work.
@@ -751,11 +1019,7 @@ Alternate definers can be used by specifying the =:definer= keyword (globally or
 
 The user-created function should be named ~general-<definer>-define-key~. It will be passed =state keymap key def orig-def kargs=. These arguments are the same as for extended definition functions except for =def= and =orig-def=. =def= is the transformed definition, whereas =orig-def= is the original definition (an extended definition or the same as =def=). Since =orig-def= is not necessarily an extended definition, it may be useful to use ~general--getf~ (which uses ~general--extended-def-p~; see ~general-lispy-define-key~ for an example). Since the keymap passed in is a symbol, ~general--get-keymap~ may be useful as well. ~key-description~ will also be useful if the underlying definition function uses ~kbd~ (since =key= is the internal representation ready to be passed directly to ~define-key~; note that ~key-description~ will work with both strings and vectors, including something like =[remap kill-line]=)
 
-*** Wrapping ~evil-define-minor-mode-key~
-:PROPERTIES:
-:CUSTOM_ID: wrapping-evil-define-minor-mode-key
-:END:
-
+** Wrapping ~evil-define-minor-mode-key~
 If you want to use ~evil-define-minor-mode-key~ instead of ~evil-define-key*~, you can use =:definer 'minor-mode=. This will repurpose =:keymaps= to specify minor mode names instead of keymap names:
 #+begin_src emacs-lisp
 (general-define-key
@@ -767,42 +1031,14 @@ If you want to use ~evil-define-minor-mode-key~ instead of ~evil-define-key*~, y
 
 If you are wondering why you might want to use ~evil-define-minor-mode-key~, see [[https://github.com/noctuid/evil-guide#why-dont-keys-defined-with-evil-define-key-work-immediately][here]].
 
-*** Lispy Integration/ Wrapping ~lispy-define-key~
+** Lispy Integration/ Wrapping ~lispy-define-key~
 To use ~lispy-define-key~ to make the definitions, =:definer 'lispy= can be specified. =:lispy-plist= can be specified globally or in an extended definition to set the last argument to ~lispy-define-key~.
 
-*** Worf Integration/ Wrapping ~worf-define-key~
+** Worf Integration/ Wrapping ~worf-define-key~
 To use ~worf-define-key~ to make the definitions, =:definer 'worf= can be specified. =:worf-plist= can be specified globally or in an extended definition to set the last argument to ~worf-define-key~.
 
-*** Other Provided Definers
+** Other Provided Definers
 To use ~lpy-define-key~ to make the definitions, =:definer 'lpy= can be specified.
-
-** Non-keybinding-related Configuration Helpers
-General.el also provides a few helper functions/macros for other configuration purposes. They are intended to be slightly more convenient versions of functions/macros provided by default.
-
-*** Settings
-~general-setq~ is a stripped-down ~customize-set-variable~ that can act as a drop-in replacement for ~setq~. Some variables defined with ~defcustom~ specify a custom setter with =:set= that must be used for changes to take effect (e.g. =auto-revert-interval=). ~setq~ cannot be used to set such variables correctly if the corresponding package has already been loaded, but ~general-setq~ will correctly use the custom setter when necessary. The benefit of ~general-setq~ over ~customize-set-variable~ is that it can be used to set multiple variables at once. It does not do everything ~customize-set-variable~ does (e.g. it cannot be used interactively, does not attempt to load variable dependencies, and does not allow the user to specify comments). From some basic testing, it is 10x to 100x faster because of this, but the speed difference should not be noticeable if you aren't setting thousands of variables during emacs initialization.
-
-Here's an example using variables that have a custom setter:
-#+begin_src emacs-lisp
-(general-setq auto-revert-interval 10
-              evil-want-Y-yank-to-eol t
-              evil-search-module 'evil-search)
-#+end_src
-
-Note that ~setq~ will work as expected as long it is used before the corresponding package is loaded, but with ~customize-set-variable~ or ~general-setq~, you do not need to worry about whether or not the package has been loaded. If you decide to use ~general-setq~, I'd recommend aliasing it to something shorter like ~gsetq~.
-
-*** Hooks and Advice
-~general-add-hook~, ~general-remove-hook~, ~general-advice-add~, and ~general-advice-remove~ all act as drop-in replacements for their corresponding functions but allow lists for some of the arguments. The hook functions allow specifying lists for the hooks and functions, and the advice functions allow specifying lists for the symbols and functions. Because I don't like the difference in naming for the default advice functions, ~general-add-advice~ and ~general-remove-advice~ are also provided as aliases.
-
-For example:
-#+begin_src emacs-lisp
-(general-add-hook my-lisp-mode-hooks
-                  (list #'lispy-mode #'rainbow-delimiters-mode))
-;; note that setting the :jump command property is recommended instead of this
-(general-add-advice (list #'git-gutter:next-hunk
-                          #'git-gutter:previous-hunk)
-                    :before #'evil-set-jump)
-#+end_src
 
 * FAQ
 ** How do I prevent =Key sequence starts with non-prefix key= errors?

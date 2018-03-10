@@ -166,7 +166,7 @@ This is an alist of a state to keybindings.")
   '((override . general-override-mode-map)
     ((i insert) . evil-insert-state-map)
     ((e emacs) . evil-emacs-state-map)
-    ((h hybrid . evil-hybrid-state-map))
+    ((h hybrid) . evil-hybrid-state-map)
     ((n normal) . evil-normal-state-map)
     ((v visual) . evil-visual-state-map)
     ((m motion) . evil-motion-state-map)
@@ -174,7 +174,8 @@ This is an alist of a state to keybindings.")
     ((r replace) . evil-replace-state-map)
     ((in inner) . evil-inner-text-objects-map)
     ((out outer) . evil-outer-text-objects-map))
-  "An alist for mapping short keymap names to their full names."
+  "An alist for mapping short keymap names to their full names.
+Earlier entries have higher precedence."
   :group 'general
   :type 'general-alist)
 
@@ -187,7 +188,8 @@ This is an alist of a state to keybindings.")
     (m . motion)
     (o . operator)
     (r . replace))
-  "An alist for mapping short state names to their full names."
+  "An alist for mapping short state names to their full names.
+Earlier entries have higher precedence."
   :group 'general
   :type 'general-alist)
 
