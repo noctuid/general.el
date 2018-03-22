@@ -658,21 +658,24 @@ To actually change how the keybinding table is printed, the user could override 
 Key simulation (for ~general-simulate-key~ and ~general-key-dispatch~ but not for ~general-key~) can result in duplicate keys being recorded for keyboard macros and evil repeating. To work around this issue, =general.el= will discard these duplicate keys during macro playback (i.e. =executing-kbd-macro= is non-nil). So far, this seems to be a reliable method for getting macros and repeating to work correctly with key simulation. However, it is hard (and maybe impossible) to test some of these cases automatically since it involves simulating keys that in turn simulate keys, and, for example, I haven't found a way to correctly simulate recording a macro in these cases. Therefore, if you find any issues with macro playback or evil repeating when using ~general-simulate-key~ or ~general-key-dispatch~, please make an issue.
 
 ** Simulating Keypresses
-General provides a macro called ~general-simulate-key~ that can be used to simulate a key sequence. In some cases, this can be used similarly to a keyboard macro, but it has some advantages. Unlike with a keyboard macro, prefix arguments will work for the command the key simulates. Also, the key simulated does not have to correspond to the full key sequence for a command. In these cases [[https://github.com/justbur/emacs-which-key][which-key]] will show the keys bound under the simulated prefix. For example:
+General provides two macros called ~general-key~ and ~general-simulate-key~ that can be used to simulate key sequences. In some cases, they can be used similarly to keyboard macros, but they have some advantages. Unlike with a keyboard macro, prefix arguments will work for the command that ends up running. Also, the key simulated does not have to correspond to the full key sequence for a command.
+
+Note that when a named prefix keymap/command exists (e.g. ~help-command~), you should generally prefer to bind directly to that. However, this is not possible for a key like =C-c= whose definition varies depending on the buffer. Therefore, you need to use either ~general-key~ or ~general-simulate-key~:
 #+begin_src emacs-lisp
 (general-nmap "SPC" (general-simulate-key "C-c"))
+;; or
+(general-nmap "SPC" (general-key "C-c"))
 #+end_src
 
-Note that when a named prefix keymap/command exists (e.g. ~help-command~), you should prefer to bind directly to that. If the key you want to simulate is always bound to the same keymap, you can still bind directly to it even if it is unnamed:
-#+begin_src emacs-lisp
-(general-nmap "SPC" (key-binding (kbd "C-c")))
-#+end_src
+Although both will work correctly, [[https://github.com/justbur/emacs-which-key][which-key]] does not currently show all available keys when ~general-key~ is used, so I would currently recommend using ~general-simulate-key~ instead for an example like this.
 
-General provides another macro called ~general-key~ that is usually preferable for simulating a key that corresponds to a single definition. If you actually need to simulate a key that is bound to a keymap, which-key may not work correctly with ~general-key~, but for keys corresponding to commands, ~general-key~ should be used instead of ~general-simulate-key~. Unlike ~general-simulate-key~, which creates a function, ~general-key~ expands to an extended menu item like ~general-predicate-dispatch~. This is a simpler and more direct approach that has the advantage of showing the docstring for the exact command with =C-h k=. If the key to act as is unbound, key lookup can continue (like if =:predicate= returns nil), so having a fallback keybinding is possible unlike with ~general-simulate-key~.
+On the other hand, ~general-key~ should be preferred for simulating a key that corresponds to a single command. Unlike ~general-simulate-key~, which creates/returns a function, ~general-key~ expands to an extended menu item like ~general-predicate-dispatch~. Using an extended menu item is a simpler and more direct approach as emacs will dynamically look up and act as the specified key. This has the advantage of showing the docstring for the exact command with =C-h k=. If the key to act as is unbound, key lookup can continue (like if =:predicate= returns nil), so having a fallback keybinding is possible with ~general-key~ but not with ~general-simulate-key~.
 
 ~general-key~ may be useful when you want to have a key act as another without having to bind it to the exact command in every relevant keymap:
 #+begin_src emacs-lisp
 (general-nmap "RET" (general-key "C-c C-c"))
+;; a keyboard macro works, but C-h k will not show the command docstring
+(general-nmap "RET" "C-c C-c")
 #+end_src
 
 ~general-simulate-key~ and ~general-key~ also support keyword arguments (=:state= and =:keymap=) to control the context the keys are simulated in. For example:
@@ -688,7 +691,7 @@ The advantage of ~general-simulate-key~ over ~general-key~ is that it can be use
 #+end_src
 See the next section for another reasonable use case for this feature.
 
-When a command is specified, general will used the remapped version of it if it exists (e.g. if =[remap evil-delete] 'lispyville-delete= is in an active keymap, ~lispyville-delete~ will be used instead of ~evil-delete~). To use the exact command instead, =:remap nil= can be specified
+When a command is specified for ~general-simulate-key~, general will used the remapped version of it if it exists (e.g. if =[remap evil-delete] 'lispyville-delete= is in an active keymap, ~lispyville-delete~ will be used instead of ~evil-delete~). To use the exact command instead, =:remap nil= can be specified
 
 ~general-simulate-key~ creates a named function with a docstring, so which-key and ~describe-key~ will work properly for keys bound to a command created with it. The automatically generated function name, docstring, and which-key description can be replaced with keyword arguments:
 #+begin_src emacs-lisp
