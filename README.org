@@ -39,7 +39,8 @@ Please switch to ~general-key~ or ~general-simulate-key~. Note that keyword argu
   - [[#evil-examples][Evil Examples]]
   - [[#switching-completely-to-general][Switching Completely to General]]
 - [[#general-define-key-details][~general-define-key~ Details]]
-  - [[#settings-and-keyword-arguments][Settings and Keyword Arguments]]
+  - [[#definitions][Definitions]]
+  - [[#keyword-arguments][Keyword Arguments]]
   - [[#predicates][Predicates]]
   - [[#keymapstate-aliases][Keymap/State Aliases]]
   - [[#general-define-key-wrappers][~general-define-key~ Wrappers]]
@@ -111,9 +112,9 @@ This manual explains the most relevant parts of every =general.el= feature. All 
 - Is well tested (unlike =evil-leader.el=)
 
 * Reading Recommendations
-Before using =general.el=, you should first be familiar with ~define-key~, ~global-set-key~, and [[https://www.gnu.org/software/emacs/manual/html_node/emacs/Key-Bindings.html][emacs' key binding system]]. I recommend reading [[https://www.masteringemacs.org/article/mastering-key-bindings-emacs][Mastering Key Bindings in Emacs]] if you are new to emacs.
+Before using =general.el=, you should first be familiar with ~define-key~, ~global-set-key~, and [[https://www.gnu.org/software/emacs/manual/html_node/emacs/Key-Bindings.html][emacs' key binding system]]. I recommend reading [[https://www.masteringemacs.org/article/mastering-key-bindings-emacs][Mastering Key Bindings in Emacs]] if you are new to emacs. Also see ~define-key~'s help text for information on valid keys and definitions.
 
-Similarly, if you are using evil, you should first be familiar with how ~evil-define-key~, ~evil-define-minor-mode-key~, etc. work. If you are a new evil user, I'd recommend looking at my [[https://github.com/noctuid/evil-guide][evil guide]]. The [[https://github.com/noctuid/evil-guide#keybindings-and-states][Keybindings and States]] section in particular may be useful
+If you are also using evil, you should first be familiar with how ~evil-define-key~, ~evil-define-minor-mode-key~, etc. work. If you are a new evil user, I'd recommend looking at my [[https://github.com/noctuid/evil-guide][evil guide]]. The [[https://github.com/noctuid/evil-guide#keybindings-and-states][Keybindings and States]] section in particular may be useful
 
 A large number of issues opened on this repository are not specifically related to =general.el= (e.g. user usage or syntax errors that would also occur without ~general-define-key~). While I don't mind generic questions about keybinding issues, you may save yourself some time if you first determine whether or not an issue is related to ~general-define-key~ by, if possible, testing with an equivalent ~define-key~, ~evil-define-key~, etc. statement.
 
@@ -324,9 +325,28 @@ If you decide to do this, please make sure that your configuration is backed up,
 * ~general-define-key~ Details
 This package provides one main function, ~general-define-key~, for key definitions for both evil and non-evil users. It is recommended you use the provided wrappers around it or create your own with ~general-create-definer~, but first you should understand the keyword arguments provided by ~general-define-key~.
 
-** Settings and Keyword Arguments
-=general-implicit-kbd= can be set to nil if you want to manually use ~(kbd "keys")~. This option is mainly provided to make it easy to transition to ~general-define-key~ or ~general-def~ from other key definers with search and replace and therefore only applies to ~general-define-key~ (and wrappers). ~kbd~ will always be called on string keys for other helpers such as ~general-key~, ~general-key-dispatch~, and ~general-translate-key~.
+** Definitions
+The only positional arguments for ~general-define-key~ are any number of key/definition pairs. General supports all key and definition types supported by ~define-key~ (see its help text) as well as its own [[#extended-definition-syntax]["extended definitions"]]. Here are a few examples of definitions that aren't standard ="string key" 'command= pairs:
+#+begin_src emacs-lisp
+;; vector keys, including [t] and [remap] are supported
+(general-define-key
+ :keymaps 'org-capture-mode-map
+ [remap evil-save-and-close]          'org-capture-finalize
+ [remap evil-save-modified-and-close] 'org-capture-finalize
+ [remap evil-quit]                    'org-capture-kill)
 
+(general-define-key
+ :states 'normal
+ :keymaps 'org-capture-mode-map
+ ;; keyboard macro definition
+ "RET" "C-c C-c"
+ ;; general.el extended definition
+ "SPC k" '(org-capture-kill :which-key "abort capture"))
+#+end_src
+
+When keys are strings, ~kbd~ will automatically be called on every string key. =general-implicit-kbd= can be set to nil if you want to manually use ~(kbd "key")~. This option is mainly provided to make it easy to transition to ~general-define-key~ or ~general-def~ from other key definers with search and replace and therefore only applies to ~general-define-key~ (and wrappers). ~kbd~ will always be called on string keys for other helpers such as ~general-key~, ~general-key-dispatch~, and ~general-translate-key~.
+
+** Keyword Arguments
 =:prefix=, =:states=, and =:keymaps= are the most basic keyword arguments. By default, there is no prefix or state (each is nil), and the keymap is ='global=. Each keymap can either be a quoted keymap, quoted [[#keymapstate-aliases][keymap alias]], ='global=, or ='local=. This is the biggest contrast between ~general-define-key~ and other definers such as ~define-key~, where the keymap is passed in directly. Note that the provided wrappers such as ~general-def~ do not require quoting keymaps. When the keymap is ='local=, the key will be bound only in the current buffer (see [[#override-keymaps-and-buffer-local-keybindings][here]] for more details). When the keymap is ='global=, the key will be bound in ~(current-global-map)~ (or the corresponding evil global map if =:states= is specified; see [[#note-for-evil-users][Note for Evil Users]] for more information).
 
 =:states= and =:keymaps= can be lists or a single element, allowing the user to define keys for multiple evil states or keymaps simultaneously. This can be useful in certain situations to prevent redundancy.
