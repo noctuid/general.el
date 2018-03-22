@@ -134,7 +134,7 @@ Although ~general-define-key~ will automatically defer keybindings until the spe
 
 ;; * Global Keybindings
 ;; `general-define-key' acts like `global-set-key' when :keymaps is not
-;; specified (because default is :keymaps 'global)
+;; specified (because ":keymaps 'global" is the default)
 ;; kbd is not necessary and arbitrary amount of key def pairs are allowed
 (general-define-key
  "M-x" 'amx                             ; or 'smex
@@ -298,7 +298,9 @@ Although ~general-define-key~ will automatically defer keybindings until the spe
 Vim-like definitions:
 #+begin_src emacs-lisp
 (general-evil-setup)
+;; * Global Keybindings
 ;; all keywords arguments are still supported
+;; these are just wrappers around `general-def' that set a default :states
 (general-nmap
   :prefix "SPC"
   "p" 'helm-mini)
@@ -313,6 +315,15 @@ Vim-like definitions:
 (mmap
   ";" 'evil-ex
   ":" 'evil-repeat-find-char)
+
+;; * Mode Keybindings
+(general-nmap
+  :keymaps 'emacs-lisp-mode-map
+  "K" 'elisp-slime-nav-describe-elisp-thing-at-point)
+;; same as
+(general-nmap emacs-lisp-mode-map
+  "K" 'elisp-slime-nav-describe-elisp-thing-at-point)
+
 #+end_src
 
 ** Switching Completely to General
