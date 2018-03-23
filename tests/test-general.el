@@ -187,6 +187,32 @@ Return t if successful or a cons corresponding to the failed key and def."
      "a" nil)
     (expect (general-test-keys 'normal general-temp-map
               "a" nil)))
+  (it "should allow unbinding/ignoring keys en masse"
+    (general-define-key
+     :keymaps 'general-temp-map
+     "a" #'a
+     "b" #'b
+     "c" #'c)
+    (general-define-key
+     :unbind t
+     :keymaps 'general-temp-map
+     "a"
+     "b"
+     "c")
+    (expect (general-test-keys nil general-temp-map
+              "a" nil
+              "b" nil
+              "c" nil))
+    (general-define-key
+     :unbind #'ignore
+     :keymaps 'general-temp-map
+     "a"
+     "b"
+     "c")
+    (expect (general-test-keys nil general-temp-map
+              "a" #'ignore
+              "b" #'ignore
+              "c" #'ignore)))
   (it "should use the evil global keymaps for :keymaps 'global :states ..."
     (let ((evil-normal-state-map (make-sparse-keymap)))
       (general-define-key

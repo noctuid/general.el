@@ -901,6 +901,7 @@ to bind the keys with by calling `general--define-key-dispatch'."
 ;;;###autoload
 (cl-defun general-define-key
     (&rest maps &key
+           unbind
            definer
            (states general-default-states)
            (keymaps general-default-keymaps)
@@ -935,6 +936,13 @@ MAPS consists of paired keys (vectors or strings; also see
 docstring and general.el's \"extended\" definitions). All pairs (when not
 ignored) will be recorded and can be later displayed with
 `general-describe-keybindings'.
+
+If UNBIND is specified as t, MAPS should be a list of keys instead of paired
+keys and definitions. In this case, MAPS will automatically interleaved with
+nils, so that it will be as if the user had specified every key paired with a
+nil definition. If you want to actually have specific keys (or more likely
+commands with [remap <command>]) do nothing, you can specify the argument as
+'ignore, for example, instead.
 
 If DEFINER is specified, a custom key definer will be used to bind MAPS. See
 general.el's documentation/README for more information.
@@ -1053,6 +1061,13 @@ keywords that are used for each corresponding custom DEFINER."
                     ;; for consistency; may be useful in future or for user
                     :states states)
                    (cadr split-maps))))
+    ;; interleave appropriate definitions into maps when :unbind is non-nil
+    (when unbind
+      (setq maps (cl-loop for key in maps
+                          collect key
+                          and collect (if (eq unbind t)
+                                          nil
+                                        unbind))))
     (general--define-prefix prefix-command prefix-map prefix-name)
     ;; TODO reduce code duplication here
     (when non-normal-prefix

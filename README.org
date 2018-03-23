@@ -394,7 +394,7 @@ The =:infix= keyword can be used to sandwich keys in between all of the specifie
 
 There is also a =:predicate= keyword for giving a condition under which a map should be active.
 
-** Predicates
+*** Predicates
 The user can use the ~:predicate~ keyword to specify a condition under which the map(s) should be active. For example:
 #+begin_src emacs-lisp
 (general-define-key
@@ -406,6 +406,45 @@ The user can use the ~:predicate~ keyword to specify a condition under which the
 ~<right>~ will now behave normally except at the end of the buffer where it will jump to the beginning of the buffer. Note that with ~:predicate~, you can still only have a key bound once in a single keymap. If you want to have a key take different actions depending on conditions in a single keymap, see [[#choosing-definitions-based-on-predicates][Choosing Definition Based on Predicates]].
 
 See [[http://endlessparentheses.com/define-context-aware-keys-in-emacs.html][this post]] for more information about how this works.
+
+*** Mass Key Unbinding
+~general-define-key~ also provides an =:unbind= keyword. When =:unbind t= is specified, the positional arguments should all be keys (instead of pairs of keys and definitions) that should be unbound:
+#+begin_src emacs-lisp
+(general-define-key
+ :unbind t
+ :keymaps 'insert
+ "C-v"
+ "C-k"
+ "C-y"
+ "C-e")
+;; equivalent to
+(general-define-key
+ :keymaps 'insert
+ "C-v" nil
+ "C-k" nil
+ "C-y" nil
+ "C-e" nil)
+#+end_src
+
+It could also be used, for example, if you wanted to disable certain commands or keys from working in certain modes (example use case taken from [[https://github.com/emacs-evil/evil-collection/blob/9fc1a19807dfcd0cc2b221832b6e6faad80a291d/evil-collection-util.el#L32][evil-collection]]):
+#+begin_src emacs-lisp
+(general-define-key
+ :unbind 'ignore
+ :states 'normal
+ :keymaps 'Info-mode-map
+ [remap evil-append]
+ [remap evil-append-line]
+ [remap evil-insert]
+ [remap evil-insert-line])
+;; equivalent to
+(general-define-key
+ :states 'normal
+ :keymaps 'Info-mode-map
+ [remap evil-append] 'ignore
+ [remap evil-append-line] 'ignore
+ [remap evil-insert] 'ignore
+ [remap evil-insert-line] 'ignore)
+#+end_src
 
 ** Keymap/State Aliases
 To prevent the need to type out long keymap names like =evil-inner-text-objects-map=, general allows the user to specify shorthand names for keymaps by altering =general-keymap-aliases= (and for states by altering =general-state-aliases=). These are alists of either an alias or a list of aliases to the full keymap name:
