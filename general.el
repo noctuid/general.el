@@ -1159,12 +1159,13 @@ the default arguments."
   (declare (indent defun))
   `(defmacro ,name (&rest args)
      (declare (indent defun))
-     ,(format
-       "A wrapper for `general-def'.
+     ,(let ((print-quoted nil))
+        (format
+         "A wrapper for `general-def'.
 
 It has the following defaults:
 %s"
-       defaults)
+         defaults))
      ;; can still override keywords afterwards (first keyword takes precedence)
      `(general-def ,@args ,@',defaults)))
 
