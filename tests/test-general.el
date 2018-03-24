@@ -778,7 +778,8 @@ Return t if successful or a cons corresponding to the failed key and def."
 ;; ** Use-package Keyword
 (describe "the :general use-package keyword"
   (before-all
-    (general-create-dual-vim-definer general-nmap 'normal))
+    (general-create-definer general-nmap
+      :states 'normal))
   (after-each
     (setq general-temp-map (make-sparse-keymap)))
   (it "should work as general-def by default"
