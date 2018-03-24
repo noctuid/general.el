@@ -2081,14 +2081,32 @@ aliases such as `nmap' for `general-nmap'."
     (defalias 'tomap #'general-tomap)))
 
 ;; * Use-package Integration
+;; maybe useful for something else in future
+(defun general--extract-autoloadable-symbol (def)
+  "Extract an autoloadable symbol from DEF, a normal or extended definition.
+This will also correctly extract the definition from a cons of the form (STRING
+. DEFN). If the extracted definition is nil, a string, a lambda, a keymap symbol
+from an extended definition, or some other definition that cannot be autoloaded,
+return nil."
+  ;; explicit null checks not required because nil return value means no def
+  (when (general--extended-def-p def)
+    ;; extract definition
+    (let ((first (car def)))
+      (setq def (if (keywordp first)
+                    (plist-get def :def)
+                  first))))
+  (cond ((symbolp def)
+         def)
+        ((and (consp def)
+              (symbolp (cdr def)))
+         (cdr def))))
+
 (with-eval-after-load 'use-package-core
   (declare-function use-package-concat "use-package")
   (declare-function use-package-process-keywords "use-package")
-  (declare-function use-package-sort-keywords "use-package")
-  (declare-function use-package-plist-maybe-put "use-package")
-  (declare-function use-package-plist-append "use-package")
   (defvar use-package-keywords)
   (defvar use-package-deferring-keywords)
+
   (setq use-package-keywords
         ;; should go in the same location as :bind
         ;; adding to end may not cause problems, but see issue #22
@@ -2099,32 +2117,15 @@ aliases such as `nmap' for `general-nmap'."
                  ;; don't add duplicates
                  unless (eq item :general)
                  collect item))
-  (when (boundp 'use-package-deferring-keywords)
-    (add-to-list 'use-package-deferring-keywords :general t))
-  (defun use-package-normalize/:general (_name _keyword args)
-    "Return ARGS."
-    args)
-  (defun general--extract-symbol (def)
-    "Extract autoloadable symbol from DEF, a normal or extended definition."
-    (when def
-      (if (general--extended-def-p def)
-          (let ((first (car def))
-                (inner-def (cl-getf def :def)))
-            (cond ((symbolp inner-def)
-                   inner-def)
-                  ((and (symbolp first)
-                        (not (keywordp first)))
-                   first)))
-        (when (symbolp def)
-          def))))
-  (declare-function general--extract-symbol "general")
-  (defun use-package-handler/:general (name _keyword arglists rest state)
-    "Use-package handler for :general."
+
+  ;; altered args will be passed to the autoloads and handler functions
+  (defun use-package-normalize/:general (_name _keyword general-arglists)
+    "Return a plist containing the original ARGLISTS and autoloadable symbols."
     (let* ((sanitized-arglist
             ;; combine arglists into one without function names or
             ;; positional arguments
             (let (result)
-              (dolist (arglist arglists result)
+              (dolist (arglist general-arglists result)
                 (while (general--positional-arg-p (car arglist))
                   (setq arglist (cdr arglist)))
                 (setq result (append result arglist)))))
@@ -2134,22 +2135,30 @@ aliases such as `nmap' for `general-nmap'."
                                (not (null def))
                                (ignore-errors
                                  (setq def (eval def))
-                                 (setq def (general--extract-symbol def))))
+                                 (setq def (general--extract-autoloadable-symbol
+                                            def))))
                      collect def)))
-      (use-package-concat
-       (use-package-process-keywords name
-         (use-package-sort-keywords
-          (use-package-plist-append rest :commands commands))
-         state)
-       `((ignore ,@(mapcar (lambda (arglist)
-                             ;; Note: prefix commands are not valid functions
-                             (if (or (functionp (car arglist))
-                                     (macrop (car arglist)))
-                                 `(,@arglist :package ',name)
-                               `(general-def
-                                  ,@arglist
-                                  :package ',name)))
-                           arglists)))))))
+      (list :arglists general-arglists :commands commands)))
+
+  (defun use-package-autoloads/:general (_name _keyword args)
+    "Return an alist of commands extracted from ARGS.
+Return something like '((some-command-to-autoload . command) ...)."
+    (mapcar (lambda (command) (cons command 'command))
+            (plist-get args :commands)))
+
+  (defun use-package-handler/:general (name _keyword args rest state)
+    "Use-package handler for :general."
+    (use-package-concat
+     (use-package-process-keywords name rest state)
+     `(,@(mapcar (lambda (arglist)
+                   ;; Note: prefix commands are not valid functions
+                   (if (or (functionp (car arglist))
+                           (macrop (car arglist)))
+                       `(,@arglist :package ',name)
+                     `(general-def
+                        ,@arglist
+                        :package ',name)))
+                 (plist-get args :arglists))))))
 
 ;; * Key-chord "Integration"
 (defun general-chord (keys)

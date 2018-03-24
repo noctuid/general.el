@@ -901,7 +901,7 @@ For example:
 
 * Integration with Other Packages
 ** Use-package Keyword
-General also optionally provides a use-package keyword. =:general= is similar to =:bind= in that it implies =:defer t= and will create autoloads for the bound commands (though this is usually not necessary). The keyword is followed by one or more lists containing arguments for ~general-def~; there is no difference in syntax:
+General also optionally provides a use-package keyword. =:general= is similar to =:bind= in that it implies =:defer t= whenever there are bound commands that can be autoloaded (e.g. it will not imply =:defer t= if the only bound command is to a lambda, for example). Whenever autoloadable commands are bound, use-package will create autoloads for them (though this is usually not necessary). The keyword is followed by one or more lists containing arguments for ~general-def~; there is no difference in syntax:
 #+begin_src emacs-lisp
 (use-package org
   :general

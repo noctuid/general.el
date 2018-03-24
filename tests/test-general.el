@@ -819,46 +819,77 @@ Return t if successful or a cons corresponding to the failed key and def."
     (expect (general-test-keys 'normal general-temp-map
               "a" #'a)))
   (it "should correctly extract symbols/commands to create autoloads from"
-    (expect (general--extract-symbol nil)
+    (expect (general--extract-autoloadable-symbol nil)
             :to-be nil)
-    (expect (general--extract-symbol "macro")
+    (expect (general--extract-autoloadable-symbol "macro")
             :to-be nil)
-    (expect (general--extract-symbol [?m ?a ?c ?r ?o])
+    (expect (general--extract-autoloadable-symbol [?m ?a ?c ?r ?o])
             :to-be nil)
-    (expect (general--extract-symbol general-temp-map)
+    (expect (general--extract-autoloadable-symbol general-temp-map)
             :to-be nil)
-    (expect (general--extract-symbol (lambda () (interactive)))
+    (expect (general--extract-autoloadable-symbol (lambda () (interactive)))
             :to-be nil)
-    (expect (general--extract-symbol '(menu-item))
+    (expect (general--extract-autoloadable-symbol '(menu-item))
             :to-be nil)
-    ;; TODO conses
-    (expect (general--extract-symbol 'symbol/command)
+    (expect (general--extract-autoloadable-symbol 'symbol/command)
             :to-equal 'symbol/command)
-    (expect (general--extract-symbol '(:ignore t :wk "replacement"))
+    ;; conses
+    (expect (general--extract-autoloadable-symbol
+             '("describe keybindings" . general-describe-keybindings))
+            :to-equal 'general-describe-keybindings)
+    ;; not sure of the exact syntax since this type of binding is broken in
+    ;; recent emacs versions
+    (expect (general--extract-autoloadable-symbol
+             '(fake-map . "char"))
             :to-equal nil)
-    (expect (general--extract-symbol '(:keymap create-autoload-map))
-            :to-equal nil)
+    (expect (general--extract-autoloadable-symbol
+             '(:ignore t :wk "replacement"))
+            :to-be nil)
+    (expect (general--extract-autoloadable-symbol
+             '(:keymap create-autoload-map))
+            :to-be nil)
     ;; created by general; don't need autoloads
-    (expect (general--extract-symbol '(:prefix-command create-prefix-command))
-            :to-equal nil)
-    (expect (general--extract-symbol '(nil :keyword val))
-            :to-equal nil)
-    (expect (general--extract-symbol '(:def nil :keyword val))
-            :to-equal nil)
-    (expect (general--extract-symbol '(:def "macro" :wk "replacement"))
-            :to-equal nil)
-    (expect (general--extract-symbol '(:def [?m ?a ?c ?r ?o] :wk "replacement"))
-            :to-equal nil)
-    (expect (general--extract-symbol (list :def general-temp-map :wk "replacement"))
-            :to-equal nil)
-    (expect (general--extract-symbol '(:def (lambda () (interactive))
-                                       :wk "replacement"))
-            :to-equal nil)
-    (expect (general--extract-symbol '(:def (menu-item) :wk "replacement"))
-            :to-equal nil)
-    ;; TODO conses
-    (expect (general--extract-symbol '(:def symbol/command :wk "replacement"))
-            :to-equal 'symbol/command)))
+    (expect (general--extract-autoloadable-symbol
+             '(:prefix-command create-prefix-command))
+            :to-be nil)
+    (expect (general--extract-autoloadable-symbol
+             '(nil :keyword val))
+            :to-be nil)
+    (expect (general--extract-autoloadable-symbol
+             '(:def nil :keyword val))
+            :to-be nil)
+    (expect (general--extract-autoloadable-symbol
+             '(:def "macro" :wk "replacement"))
+            :to-be nil)
+    (expect (general--extract-autoloadable-symbol
+             '(:def [?m ?a ?c ?r ?o] :wk "replacement"))
+            :to-be nil)
+    (expect (general--extract-autoloadable-symbol
+             (list :def general-temp-map :wk "replacement"))
+            :to-be nil)
+    (expect (general--extract-autoloadable-symbol
+             '(:def (lambda () (interactive)) :wk "replacement"))
+            :to-be nil)
+    (expect (general--extract-autoloadable-symbol
+             '(:def (menu-item) :wk "replacement"))
+            :to-be nil)
+    (expect (general--extract-autoloadable-symbol
+             '(symbol/command :wk "replacement"))
+            :to-equal 'symbol/command)
+    (expect (general--extract-autoloadable-symbol
+             '(:def symbol/command :wk "replacement"))
+            :to-equal 'symbol/command)
+    ;; conses
+    (expect (general--extract-autoloadable-symbol
+             '(("describe keybindings" . general-describe-keybindings)
+               :keyword val))
+            :to-equal 'general-describe-keybindings)
+    (expect (general--extract-autoloadable-symbol
+             '(:def ("describe keybindings" . general-describe-keybindings)))
+            :to-equal 'general-describe-keybindings)
+    (expect (general--extract-autoloadable-symbol
+             '(:def (fake-map . "char")))
+            :to-equal nil)))
 
 ;; * Global Override Mode
 (describe "keybindings in `general-override-mode-map'"
