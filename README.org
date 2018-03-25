@@ -62,7 +62,11 @@ Please switch to ~general-key~ or ~general-simulate-key~. Note that keyword argu
   - [[#settings][Settings]]
   - [[#hooks-and-advice][Hooks and Advice]]
 - [[#integration-with-other-packages][Integration with Other Packages]]
-  - [[#use-package-keyword][Use-package Keyword]]
+  - [[#use-package-keywords][Use-package Keywords]]
+    - [[#general-keyword][:general Keyword]]
+    - [[#hook-keywords][Hook Keywords]]
+      - [[#ghook-keyword][:ghook Keyword]]
+      - [[#gfhook-keyword][:gfhook Keyword]]
   - [[#use-with-key-chord][Use with Key-chord]]
 - [[#extended-definition-syntax][Extended Definition Syntax]]
   - [[#autoloaded-keymaps]["Autoloaded" Keymaps]]
@@ -900,7 +904,8 @@ For example:
 #+end_src
 
 * Integration with Other Packages
-** Use-package Keyword
+** Use-package Keywords
+*** :general Keyword
 General also optionally provides a use-package keyword. =:general= is similar to =:bind= in that it implies =:defer t= whenever there are bound commands that can be autoloaded (e.g. it will not imply =:defer t= if the only bound command is to a lambda, for example). Whenever autoloadable commands are bound, use-package will create autoloads for them (though this is usually not necessary). The keyword is followed by one or more lists containing arguments for ~general-def~; there is no difference in syntax:
 #+begin_src emacs-lisp
 (use-package org
@@ -927,6 +932,142 @@ One annoyance you may encounter is that the default function for indentation wil
 #+end_src
 
 This is an annoyance you may have using other emacs packages as well and can be fixed by modifying =lisp-indent-function= (see [[http://emacs.stackexchange.com/q/10230/5278][this emacs stackexchange question]] and Fuco1's modified ~lisp-indent-function~ in one of the answers there).
+
+*** Hook Keywords
+General provides two alternatives to =:hook= that use ~general-add-hook~ called =:ghook= and =:gfhook=. Both take any number of arguments of symbols or lists. List arguments work the same for both; they correspond to a list of arguments for [[#hooks-and-advice][~general-add-hook~]]. The primary difference between the two is that symbol arguments to =:ghook= are /hooks/, but they are /functions/ for =:gfhook= (hence the =f=). Furthermore, =:ghook= usually implies =:defer t=, and =:gfhook= never implies =:defer t=. =:ghook= should be used when the ~general-add-hook~ is meant to trigger the loading of the package. =:gfhook= should be used when the ~general-add-hook~ is meant to trigger some function in response to the package's mode being enabled (or toggled in the case of a minor mode). More simply put, =:ghook= is suited towards enabling minor modes, and =:gfhook= is suited towards performing setup once some mode has loaded. The use case for each is further explained below.
+
+**** :ghook Keyword
+=:ghook= is intended to be used to add a package's minor mode enabling function to a user-specified /hook/, so that when hook is run, the package will be loaded and the mode enabled. This means that =:ghook= will usually imply =:defer t=. While it does not always imply =:defer t=, it will add any non-lambda functions to =:commands= (this is the same behavior as =:hook=). Though this is usually unnecessary (the commands probably already have autoloads), it will in turn imply =:defer t=.
+
+Symbols specified with =:ghook= correspond to hooks, and the function to add to each hook is inferred from the package's name (i.e. =-mode= is automatically added to the package name unless the package's name already ends in =-mode=). For example, these are all the same:
+#+begin_src emacs-lisp
+(use-package rainbow-delimiters
+  :ghook 'prog-mode-hook)
+
+(use-package rainbow-delimiters
+  ;; unquoted symbols work fine as well but only when not in an arglist; for
+  ;; consistency with `add-hook' syntax, standalone symbols are always quoted in
+  ;; future examples
+  :ghook prog-mode-hook)
+
+(use-package rainbow-delimiters
+  ;; `general-add-hook' arglist: HOOKS FUNCTIONS &optional APPEND LOCAL
+  ;; a missing FUNCTIONS argument will be replaced with inferred minor mode
+  ;; command; this may be useful if you have a list of hooks stored in a variable
+  ;; (see below for an example)
+  :ghook ('prog-mode-hook))
+
+(use-package rainbow-delimiters
+  ;; a null or non-symbol placeholder for FUNCTIONS will be replaced with
+  ;; inferred minor mode command; this may be useful if you want to keep the
+  ;; inferred command but also want to set the APPEND and/or LOCAL arguments
+  ;; afterwards, e.g. ('prog-mode-hook nil t)
+  :ghook ('prog-mode-hook nil))
+
+(use-package rainbow-delimiters
+  ;; the full arglist for `general-add-hook' can be specified
+  ;; this is necessary if inference is not possible (see below for an example)
+  :ghook ('prog-mode-hook #'rainbow-delimiters-mode))
+
+(use-package
+  ;; :commands implies :defer t
+  :commands rainbow-delimiters-mode
+  :init (general-add-hook 'prog-mode-hook #'rainbow-delimiters-mode))
+#+end_src
+
+If you are already familiar with =:hook=, you should note that there are quite a few syntactic differences between =:ghook= and =:hook=. Firstly, quoting the hooks and functions is required. Like =:general= uses the same syntax as ~general-def(ine-key)~ (unlike =:bind=), =:ghook= uses the same syntax as ~(general-)add-hook~ for both clarity and convenience. For example, the user may want to use a helper function/macro to generate the function(s) to add to the hook (see the [[#gfhook-keyword][:gfhook section]] for an example). The user may also want to specify a variable containing a list of hooks instead of an actual hook name:
+#+begin_src emacs-lisp
+(defconst my-lisp-mode-hooks
+  '(lisp-mode-hook
+    emacs-lisp-mode-hook
+    clojure-mode-hook
+    scheme-mode-hook
+    ;; ...
+    ))
+
+(use-package lispy
+  ;; must be in a `general-add-hook' argument list, so that it itself is not
+  ;; considered one
+  :ghook (my-lisp-mode-hooks))
+
+;; same as
+(use-package lispy
+  ;;  `general-add-hook' can take a list of hooks for the HOOK argument
+  :ghook ('(lisp-mode-hook
+            emacs-lisp-mode-hook
+            clojure-mode-hook
+            scheme-mode-hook
+            ;; ...
+            )))
+#+end_src
+
+Furthermore, =:ghook= will not automatically add =-hook= to specified hook symbols (i.e. you must specify =prog-mode-hook=; =prog-mode= is not sufficient). This design decision is intended to help prevent confusion since =:gfhook= also exists, and its symbols correspond to functions (not hooks) that could also end in =-mode= (and could potentially not be sharp quoted). I don't think the loss in conciseness is major, and hopefully this will help always make it immediately clear whether symbols correspond to functions or hooks.
+
+Lastly, =:hook= only takes one argument, whereas =:ghook= can take an arbitrary number of arguments (just like =:general=):
+#+begin_src emacs-lisp
+(use-package lispy
+  ;; any number of symbols (or lists) is allowed
+  :ghook
+  'lisp-mode-hook
+  'emacs-lisp-mode-hook
+  'clojure-mode-hook
+  'scheme-mode-hook)
+#+end_src
+
+Note that if the function name cannot be inferred from the package name (i.e. the package name or the package name with =-mode= appended is not correct), you need to specify a full ~general-add-hook~ arglist:
+#+begin_src emacs-lisp
+(use-package yasnippet
+  :ghook ('(text-mode-hook prog-mode-hook) #'yas-minor-mode))
+#+end_src
+
+**** :gfhook Keyword
+=:gfhook= is intended to be used to specify /functions/ to add to the package's mode hook. The hook is inferred from the package's name (by appending either =-mode-hook= or just =-hook= if the package's name ends in =-mode=). If the hook cannot be inferred from the package name, then the full arglist must be specified just as with =:ghook=. Unlike =:ghook=, =:gfhook= never adds functions to =:commands=, and therefore never implies =:defer t=. This is because the functions specified are ones that should be run when turning on (or toggling) the mode(s) the package provides. The specified functions are external to the package, could be called elsewhere, and therefore should not trigger the package to load. The following all have the same effect:
+#+begin_src emacs-lisp
+(use-package org
+  ;; for a major-mode package, you might use :mode to imply :defer t (or just
+  ;; use :defer t; or just `use-package-always-defer' which I personally prefer)
+  :gfhook
+  #'visual-line-mode
+  #'my-org-setup
+  ;; ...
+  )
+
+(use-package org
+  :init
+  (general-add-hook 'org-mode-hook #'visual-line-mode)
+  (general-add-hook 'org-mode-hook #'my-org-setup))
+
+;; this is also valid but less concise
+(use-package org
+  ;; specify null or non-symbol placeholder for HOOKS to use inferred hook
+  :gfhook (nil (list #'visual-line-mode #'my-org-setup)))
+
+(use-package org
+  :init
+  (general-add-hook 'org-mode-hook (list #'visual-line-mode #'my-org-setup)))
+#+end_src
+
+Like with =:ghook=, quoting is still required, so you can use variables and function/macro calls to generate the function to add to the hook:
+#+begin_src emacs-lisp
+(defmacro disable (mode)
+  `(lambda () (,mode -1)))
+
+(use-package proced
+  ;; must be in a `general-add-hook' argument list, so that it itself is not
+  ;; considered one
+  :gfhook (nil (disable visual-line-mode)))
+#+end_src
+
+Although you could use =:gfhook= to enable minor modes for some major mode (e.g. enable flyspell inside ~(use-package org)~), it is probably more logical/organized to group these hooks along with their minor modes' use-package declarations (e.g. using =:ghook=). =:gfhook= is more suited for setup functions. Expanding on the proced example:
+#+begin_src emacs-lisp
+(defun my-proced-setup ()
+  (visual-line-mode -1)
+  ;; not global; has to be run in buffer
+  (proced-toggle-auto-update t))
+
+(use-package proced
+  :gfhook #'my-proced-setup)
+#+end_src
 
 ** Use with Key-chord
 General provides a simple function that will rewrite a string into a key-chord vector. This allows you to easily use general to create definitions for =key-chord.el=. The following are equivalent:

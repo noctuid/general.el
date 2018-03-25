@@ -775,7 +775,8 @@ Return t if successful or a cons corresponding to the failed key and def."
     (expect (general-test-keys 'visual general-temp-map
               "a" #'a))))
 
-;; ** Use-package Keyword
+;; ** Use-package Keywords
+;; *** :general
 (describe "the :general use-package keyword"
   (before-all
     (general-create-definer general-nmap
@@ -890,6 +891,177 @@ Return t if successful or a cons corresponding to the failed key and def."
     (expect (general--extract-autoloadable-symbol
              '(:def (fake-map . "char")))
             :to-equal nil)))
+
+;; *** :ghook
+(describe "the :ghook use-package keyword"
+  (before-all
+    (defvar general-hook1 nil)
+    (defvar general-hook2 nil)
+    (defvar general-hooks '(general-hook1 general-hook2)))
+  (before-each
+    (setq general-hook1 nil
+          general-hook2 nil))
+  (describe "with a hook symbol"
+    (it "should infer the function to add based on the package name"
+      (use-package general-fake
+        :ghook
+        general-hook1)
+      (expect general-hook1
+              :to-equal '(general-fake-mode))
+      (use-package general-fake-mode
+        :ghook
+        general-hook2)
+      ;; should not add an extra -mode
+      (expect general-hook2
+              :to-equal '(general-fake-mode))))
+  (describe "specified with a `general-add-hook' arglist"
+    (it "should infer the function when there is no function arg"
+      (use-package general-fake
+        :ghook
+        ('general-hook1))
+      (expect general-hook1
+              :to-equal '(general-fake-mode)))
+    (it "should infer the function when the function is null or a non-symbol"
+      (use-package general-fake
+        :ghook
+        ('general-hook1 nil)
+        ('general-hook2 ""))
+      (expect general-hook1
+              :to-equal '(general-fake-mode))
+      (expect general-hook2
+              :to-equal '(general-fake-mode)))
+    (it "should work with a list of hooks"
+      (use-package general-fake
+        :ghook
+        ('(general-hook1 general-hook2)))
+      (expect general-hook1
+              :to-equal '(general-fake-mode))
+      (expect general-hook2
+              :to-equal '(general-fake-mode)))
+    ;; TODO works in actual emacs but not in buttercup
+    (xit "should work, for example, with variable containing a list of hooks"
+      (use-package general-fake
+        :ghook
+        (general-hooks))
+      (expect general-hook1
+              :to-equal '(general-fake-mode))
+      (expect general-hook2
+              :to-equal '(general-fake-mode)))
+    (it "should work with explicitly specified functions"
+      (use-package general-fake
+        :ghook
+        ('general-hook1 #'general-fake-func1)
+        ('general-hook1 '(general-fake-func2 general-fake-func3))
+        ('general-hook1 (list #'general-fake-func4)))
+      (expect general-hook1
+              :to-equal '(general-fake-func4
+                          general-fake-func3
+                          general-fake-func2
+                          general-fake-func1)))
+    (it "should support the extra APPEND (and LOCAL) args"
+      (use-package general-fake
+        :ghook
+        ('general-hook1 #'general-fake-func1 t)
+        ('general-hook1 #'general-fake-func2 t))
+      (expect general-hook1
+              :to-equal '(general-fake-func1
+                          general-fake-func2)))
+    (it "should add autoloads for non-lambda functions"
+      ;; not necessary to run again
+      (use-package general-fake
+        :ghook 'general-hook1)
+      (expect (functionp #'general-fake-mode)))))
+
+;; *** :gfhook
+(describe "the :gfhook use-package keyword"
+  (before-all
+    (defvar general-fake-mode-hook nil)
+    (defvar general-hook1 nil))
+  (before-each
+    (setq general-fake-mode-hook nil
+          general-hook1 nil))
+  (describe "with a function symbol"
+    (it "should infer the hook to add to based on the package name"
+      (use-package general-fake
+        :defer t
+        :gfhook
+        general-fake-func1
+        #'general-fake-func2)
+      (expect general-fake-mode-hook
+              :to-equal '(general-fake-func2 general-fake-func1))
+      (use-package general-fake-mode
+        :defer t
+        :gfhook
+        'general-fake-func3
+        #'general-fake-func4)
+      ;; should not add an extra -mode
+      (expect general-fake-mode-hook
+              :to-equal '(general-fake-func4
+                          general-fake-func3
+                          general-fake-func2
+                          general-fake-func1))))
+  (describe "specified with a `general-add-hook' arglist"
+    (it "should infer the hook when its arg is null or a non-symbol"
+      (use-package general-fake
+        :defer t
+        :gfhook
+        (nil 'general-fake-func1)
+        ("" 'general-fake-func2))
+      (expect general-fake-mode-hook
+              :to-equal '(general-fake-func2
+                          general-fake-func1)))
+    (it "should work with a list of functions"
+      (use-package general-fake
+        :defer t
+        :gfhook
+        (nil '(general-fake-func1 general-fake-func2))
+        (nil (list #'general-fake-func3 #'general-fake-func4)))
+      (expect general-fake-mode-hook
+              :to-equal '(general-fake-func4
+                          general-fake-func3
+                          general-fake-func2
+                          general-fake-func1)))
+    (xit "should work, for example, with a macro that expands to a function"
+      (defmacro disable (mode)
+        `(lambda () (,mode -1)))
+      (use-package general-fake
+        :defer t
+        :gfhook
+        (nil (disable visual-line-mode)))
+      (expect general-fake-mode-hook
+              :to-equal '((lambda () (visual-line-mode -1)))))
+    (it "should work with explicitly specified hooks"
+      (use-package general-fake
+        :defer t
+        :gfhook
+        ('general-hook1 #'general-fake-func1)
+        ('general-hook1 '(general-fake-func2 general-fake-func3))
+        ('general-hook1 (list #'general-fake-func4)))
+      (expect general-hook1
+              :to-equal '(general-fake-func4
+                          general-fake-func3
+                          general-fake-func2
+                          general-fake-func1)))
+    (it "should support the extra APPEND (and LOCAL) args"
+      (use-package general-fake
+        :defer t
+        :gfhook
+        (nil #'general-fake-func1 t)
+        (nil #'general-fake-func2 t))
+      (expect general-fake-mode-hook
+              :to-equal '(general-fake-func1
+                          general-fake-func2)))
+    (it "should NOT add autoloads for any functions"
+      (use-package general-fake
+        :defer t
+        :gfhook 'general-undefined)
+      (expect (not (functionp #'general-undefined))))
+    (it "should not imply :defer t"
+      ;; package doesn't exist, so should warn
+      (spy-on 'display-warning)
+      (use-package general-fake
+        :gfhook 'general-fake-func1)
+      (expect 'display-warning :to-have-been-called))))
 
 ;; * Global Override Mode
 (describe "keybindings in `general-override-mode-map'"
