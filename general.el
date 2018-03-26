@@ -540,15 +540,18 @@ else    - Return the corresponding evil auxiliary or minor mode map"
 (defun general--remove-keyword-args (rest)
   "Remove all keyword arguments from the list REST.
 Return a list of the altered REST list and a list of the removed keyword
-arguments. The order of arguments will be preserved."
-  (cl-loop for (key value) on rest by 'cddr
-           if (keywordp key)
-           collect key into kargs
-           and collect value into kargs
-           else
-           collect key into args
-           and collect value into args
-           finally (cl-return (list args kargs))))
+arguments. The order of arguments will be preserved. Note that the length of
+REST does not need to be even (i.e. there can be an odd number of positional
+arguments)."
+  (let (args
+        kargs)
+    (while rest
+      (cond ((keywordp (car rest))
+             (push (pop rest) kargs)
+             (push (pop rest) kargs))
+            (t
+             (push (pop rest) args))))
+    (list (nreverse args) (nreverse kargs))))
 
 (defmacro general--ensure-lists (&rest vars)
   "Ensure that all variables in VARS are lists if they are not already.
@@ -901,7 +904,6 @@ to bind the keys with by calling `general--define-key-dispatch'."
 ;;;###autoload
 (cl-defun general-define-key
     (&rest maps &key
-           unbind
            definer
            (states general-default-states)
            (keymaps general-default-keymaps)
@@ -936,13 +938,6 @@ MAPS consists of paired keys (vectors or strings; also see
 docstring and general.el's \"extended\" definitions). All pairs (when not
 ignored) will be recorded and can be later displayed with
 `general-describe-keybindings'.
-
-If UNBIND is specified as t, MAPS should be a list of keys instead of paired
-keys and definitions. In this case, MAPS will automatically interleaved with
-nils, so that it will be as if the user had specified every key paired with a
-nil definition. If you want to actually have specific keys (or more likely
-commands with [remap <command>]) do nothing, you can specify the argument as
-'ignore, for example, instead.
 
 If DEFINER is specified, a custom key definer will be used to bind MAPS. See
 general.el's documentation/README for more information.
@@ -1061,13 +1056,6 @@ keywords that are used for each corresponding custom DEFINER."
                     ;; for consistency; may be useful in future or for user
                     :states states)
                    (cadr split-maps))))
-    ;; interleave appropriate definitions into maps when :unbind is non-nil
-    (when unbind
-      (setq maps (cl-loop for key in maps
-                          collect key
-                          and collect (if (eq unbind t)
-                                          nil
-                                        unbind))))
     (general--define-prefix prefix-command prefix-map prefix-name)
     ;; TODO reduce code duplication here
     (when non-normal-prefix
@@ -1214,6 +1202,27 @@ only apply to the keybindings that directly follow."
        ,@(mapcar (lambda (arglist)
                    (cons 'general-def arglist))
                  (nreverse arglists)))))
+
+;;###autoload
+(cl-defmacro general-unbind (&rest keys &key with &allow-other-keys)
+  "A wrapper for `general-def' to unbind multiple KEYS simultaneously.
+KEYS will be interleaved with nils before being passed to `general-def' as the
+maps arguments. WITH can optionally specified to use a custom function
+instead (e.g. `ignore')."
+  (let* ((split-args (general--remove-keyword-args keys))
+         (kargs (cl-loop for (key val) on (cadr split-args) by 'cddr
+                         unless (eq key :with)
+                         collect key
+                         and collect val))
+         (maps
+          ;; interleave appropriate definitions into maps
+          (cl-loop for key in (car split-args)
+                   collect key
+                   and collect (if (eq with t)
+                                   nil
+                                 with)))
+         (args (append kargs maps)))
+    `(general-def ,@args)))
 
 ;; * Displaying Keybindings
 (defun general--to-string (x)

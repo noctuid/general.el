@@ -42,10 +42,10 @@ Please switch to ~general-key~ or ~general-simulate-key~. Note that keyword argu
   - [[#definitions][Definitions]]
   - [[#keyword-arguments][Keyword Arguments]]
     - [[#predicates][Predicates]]
-    - [[#mass-key-unbinding][Mass Key Unbinding]]
   - [[#keymapstate-aliases][Keymap/State Aliases]]
   - [[#general-define-key-wrappers][~general-define-key~ Wrappers]]
     - [[#positional-argument-wrappers][Positional Argument Wrappers]]
+    - [[#mass-key-unbinding-wrapper][Mass Key Unbinding Wrapper]]
     - [[#creating-new-key-definers][Creating New Key Definers]]
     - [[#vim-like-definers][Vim-like Definers]]
   - [[#note-for-evil-users][Note for Evil Users]]
@@ -412,45 +412,6 @@ The user can use the ~:predicate~ keyword to specify a condition under which the
 
 See [[http://endlessparentheses.com/define-context-aware-keys-in-emacs.html][this post]] for more information about how this works.
 
-*** Mass Key Unbinding
-~general-define-key~ also provides an =:unbind= keyword. When =:unbind t= is specified, the positional arguments should all be keys (instead of pairs of keys and definitions) that should be unbound:
-#+begin_src emacs-lisp
-(general-define-key
- :unbind t
- :keymaps 'insert
- "C-v"
- "C-k"
- "C-y"
- "C-e")
-;; equivalent to
-(general-define-key
- :keymaps 'insert
- "C-v" nil
- "C-k" nil
- "C-y" nil
- "C-e" nil)
-#+end_src
-
-It could also be used, for example, if you wanted to disable certain commands or keys from working in certain modes (example use case taken from [[https://github.com/emacs-evil/evil-collection/blob/9fc1a19807dfcd0cc2b221832b6e6faad80a291d/evil-collection-util.el#L32][evil-collection]]):
-#+begin_src emacs-lisp
-(general-define-key
- :unbind 'ignore
- :states 'normal
- :keymaps 'Info-mode-map
- [remap evil-append]
- [remap evil-append-line]
- [remap evil-insert]
- [remap evil-insert-line])
-;; equivalent to
-(general-define-key
- :states 'normal
- :keymaps 'Info-mode-map
- [remap evil-append] 'ignore
- [remap evil-append-line] 'ignore
- [remap evil-insert] 'ignore
- [remap evil-insert-line] 'ignore)
-#+end_src
-
 ** Keymap/State Aliases
 To prevent the need to type out long keymap names like =evil-inner-text-objects-map=, general allows the user to specify shorthand names for keymaps by altering =general-keymap-aliases= (and for states by altering =general-state-aliases=). These are alists of either an alias or a list of aliases to the full keymap name:
 #+begin_src emacs-lisp
@@ -566,6 +527,40 @@ The third macro, ~general-def~, is provided for those who would prefer to use a 
 #+end_src
 
 Note that if you want to use variables to hold keys (e.g. =key-var 'def=), you should use ~general-define-key~. If those were the first arguments to ~general-def~, it would consider them a state and keymap. Using variables for keys isn't recommended and probably isn't useful. If you want to use a variable specifically with =:prefix= or another keyword argument, that is still supported by ~general-def~.
+
+*** Mass Key Unbinding Wrapper
+~general-unbind~ acts as ~general-def~, but the positional arguments should all be keys (instead of pairs of keys and definitions) that should be unbound:
+#+begin_src emacs-lisp
+(general-unbind 'insert
+  "C-v"
+  "C-k"
+  "C-y"
+  "C-e")
+;; equivalent to
+(general-def 'insert
+  "C-v" nil
+  "C-k" nil
+  "C-y" nil
+  "C-e" nil)
+#+end_src
+
+This wrapper can also be used, for example, if you want to disable certain commands or keys from working in certain modes by using with =:with= keyword argument (example use case taken from [[https://github.com/emacs-evil/evil-collection/blob/9fc1a19807dfcd0cc2b221832b6e6faad80a291d/evil-collection-util.el#L32][evil-collection]]):
+#+begin_src emacs-lisp
+(general-unbind 'normalInfo-mode-map
+  :with 'ignore
+  [remap evil-append]
+  [remap evil-append-line]
+  [remap evil-insert]
+  [remap evil-insert-line])
+;; equivalent to
+(general-def 'normal Info-mode-map
+  [remap evil-append] 'ignore
+  [remap evil-append-line] 'ignore
+  [remap evil-insert] 'ignore
+  [remap evil-insert-line] 'ignore)
+#+end_src
+
+The reason that this functionality is implemented as a wrapper and not as a keyword argument for ~general-define-key~ is that ~cl-defun~ cannot correctly parse keyword arguments when the keyword is in an odd position (e.g. =("a" :keyword 'arg)= instead of =(:keyword 'arg "a")=). For example, if this functionality was implemented with an =:unbind= keyword, the =:general= use-package keyword and any definer created with ~general-create-definer~ would not work if the user specified an odd number of keys to unbind (because the default keyword arguments would be at the end of the arglist, in the wrong positions). As I'd rather not re-implement keyword argument parsing just for this use case, this functionality is provided as a macro. This macro will correctly handle any positioning for keyword arguments.
 
 *** Creating New Key Definers
 The ~general-create-definer~ macro can create definers that wrap ~general-def~ but with certain default settings. For example, it can be used to create a definer that will default to a certain prefix (like ~evil-leader~ does):

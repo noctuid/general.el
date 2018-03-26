@@ -187,32 +187,6 @@ Return t if successful or a cons corresponding to the failed key and def."
      "a" nil)
     (expect (general-test-keys 'normal general-temp-map
               "a" nil)))
-  (it "should allow unbinding/ignoring keys en masse"
-    (general-define-key
-     :keymaps 'general-temp-map
-     "a" #'a
-     "b" #'b
-     "c" #'c)
-    (general-define-key
-     :unbind t
-     :keymaps 'general-temp-map
-     "a"
-     "b"
-     "c")
-    (expect (general-test-keys nil general-temp-map
-              "a" nil
-              "b" nil
-              "c" nil))
-    (general-define-key
-     :unbind #'ignore
-     :keymaps 'general-temp-map
-     "a"
-     "b"
-     "c")
-    (expect (general-test-keys nil general-temp-map
-              "a" #'ignore
-              "b" #'ignore
-              "c" #'ignore)))
   (it "should use the evil global keymaps for :keymaps 'global :states ..."
     (let ((evil-normal-state-map (make-sparse-keymap)))
       (general-define-key
@@ -743,6 +717,36 @@ Return t if successful or a cons corresponding to the failed key and def."
               "c" #'c))
     (expect (general-test-keys 'insert general-temp-map
               "d" #'d))))
+
+;; ** Unbind Wrapper
+(describe "general-unbind"
+  (it "should allow unbinding/ignoring keys en masse"
+    (general-define-key
+     :keymaps 'general-temp-map
+     "a" #'a
+     "b" #'b
+     "c" #'c)
+    (general-unbind
+      "a"
+      "b"
+      "c"
+      ;; keywords should work at odd positions (e.g. keywords are often added at
+      ;; end as defaults)
+      :keymaps 'general-temp-map)
+    (expect (general-test-keys nil general-temp-map
+              "a" nil
+              "b" nil
+              "c" nil))
+    (general-unbind
+      :with #'ignore
+      :keymaps 'general-temp-map
+      "a"
+      "b"
+      "c")
+    (expect (general-test-keys nil general-temp-map
+              "a" #'ignore
+              "b" #'ignore
+              "c" #'ignore))))
 
 ;; ** User-created Definers
 (describe "wrappers created with `general-create-definer'"
