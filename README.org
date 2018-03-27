@@ -1208,6 +1208,9 @@ The =:properties=, =:repeat=, and =:jump= keywords can be used to add evil comma
  "gk" 'git-gutter:previous-hunk)
 
 #+end_src
+
+Note that the default for commands without a repeat property are treated the same as commands with =:repeat t=, so the above repeat configuration isn't explicitly necessary in this case.
+
 If you would like for more keywords to be added that correspond to specific properties (like =:repeat=), feel free to make an issue or pull request. For more information on command properties see evil's documentation and [[https://github.com/noctuid/evil-guide#command-properties][here]].
 
 ** User-defined Extended Definition Keywords
