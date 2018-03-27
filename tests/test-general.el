@@ -720,6 +720,8 @@ Return t if successful or a cons corresponding to the failed key and def."
 
 ;; ** Unbind Wrapper
 (describe "general-unbind"
+  (after-each
+    (setq general-temp-map (make-sparse-keymap)))
   (it "should allow unbinding/ignoring keys en masse"
     (general-define-key
      :keymaps 'general-temp-map
@@ -740,6 +742,30 @@ Return t if successful or a cons corresponding to the failed key and def."
     (general-unbind
       :with #'ignore
       :keymaps 'general-temp-map
+      "a"
+      "b"
+      "c")
+    (expect (general-test-keys nil general-temp-map
+              "a" #'ignore
+              "b" #'ignore
+              "c" #'ignore)))
+  (it "should allow positional arguments (wraps general-def)"
+    (general-define-key
+     :keymaps 'general-temp-map
+     "a" #'a
+     "b" #'b
+     "c" #'c)
+    (general-unbind general-temp-map
+      "a"
+      "b"
+      "c")
+    (expect (general-test-keys nil general-temp-map
+              "a" nil
+              "b" nil
+              "c" nil))
+    ;; :with keyword should work at an odd position (must be handled internally)
+    (general-unbind 'general-temp-map
+      :with #'ignore
       "a"
       "b"
       "c")

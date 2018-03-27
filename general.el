@@ -1204,24 +1204,32 @@ only apply to the keybindings that directly follow."
                  (nreverse arglists)))))
 
 ;;###autoload
-(cl-defmacro general-unbind (&rest keys &key with &allow-other-keys)
-  "A wrapper for `general-def' to unbind multiple KEYS simultaneously.
-KEYS will be interleaved with nils before being passed to `general-def' as the
-maps arguments. WITH can optionally specified to use a custom function
-instead (e.g. `ignore')."
-  (let* ((split-args (general--remove-keyword-args keys))
+(cl-defmacro general-unbind (&rest args)
+  "A wrapper for `general-def' to unbind multiple keys simultaneously.
+Insert after all keys in ARGS before passing ARGS to `general-def.' \":with
+ #'func\" can optionally specified to use a custom function instead (e.g.
+ `ignore')."
+  (declare (indent defun))
+  ;; Note: :with can be at an odd position, so must handle internally and not
+  ;; with &key
+  (let* (with
+         (split-args (general--remove-keyword-args args))
          (kargs (cl-loop for (key val) on (cadr split-args) by 'cddr
-                         unless (eq key :with)
+                         if (eq key :with)
+                         do (setq with val)
+                         else
                          collect key
                          and collect val))
-         (maps
+         (positional-args-and-maps
           ;; interleave appropriate definitions into maps
           (cl-loop for key in (car split-args)
                    collect key
-                   and collect (if (eq with t)
-                                   nil
-                                 with)))
-         (args (append kargs maps)))
+                   and
+                   unless (general--positional-arg-p key)
+                   collect (if (eq with t)
+                               nil
+                             with)))
+         (args (append positional-args-and-maps kargs)))
     `(general-def ,@args)))
 
 ;; * Displaying Keybindings
