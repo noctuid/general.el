@@ -1203,7 +1203,7 @@ only apply to the keybindings that directly follow."
                    (cons 'general-def arglist))
                  (nreverse arglists)))))
 
-;;###autoload
+;;;###autoload
 (cl-defmacro general-unbind (&rest args)
   "A wrapper for `general-def' to unbind multiple keys simultaneously.
 Insert after all keys in ARGS before passing ARGS to `general-def.' \":with
