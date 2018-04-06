@@ -1991,6 +1991,14 @@ advice."
       (general-advice-remove 'define-key #'general-unbind-non-prefix-key)
     (general-advice-add 'define-key :around #'general-unbind-non-prefix-key)))
 
+;; ** Interactive Lambdas
+(defmacro general-lambda (&rest body)
+  "Wrap BODY in an interactive lamba"
+  `(lambda () (interactive)
+     ,@body))
+
+(defalias 'general-l #'general-lambda)
+
 ;; * Functions/Macros to Aid Other Configuration
 ;; ** Settings
 (defmacro general-setq (&rest settings)
