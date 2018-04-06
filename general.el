@@ -1162,7 +1162,7 @@ the default arguments."
   (declare (indent defun))
   `(defmacro ,name (&rest args)
      (declare (indent defun))
-     ,(let ((print-quoted nil))
+     ,(let ((print-quoted t))
         (format
          "A wrapper for `general-def'.
 
