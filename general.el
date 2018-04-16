@@ -283,6 +283,7 @@ local keybindings.")
   "Make intercept keymaps for STATES in `general-override-mode-map'.
 This means that keys bound in STATES for `general-override-mode-map' will take
 precedence over keys bound in other evil auxiliary maps."
+  ;; can't use `general-with-eval-after-load' here; not available
   (with-eval-after-load 'evil
     (dolist (state states)
       (evil-make-intercept-map
@@ -326,6 +327,18 @@ Also turn on `general-override-local-mode' and update `general-maps-alist'."
   general-override-local-mode-map)
 
 ;; * General Helpers
+(defmacro general-with-eval-after-load (file &rest body)
+  "Like `with-eval-after-load' but don't always add to `after-load-alist'.
+When FILE has already been loaded, execute BODY immediately without adding it to
+`after-load-alist'."
+  (declare (indent 1))
+  `(if (if (stringp ,file)
+           (load-history-filename-element
+            (purecopy (load-history-regexp ,file)))
+         (featurep ,file))
+       (progn ,@body)
+     (eval-after-load ,file (lambda () ,@body))))
+
 (defun general--unalias (symbol &optional statep)
   "Return the full keymap or state name associated with SYMBOL.
 If STATEP is non-nil, check `general-state-aliases' instead of
@@ -409,7 +422,7 @@ keybindings, STATE will be nil. Duplicate keys will be replaced with the new
 ones. MINOR-MODE-P should be non-nil when keymap corresponds to a minor-mode
 name (as used with `evil-define-minor-mode-key') as opposed to a keymap name."
   (if (and state (not (featurep 'evil)))
-      (with-eval-after-load 'evil
+      (general-with-eval-after-load 'evil
         (general--record-keybindings keymap state maps minor-mode-p))
     (let* (keys
            (maps (cl-loop
@@ -619,7 +632,7 @@ locally (in def).")
 If :major-modes is specified in DEF, add the description for the corresponding
 major mode. KEY should not be in the kbd format (kbd should have already been
 run on it)."
-  (with-eval-after-load 'which-key
+  (general-with-eval-after-load 'which-key
     (let* ((wk (general--getf2 def :which-key :wk))
            (major-modes (general--getf def kargs :major-modes))
            (keymaps (cl-getf kargs :keymaps))
@@ -669,7 +682,7 @@ run on it)."
 (defun general-extended-def-:properties (_state _keymap _key def kargs)
   "Use `evil-add-command-properties' to add properties to a command.
 The properties should be specified with :properties in either DEF or KARGS."
-  (with-eval-after-load 'evil
+  (general-with-eval-after-load 'evil
     (let ((properties (general--getf def kargs :properties))
           (command (cl-getf def :def)))
       (apply #'evil-add-command-properties command properties))))
@@ -677,7 +690,7 @@ The properties should be specified with :properties in either DEF or KARGS."
 (defun general-extended-def-:repeat (_state _keymap _key def kargs)
   "Use `evil-add-command-properties' to set the :repeat property for a command.
 The repeat property should be specified with :repeat in either DEF or KARGS."
-  (with-eval-after-load 'evil
+  (general-with-eval-after-load 'evil
     (let ((repeat-property (general--getf def kargs :repeat))
           (command (cl-getf def :def)))
       (evil-add-command-properties command :repeat repeat-property))))
@@ -685,7 +698,7 @@ The repeat property should be specified with :repeat in either DEF or KARGS."
 (defun general-extended-def-:jump (_state _keymap _key def kargs)
   "Use `evil-add-command-properties' to set the :jump property for a command.
 The jump property should be specified with :jump in either DEF or KARGS."
-  (with-eval-after-load 'evil
+  (general-with-eval-after-load 'evil
     (let ((jump-property (general--getf def kargs :jump))
           (command (cl-getf def :def)))
       (evil-add-command-properties command :jump jump-property))))
@@ -812,13 +825,13 @@ is the unaltered form (e.g. an extended definition)."
 (declare-function evil-define-minor-mode-key "evil-core")
 (defun general-minor-mode-define-key (state mode key def _orig-def _kargs)
   "A wrapper for `evil-define-minor-mode-key'."
-  (with-eval-after-load 'evil
+  (general-with-eval-after-load 'evil
     (evil-define-minor-mode-key state mode key def)))
 
 (declare-function lispy-define-key "lispy")
 (defun general-lispy-define-key (_state keymap key def orig-def kargs)
   "A wrapper for `lispy-define-key'."
-  (with-eval-after-load 'lispy
+  (general-with-eval-after-load 'lispy
     (let* ((keymap (general--get-keymap nil keymap))
            (key (key-description key))
            (plist (general--getf orig-def kargs :lispy-plist)))
@@ -827,7 +840,7 @@ is the unaltered form (e.g. an extended definition)."
 (declare-function worf-define-key "worf")
 (defun general-worf-define-key (_state keymap key def orig-def kargs)
   "A wrapper for `worf-define-key'."
-  (with-eval-after-load 'worf
+  (general-with-eval-after-load 'worf
     (let* ((keymap (general--get-keymap nil keymap))
            (key (key-description key))
            (plist (general--getf orig-def kargs :worf-plist)))
@@ -836,7 +849,7 @@ is the unaltered form (e.g. an extended definition)."
 (declare-function lpy-define-key "lpy")
 (defun general-lpy-define-key (_state keymap key def _orig-def _kargs)
   "A wrapper for `lpy-define-key'."
-  (with-eval-after-load 'lpy
+  (general-with-eval-after-load 'lpy
     (let* ((keymap (general--get-keymap nil keymap))
            (key (key-description key)))
       (lpy-define-key keymap key def))))
@@ -861,7 +874,7 @@ non-nil if no custom definer is specified."
                ;; just to get the symbol-value of the keymap when it is not
                ;; global/local
                (setq keymap (general--get-keymap nil keymap nil t))
-               (with-eval-after-load 'evil
+               (general-with-eval-after-load 'evil
                  (evil-define-key* state keymap key def)))
               (t
                (setq keymap (general--get-keymap nil keymap))
@@ -1692,7 +1705,7 @@ The advantages of this over a keyboard macro are as follows:
        (eval-after-load 'evil
          '(evil-set-command-property #',name :repeat 'general--simulate-repeat))
        (when ,which-key
-         (with-eval-after-load 'which-key
+         (general-with-eval-after-load 'which-key
            (push '((nil . ,(symbol-name name))
                    nil . ,which-key)
                  which-key-replacement-alist)))
@@ -1815,7 +1828,7 @@ REMAP is specified as nil (it is true by default)."
        (eval-after-load 'evil
          '(evil-set-command-property #',name :repeat 'general--dispatch-repeat))
        (when ,which-key
-         (with-eval-after-load 'which-key
+         (general-with-eval-after-load 'which-key
            (push '((nil . ,(symbol-name name))
                    nil . ,which-key)
                  which-key-replacement-alist)))
@@ -2126,7 +2139,7 @@ return nil."
               (symbolp (cdr def)))
          (cdr def))))
 
-(with-eval-after-load 'use-package-core
+(general-with-eval-after-load 'use-package-core
   (declare-function use-package-concat "use-package")
   (declare-function use-package-process-keywords "use-package")
   (defvar use-package-keywords)
