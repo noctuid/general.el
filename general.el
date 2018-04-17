@@ -2066,9 +2066,10 @@ lists."
     (dolist (func functions)
       (advice-add symbol where func props))))
 
-;; will actually pull in defalias
-;; (will work the same though; docstring will be correct)
-;;;###autoload
+;; specify full autoload to prevent function indirection (autoload generation
+;; will put a /flipped/ defalias into the autoloads file causing an infinite
+;; loop)
+;;;###autoload (autoload 'general-add-advice "general")
 (defalias 'general-add-advice #'general-advice-add)
 
 ;;;###autoload
@@ -2080,6 +2081,7 @@ Unlike `advice-remove', SYMBOLS and FUNCTIONS can be single items or lists."
     (dolist (func functions)
       (advice-remove symbol func))))
 
+;;;###autoload (autoload 'general-remove-advice "general")
 (defalias 'general-remove-advice #'general-advice-remove)
 
 ;; * Optional Setup
