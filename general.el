@@ -285,6 +285,7 @@ This means that keys bound in STATES for `general-override-mode-map' will take
 precedence over keys bound in other evil auxiliary maps."
   ;; can't use `general-with-eval-after-load' here; not available
   (with-eval-after-load 'evil
+    ;; TODO eventually use new evil-make-intercept-map arg
     (dolist (state states)
       (evil-make-intercept-map
        (evil-get-auxiliary-keymap general-override-mode-map state t t)
@@ -301,8 +302,8 @@ precedence over keys bound in other evil auxiliary maps."
     replace)
   "States to make intercept maps for in `general-override-mode-map'.
 Note that this uses :set, meaning that if you want to change the value, you
-should either set it using customize (e.g. `customize-set-variable') or set it
-before loading general if using `setq'."
+should either set it using customize (e.g. `general-setq' or
+`customize-set-variable') or set it before loading general if using `setq'."
   :group 'general
   :type '(repeat general-state)
   :set #'general-override-make-intercept-maps)
@@ -627,6 +628,8 @@ locally (in def).")
   "Remove \"-map\" from the symbol KEYMAP." ;
   (intern (replace-regexp-in-string "-map$" "" (symbol-name keymap))))
 
+;; TODO rename to key for consistency
+;; TODO better documentation
 (defun general-extended-def-:which-key (_state keymap keys def kargs)
   "Add a which-key description for KEY.
 If :major-modes is specified in DEF, add the description for the corresponding
@@ -777,6 +780,7 @@ KARGS, call the corresponding function named general--extended-def-:keyword."
 This function will execute the actions specified in an extended definition and
 apply a predicate if there is one."
   (cond ((general--extended-def-p def)
+         ;; NOTE: This is absolutely necessary for plist functions to work
          (unless (keywordp (car def))
            (setq def (cons :def def)))
          (general--run-extended-def-functions state keymap key def kargs)
@@ -1049,6 +1053,7 @@ keywords that are used for each corresponding custom DEFINER."
         kargs)
     ;; don't force the user to wrap a single state or keymap in a list
     (general--ensure-lists states keymaps)
+    ;; unalias states and keymaps
     (setq states (mapcar (lambda (state) (general--unalias state t))
                          states))
     (setq keymaps (mapcar #'general--unalias keymaps))
@@ -2174,6 +2179,7 @@ return nil."
                      when (and (not (keywordp key))
                                (not (null def))
                                (ignore-errors
+                                 ;; TODO use cdr instead if possible
                                  (setq def (eval def))
                                  (setq def (general--extract-autoloadable-symbol
                                             def))))
