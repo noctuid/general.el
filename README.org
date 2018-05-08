@@ -396,6 +396,12 @@ The =:infix= keyword can be used to sandwich keys in between all of the specifie
 (my-normal-and-insert-define-key :infix "g" <maps...>)
 #+end_src
 
+If you just want to create the prefix keymap and bind keys directly in it without immediately binding a prefix key to the prefix keymap, simply don't specify =:keymaps= or =:prefix=:
+#+begin_src emacs-lisp
+;; bind "/" directly in the newly created my-prefix-map
+(general-define-key :prefix-map 'my-prefix-map "/" 'swiper)
+#+end_src
+
 There is also a =:predicate= keyword for giving a condition under which a map should be active.
 
 *** Predicates

@@ -444,6 +444,22 @@ Return t if successful or a cons corresponding to the failed key and def."
                   "," nil
                   "C-, f g" #'comma-f-g
                   "M-, f g" #'comma-f-g)))))
+  (it "should support creating and binding in prefix keymaps with no prefix"
+    (general-define-key
+     :prefix-command 'general-unbound-prefix-map
+     "a" #'a)
+    (expect (general-test-keys nil general-unbound-prefix-map
+              "a" #'a))
+    (general-define-key
+     :prefix-map 'general-unbound-prefix2-map
+     "a" #'a)
+    (expect (general-test-keys nil general-unbound-prefix2-map
+              "a" #'a))
+    ;; cleanup
+    (makunbound 'general-unbound-prefix-map)
+    (makunbound 'general-unbound-prefix2-map)
+    (expect (not (boundp 'general-unbound-prefix-map)))
+    (expect (not (boundp 'general-unbound-prefix2-map))))
   (it "should support predicates"
     (general-define-key
      :keymaps 'general-temp-map
