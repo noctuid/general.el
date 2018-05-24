@@ -900,6 +900,9 @@ non-nil if no custom definer is specified."
                (setq keymap (general--get-keymap nil keymap))
                (define-key keymap key def)))))))
 
+(defvar general--definer-p nil
+  "Whether the current keybinding is being created with `general-define-key'.")
+
 (defun general--define-key
     (states keymap maps non-normal-maps global-maps kargs)
   "A helper function for `general-define-key'.
@@ -931,9 +934,6 @@ to bind the keys with by calling `general--define-key-dispatch'."
             (general--define-key-dispatch state keymap maps kargs)))))))
 
 ;; * Functions With Keyword Arguments
-(defvar general--definer-p nil
-  "Whether the current keybinding is being created with `general-define-key'.")
-
 ;;;###autoload
 (cl-defun general-define-key
     (&rest maps &key
