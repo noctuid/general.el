@@ -401,18 +401,6 @@ non-nil."
            collect (general--concat nil prefix key)
            and collect def))
 
-;; http://endlessparentheses.com/define-context-aware-keys-in-emacs.html
-(defun general--maybe-apply-predicate (predicate def)
-  "Apply PREDICATE to DEF.
-If PREDICATE is nil just return DEF."
-  (if predicate
-      `(menu-item
-        "" nil
-        :filter (lambda (&optional _)
-                  (when ,predicate
-                    ',def)))
-    def))
-
 (defun general--lookup-key (state keymap key &optional minor-mode-p)
   "Return the current definition for STATE, KEYMAP, and KEY."
   (when key
@@ -588,21 +576,65 @@ nil, it will be set to (list nil)."
                vars)))
 
 ;; * Extended Key Definition Language
-(defvar general-extended-def-keywords '(:which-key :wk :properties :repeat :jump)
+;; ** Variables
+(defvar general-extended-def-keywords
+  '(:which-key :wk :properties :repeat :jump)
   "Extra keywords that are valid for extended definitions.
+
 These can work both locally (in extended definitions) and globally (in which
 case they apply to all definitions including normal ones). Note that not all
-keywords need to make sense/work globally. For each keyword there should be a
-corresponding function named general-extended-def-:keyword which will be passed
-state, keymap (the symbol not actual keymap), key (internal representation),
-def (always a plist; normal definitions will automatically be converted), and
-kargs (the original `general-define-key' keyword argument plist; useful when the
-keyword can be used globally or has helper keywords that can be used globally).
-`general--get-keymap' may be useful for getting the actual keymap from the
-keymap symbol. `general--getf' may be useful when a default for a
-keyword (helper or main) can be specified in globally (in kargs) and overridden
-locally (in def).")
+keywords need to make sense/work globally. If the keyword should be ignored when
+used globally, add it to `general-extended-def-global-ignore-keywords' as well.
 
+For each keyword there should be a corresponding function named
+general-extended-def-:<keyword> which will be passed state, keymap (the symbol
+not actual keymap), key (the internal representation, i.e. `kbd' already called
+if necessary), edef (always a plist; normal definitions will automatically be
+converted), and kargs (the original `general-define-key' keyword argument plist;
+useful when the keyword can be used globally or has helper keywords that can be
+used globally). This function is only called for side effects; if you actually
+need to alter the definition, you should add the keyword to
+`general-rewrite-def-keywords' or `general-rewrite-def-after-keywords' instead.
+The order of those lists matters, but the order of this list does not.
+
+`general--get-keymap' may be useful for getting the actual keymap from the
+keymap symbol. `general--getf' may be useful for keywords (helper or main) that
+can be specified globally (in kargs) and overridden locally (in def).")
+
+(defvar general-rewrite-def-keywords
+  '(:keymap :prefix-command :prefix-keymap)
+  "Extended definition keywords that alter the definition.
+
+Each keyword should have a corresponding function named
+general-extended-def-:<keyword> and should return a new extended definition
+plist (with an altered :def entry). See `general-extended-def-keywords' for
+information on the arguments this function should take. These functions will be
+run in the order they appear in this list, and each will be passed the most
+recent version of the extended definition plist.
+
+In contrast to the functions for `general-rewrite-def-after-keywords', these
+functions will alter the definition before any `general-extended-def-keyword'
+functions run. For example, if your function creates a newly named wrapper
+command around the user-specified command, you'd want to add the keyword to this
+list, so that `general-extended-def-keywords' functions would have access to new
+command name (e.g. for :which-key to work properly). On the other hand, if the
+keyword, for example, involves putting the definition in an extended menu item
+like with :predicate, you should add to `general-rewrite-def-after-keywords'
+instead.")
+
+(defvar general-rewrite-def-after-keywords
+  '(:predicate)
+  "Extended definition keywords that alter the definition.
+See `general-rewrite-def-keywords' for more information.")
+
+(defvar general-extended-def-global-ignore-keywords
+  '(:keymap :prefix-command :prefix-map)
+  "Extended definitions that should be ignored when used globally.
+For example, :prefix-command and :prefix-map are handled differently when used
+globally (they have special interaction with other global keywords). :keymap, on
+the other hand, doesn't make sense at all globally.")
+
+;; ** Normal Extended Definition Functions
 (defvar which-key-replacement-alist)
 (defun general--add-which-key-replacement (mode replacement)
   (let* ((mode-match (assq mode which-key-replacement-alist))
@@ -635,17 +667,16 @@ locally (in def).")
   "Remove \"-map\" from the symbol KEYMAP." ;
   (intern (replace-regexp-in-string "-map$" "" (symbol-name keymap))))
 
-;; TODO rename to key for consistency
 ;; TODO better documentation
-(defun general-extended-def-:which-key (_state keymap keys def kargs)
+(defun general-extended-def-:which-key (_state keymap key edef kargs)
   "Add a which-key description for KEY.
-If :major-modes is specified in DEF, add the description for the corresponding
+If :major-modes is specified in EDEF, add the description for the corresponding
 major mode. KEY should not be in the kbd format (kbd should have already been
 run on it)."
   (general-with-eval-after-load 'which-key
-    (let* ((wk (general--getf2 def :which-key :wk))
-           (major-modes (general--getf def kargs :major-modes))
-           (keymaps (cl-getf kargs :keymaps))
+    (let* ((wk (general--getf2 edef :which-key :wk))
+           (major-modes (general--getf edef kargs :major-modes))
+           (keymaps (plist-get kargs :keymaps))
            ;; index of keymap in :keymaps
            (keymap-index (cl-dotimes (ind (length keymaps))
                            (when (eq (nth ind keymaps) keymap)
@@ -656,25 +687,27 @@ run on it)."
                    (if (eq mode t)
                        (general--remove-map keymap)
                      mode)))
-           (keys (key-description keys))
-           (keys-regexp (concat (when (general--getf def kargs :wk-full-keys)
-                                  "\\`")
-                                (regexp-quote keys)
-                                "\\'"))
-           (prefix (cl-getf kargs :prefix))
-           (binding (or (general--getf2 def :def :prefix-command)
+           (key (key-description key))
+           (key-regexp (concat (when (general--getf edef kargs :wk-full-keys)
+                                 "\\`")
+                               (regexp-quote key)
+                               "\\'"))
+           (prefix (plist-get kargs :prefix))
+           (binding (or (when (and (plist-get edef :def)
+                                   (not (plist-get edef :keymp)))
+                          (plist-get edef :def))
                         (when (and prefix
-                                   (string= keys prefix))
-                          (cl-getf kargs :prefix-command))))
+                                   (string= key prefix))
+                          (plist-get kargs :prefix-command))))
            (replacement (cond ((stringp wk)
                                (cons nil wk))
                               (t
                                wk)))
            (match/replacement
             (cons
-             (cons (when (general--getf def kargs :wk-match-keys)
-                     keys-regexp)
-                   (when (and (general--getf def kargs :wk-match-binding)
+             (cons (when (general--getf edef kargs :wk-match-keys)
+                     key-regexp)
+                   (when (and (general--getf edef kargs :wk-match-binding)
                               binding
                               (symbolp binding))
                      (symbol-name binding)))
@@ -684,68 +717,123 @@ run on it)."
                  ;; lambda
                  (not (functionp replacement)))
         (general--add-which-key-title-prefix
-         mode keys (cdr replacement))))))
+         mode key (cdr replacement))))))
 
 (defalias 'general-extended-def-:wk #'general-extended-def-:which-key)
 
 (declare-function evil-add-command-properties "evil-common")
-(defun general-extended-def-:properties (_state _keymap _key def kargs)
+(defun general-extended-def-:properties (_state _keymap _key edef kargs)
   "Use `evil-add-command-properties' to add properties to a command.
-The properties should be specified with :properties in either DEF or KARGS."
+The properties should be specified with :properties in either EDEF or KARGS."
   (general-with-eval-after-load 'evil
-    (let ((properties (general--getf def kargs :properties))
-          (command (cl-getf def :def)))
+    (let ((properties (general--getf edef kargs :properties))
+          (command (cl-getf edef :def)))
       (apply #'evil-add-command-properties command properties))))
 
-(defun general-extended-def-:repeat (_state _keymap _key def kargs)
+(defun general-extended-def-:repeat (_state _keymap _key edef kargs)
   "Use `evil-add-command-properties' to set the :repeat property for a command.
-The repeat property should be specified with :repeat in either DEF or KARGS."
+The repeat property should be specified with :repeat in either EDEF or KARGS."
   (general-with-eval-after-load 'evil
-    (let ((repeat-property (general--getf def kargs :repeat))
-          (command (cl-getf def :def)))
+    (let ((repeat-property (general--getf edef kargs :repeat))
+          (command (cl-getf edef :def)))
       (evil-add-command-properties command :repeat repeat-property))))
 
-(defun general-extended-def-:jump (_state _keymap _key def kargs)
+(defun general-extended-def-:jump (_state _keymap _key edef kargs)
   "Use `evil-add-command-properties' to set the :jump property for a command.
-The jump property should be specified with :jump in either DEF or KARGS."
+The jump property should be specified with :jump in either EDEF or KARGS."
   (general-with-eval-after-load 'evil
-    (let ((jump-property (general--getf def kargs :jump))
-          (command (cl-getf def :def)))
+    (let ((jump-property (general--getf edef kargs :jump))
+          (command (cl-getf edef :def)))
       (evil-add-command-properties command :jump jump-property))))
 
-(defun general--maybe-autoload-keymap (state keymap def kargs)
-  "Return either a keymap or a function that serves as an \"autoloaded\" keymap.
-A created function will bind the keys it was invoked with in STATE and KEYMAP to
-the keymap specified in DEF with :keymap and then act as if it was originally
-bound to that keymap (subsequent keys will be looked up in the keymap). KARGS or
-DEF should contain the package in which the keymap is created (as specified
-with :package). If the keymap already exists, it will simply be returned."
-  (let ((bind-to-keymap (cl-getf def :keymap))
-        (package (general--getf def kargs :package)))
-    (if (boundp bind-to-keymap)
-        (symbol-value bind-to-keymap)
-      (unless package
-        (error "In order to \"autoload\" a keymap, :package must be specified"))
-      `(lambda ()
-         (interactive)
-         (unless (or (featurep ',package)
-                     (require ',package nil t))
-           (error (concat "Failed to load package: " (symbol-name ',package))))
-         (unless (and (boundp ',bind-to-keymap)
-                      (keymapp (symbol-value ',bind-to-keymap)))
-           (error (format "A keymap called %s is not defined in the %s package"
-                          ',bind-to-keymap ',package)))
-         (let ((keys (this-command-keys))
-               (general-implicit-kbd nil))
-           (general-define-key
-            :states ',state
-            :keymaps ',keymap
-            keys ,bind-to-keymap)
-           (setq prefix-arg current-prefix-arg
-                 unread-command-events
-                 (mapcar (lambda (ev) (cons t ev))
-                         (listify-key-sequence keys))))))))
+;; ** Extended Defintion Functions That Alter the Definition
+(defun general-extended-def-:keymap (state keymap _key edef kargs)
+  "Return an extended definition for a keymap or a \"autoloaded\" keymap.
+If the specified keymap does not exist, create a function that binds the keys it
+was invoked with in STATE and KEYMAP to the keymap specified in the extended
+definition EDEF and then act as if it was originally bound to that
+keymap (subsequent keys will be looked up in the keymap). KARGS or EDEF should
+contain the package in which the keymap is created (as specified with :package).
+If the keymap already exists, it will simply be returned."
+  (let ((bind-keymap-sym (plist-get edef :def))
+        (package (general--getf edef kargs :package))
+        (definer (general--getf edef kargs :definer)))
+    (if (boundp bind-keymap-sym)
+        (setf (cl-getf edef :def) (symbol-value bind-keymap-sym))
+      (if package
+          (setf (cl-getf edef :def)
+                ;; relying on lexical binding here
+                (lambda ()
+                  (interactive)
+                  (unless (or (featurep package)
+                              (require package nil t))
+                    (error (format "Failed to load package: %s" package)))
+                  (unless (and (boundp bind-keymap-sym)
+                               (keymapp (symbol-value bind-keymap-sym)))
+                    (error (format
+                            "A keymap called %s is not defined in the %s package"
+                            bind-keymap-sym package)))
+                  ;; use `this-command-keys' as `key' may not be the full sequence
+                  (let ((keys (this-command-keys))
+                        (general-implicit-kbd nil))
+                    (general-define-key
+                     :states state
+                     :keymaps keymap
+                     :definer definer
+                     keys (symbol-value bind-keymap-sym))
+                    (setq prefix-arg current-prefix-arg
+                          unread-command-events
+                          (mapcar (lambda (ev) (cons t ev))
+                                  (listify-key-sequence keys))))))
+        (error "In order to \"autoload\" a keymap, :package must be specified"))))
+  edef)
 
+(defun general--define-prefix (command-name &optional map-name menu-name)
+  "Define a prefix command and/or keymap.
+COMMAND-NAME corresponds to the prefix command name. When COMMAND-NAME is
+non-nil, `define-prefix-command' will be used and will be passed MAP-NAME and
+MENU-NAME. When COMMAND-NAME is nil and MAP-NAME is non-nil, only a prefix
+keymap will be created, and its menu name/prompt will be set to MENU-NAME (if
+MENU-NAME is non-nil). Existing prefix keymaps/commands will not be
+recreated/rebound."
+  (if (or (and command-name (fboundp command-name))
+          (and map-name (boundp map-name)))
+      (or command-name (symbol-value map-name))
+    (cond (command-name
+           (define-prefix-command command-name map-name menu-name))
+          (map-name
+           (eval `(defvar ,map-name (make-sparse-keymap ,menu-name)))))))
+
+(defun general-extended-def-:prefix-command (_state _keymap _key edef _kargs)
+  "Create and return a prefix command or map for the extended definition EDEF.
+The :prefix-command, :prefix-map, and :prefix-name properties from EDEF are
+passed to `general--define-prefix'."
+  ;; NOTE will be called twice if both specified, but doesn't matter because
+  ;; won't recreate prefix-command
+  (setf (cl-getf edef :def)
+        (general--define-prefix (plist-get edef :prefix-command)
+                                (plist-get edef :prefix-map)
+                                (plist-get edef :prefix-name)))
+  edef)
+
+(defalias 'general-extended-def-:prefix-map
+  #'general-extended-def-:prefix-command)
+
+;; http://endlessparentheses.com/define-context-aware-keys-in-emacs.html
+(defun general-extended-def-:predicate (_state _keymap _key edef kargs)
+  "Return an altered extended definition EDEF with a predicate applied.
+The predicate is obtained either from EDEF or KARGS."
+  (let ((def (cl-getf edef :def))
+        (predicate (general--getf edef kargs :predicate)))
+    (setf (cl-getf edef :def)
+          `(menu-item
+            "" nil
+            :filter (lambda (&optional _)
+                      (when ,predicate
+                        ',def))))
+    edef))
+
+;; ** Parsing Extended Definitions
 (defun general--extended-def-p (def)
   "Return whether DEF is an extended definition."
   (and (listp def)
@@ -756,73 +844,94 @@ with :package). If the keymap already exists, it will simply be returned."
        ;; will error on cons
        (ignore-errors (cl-some #'keywordp def))))
 
-(defun general--define-prefix (command-name &optional map-name menu-name)
-  "Define a prefix command and/or keymap.
-COMMAND-NAME corresponds to the prefix command name. When COMMAND-NAME is
-non-nil, `define-prefix-command' will be used and will be passed MAP-NAME and
-MENU-NAME. When COMMAND-NAME is nil and MAP-NAME is non-nil, only a prefix
-keymap will be created, and its menu name/prompt will be set to MENU-NAME (if
-MENU-NAME is non-nil). Existing prefix keymaps/commands will not be
-recreated/rebound."
-  (unless (or (and command-name (fboundp command-name))
-              (and map-name (boundp map-name)))
-    (cond (command-name
-           (define-prefix-command command-name map-name menu-name))
-          (map-name
-           (eval `(defvar ,map-name (make-sparse-keymap ,menu-name)))))))
+(defun general--normalize-extended-def (edef)
+  "Rewrite the extended definition EDEF to include a :def property.
+If EDEF is not an extended defintion, make it into one.
 
-(defun general--run-extended-def-functions (state keymap key def kargs)
+This handles the allowed shorthand syntax. For example, these are the same:
+
+ (some-func)
+ (:def some-func)
+
+Some extended definition keywords can be used instead of :def (mainly for
+backwards compatibility). For example, these are the same:
+
+ (some-keymap :keymap t)
+ (:keymap some-keymap)
+ (:def some-keymap :keymap t)"
+  ;; NOTE: This is absolutely necessary for plist functions to work
+  (if (general--extended-def-p edef)
+      (unless (keywordp (car edef))
+        (setq edef (cons :def edef)))
+    (setq edef (list :def edef)))
+  ;; :keymap checks :def always instead of :keymap, and :which-key also checks
+  ;; :def always (instead of :prefix-command)
+  ;; note that :keymap and :prefix-map will later rewrite their :def to the
+  ;; actual keymap value
+  (unless (plist-get edef :def)
+    (setf (cl-getf edef :def)
+          (cl-getf edef :keymap
+                   (cl-getf edef :prefix-command
+                            (plist-get edef :prefix-map)))))
+  edef)
+
+(defun general--extract-def (edef)
+  "Return the bindable definition from the extended definition EDEF."
+  (if (plist-get edef :ignore)
+      ;; just for side effects (e.g. which-key description for prefix)
+      ;; return something that isn't a valid definition
+      :ignore
+    (plist-get edef :def)))
+
+(defun general--run-extended-def-functions (state keymap key edef kargs)
   "Run the extended definition functions for the matched keywords.
-Each extended definition function will be passed STATE, KEYMAP, KEY, DEF, and
-KARGS. For each keyword from `general-extended-def-keywords' found in DEF or
-KARGS, call the corresponding function named general--extended-def-:keyword."
-  (dolist (keyword general-extended-def-keywords)
-    (when (general--getf def kargs keyword)
-      (funcall (intern (concat "general-extended-def-"
-                               (symbol-name keyword)))
-               state keymap key def kargs))))
+Pass each extended definition function STATE, KEYMAP, KEY, EDEF, and KARGS. For
+each keyword from `general-extended-def-keywords',
+`general-rewrite-def-keywords', and `general-rewrite-def-after-keywords' found
+in EDEF or KARGS, call the corresponding function named
+general-extended-def-:<keyword>. The functions for
+`general-rewrite-def-keywords' will rewrite the extended definition plist before
+the functions for `general-extended-def-keywords' are called, and the functions
+for `general-rewrite-def-after-keywords' are called after that. Functions
+are called in the order they appear in each list. Finally, return the
+potentially altered extended definition plist."
+  (cl-flet ((run-edef-functions
+             (keywords &optional alter-def)
+             (dolist (keyword keywords)
+               (when (or (plist-get edef keyword)
+                         (and (not
+                               (memq
+                                keyword
+                                general-extended-def-global-ignore-keywords))
+                              (plist-get kargs keyword)))
+                 (let ((ret (funcall
+                             (intern (format "general-extended-def-%s" keyword))
+                             state keymap key edef kargs)))
+                   (when alter-def
+                     (setq edef ret)))))))
+    (run-edef-functions general-rewrite-def-keywords t)
+    (run-edef-functions general-extended-def-keywords)
+    (run-edef-functions general-rewrite-def-after-keywords t))
+  edef)
 
 (defun general--parse-def (state keymap key def kargs)
-  "Rewrite DEF into a valid definition.
-This function will execute the actions specified in an extended definition and
-apply a predicate if there is one."
-  (cond ((general--extended-def-p def)
-         ;; NOTE: This is absolutely necessary for plist functions to work
-         (unless (keywordp (car def))
-           (setq def (cons :def def)))
-         (general--run-extended-def-functions state keymap key def kargs)
-         (cond ((cl-getf def :ignore)
-                ;; just for side effects (e.g. which-key description for prefix)
-                ;; return something that isn't a valid definition
-                :ignore)
-               ((cl-getf def :keymap)
-                ;; bind or autoload
-                (general--maybe-autoload-keymap state keymap def kargs))
-               (t
-                (let ((prefix-map-name (cl-getf def :prefix-map)))
-                  (general--define-prefix (cl-getf def :prefix-command)
-                                          prefix-map-name
-                                          (cl-getf def :prefix-name))
-                  (general--maybe-apply-predicate
-                   (general--getf def kargs :predicate)
-                   (or (symbol-value prefix-map-name)
-                       (general--getf2 def :def :prefix-command)))))))
-        (t
-         (general--run-extended-def-functions state
-                                              keymap
-                                              key
-                                              (list :def def)
-                                              kargs)
-         ;; not an extended definition
-         (general--maybe-apply-predicate (cl-getf kargs :predicate) def))))
+  "Rewrite DEF into a valid/bindable definition.
+This function will execute all extended definitions, potentially rewriting the
+original definition (e.g. applying a predicate). Pass STATE, KEYMAP, KEY, DEF, and
+KARGS to each matched extended definition function. See
+`general--run-extended-def-functions' for more information."
+  (setq def (general--normalize-extended-def def))
+  (general--extract-def
+   (general--run-extended-def-functions state keymap key def kargs)))
 
 (defun general--parse-maps (state keymap maps kargs)
   "Rewrite MAPS so that the definitions are bindable.
 This includes possibly calling `kbd' on keys and parsing extended definitions.
-MAPS will be altered to turn key binding pairs into triples in the form of (key
-parsed-def original-def) where parsed-def is the bindable form and original-def
-is the unaltered form (e.g. an extended definition; \":def\" will be implicitly
-added to the beginning of extended definitions when necessary)."
+Turn key/binding pairs in MAPS into triples in the form of (key parsed-def
+original-def) where parsed-def is the bindable form and original-def is the
+original definition as an extended definition plist (turn normal definitions
+into extended definition plists and implicitly add \":def\" to the beginning of
+extended definitions when necessary)."
   (let (bindable-def)
     (cl-loop for (key def) on maps by 'cddr
              do (setq bindable-def
@@ -832,10 +941,7 @@ added to the beginning of extended definitions when necessary)."
              and collect (if general-implicit-kbd
                              (general--kbd bindable-def)
                            bindable-def)
-             and collect (if (and (general--extended-def-p def)
-                                  (not (keywordp (car def))))
-                             (cons :def def)
-                           def))))
+             and collect (general--normalize-extended-def def))))
 
 ;; * Helper Key Definers
 (declare-function evil-define-minor-mode-key "evil-core")
