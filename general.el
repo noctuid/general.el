@@ -1286,7 +1286,13 @@ Keyword arguments and strings/vectors are not considered positional arguments."
   "General definer that takes a variable number of positional arguments in ARGS.
 This macro will act as `general-define-key', `general-emacs-define-key', or
 `general-evil-define-key' based on how many of the initial arguments do not
-correspond to keybindings."
+correspond to keybindings. All quoted and non-quoted lists and symbols before
+the first string, vector, or keyword are considered to be positional arguments.
+This means that you cannot use a function or variable for a key that starts
+immediately after the positional arguments. If you need to do this, you should
+use one of the definers that `general-def' dispatches to or explicitly separate
+the positional arguments from the maps with a bogus keyword pair like
+\":start-maps t\""
   (declare (indent defun))
   (let ((pos-args 0))
     (while (general--positional-arg-p (nth pos-args args))
@@ -1300,23 +1306,31 @@ correspond to keybindings."
        `(general-evil-define-key ,@args)))))
 
 ;;;###autoload
-(defmacro general-create-definer (name &rest defaults)
+(cl-defmacro general-create-definer (name &rest defaults &key wrapping
+                                          &allow-other-keys)
   "A helper macro to create wrappers for `general-def'.
 This can be used to create key definers that will use a certain keymap, evil
 state, prefix key, etc. by default. NAME is the wrapper name and DEFAULTS are
-the default arguments."
+the default arguments. WRAPPING can also be optionally specified to use a
+different definer than `general-def'. It should not be quoted."
   (declare (indent defun))
-  `(defmacro ,name (&rest args)
-     (declare (indent defun))
-     ,(let ((print-quoted t))
-        (format
-         "A wrapper for `general-def'.
+  (let ((defaults (cl-loop for (key val) on defaults by 'cddr
+                           unless (eq key :wrapping)
+                           collect key
+                           and collect val))
+        (definer (or wrapping 'general-def)))
+    `(defmacro ,name (&rest args)
+       (declare (indent defun))
+       ,(let ((print-quoted t))
+          (format
+           "A wrapper for `%s'.
 
 It has the following defaults:
 %s"
-         defaults))
-     ;; can still override keywords afterwards (first keyword takes precedence)
-     `(general-def ,@args ,@',defaults)))
+           definer defaults))
+       ;; can still override keywords afterwards (first keyword takes precedence)
+       `(,',definer
+          ,@args ,@',defaults))))
 
 (defun general--starter-arg-p (arg)
   "Return whether ARG is a keyword or positional argument for a key definer."

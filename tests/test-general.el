@@ -793,7 +793,10 @@ Return t if successful or a cons corresponding to the failed key and def."
 ;; ** User-created Definers
 (describe "wrappers created with `general-create-definer'"
   (before-all
-    (general-create-definer general-nmap :states 'normal))
+    (general-create-definer general-nmap :states 'normal)
+    (general-create-definer general-emacs-def
+      :wrapping general-emacs-define-key
+      :states 'normal))
   (after-each
     (setq general-temp-map (make-sparse-keymap)))
   (it "should use the specified arguments by default"
@@ -819,6 +822,16 @@ Return t if successful or a cons corresponding to the failed key and def."
     (expect (general-test-keys 'normal general-temp-map
               "a" nil))
     (expect (general-test-keys 'visual general-temp-map
+              "a" #'a)))
+  (it "should allow wrapping any definer"
+    (let ((key "a"))
+      (general-emacs-def general-temp-map key #'a)
+      (general-emacs-def general-temp-map
+        key #'a
+        :states nil))
+    (expect (general-test-keys 'normal general-temp-map
+              "a" #'a))
+    (expect (general-test-keys nil general-temp-map
               "a" #'a))))
 
 ;; ** Use-package Keywords

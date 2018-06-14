@@ -333,7 +333,7 @@ Vim-like definitions:
 ** Switching Completely to General
 It is possible to gradually switch to using general by using it only for new configuration and slowly converting old configuration if desired. If you would like to quickly convert all keybindings in your init file to use general so that they show up with ~general-describe-keybindings~, you can potentially use regexp replace. For example, you could use =M-< C-M-% \(global-set-key\|define-key\|evil-global-set-key\|evil-define-key\) RET general-def RET !=. The evil equivalent would be =:%s/\(global-set-key\|define-key\|evil-global-set-key\|evil-define-key\)/general-def/g=.
 
-There are two caveats. The old key definers all require using ~kbd~. This means that you will either have to remove every ~kbd~ in these key definers (e.g. =:%s/(kbd ?\(.*?\))/\1/gc=; you should likely confirm whether each ~kbd~ should be removed) or set =general-implicit-kbd= to nil for the old configuration. Furthermore, ~general-def~ can only correctly replace definer statements where the first specified key is a string or vector. It will not work correctly to replace a definer that uses a variable for the first key (e.g. ~(global-set-key my-key 'command)~ cannot be replaced with ~general-def~).
+There are two caveats. The old key definers all require using ~kbd~. This means that you will either have to remove every ~kbd~ in these key definers (e.g. =:%s/(kbd ?\(.*?\))/\1/gc=; you should likely confirm whether each ~kbd~ should be removed) or set =general-implicit-kbd= to nil for the old configuration. Furthermore, ~general-def~ can only correctly replace definer statements where the first specified key is a string or vector. It will not work correctly to replace a definer that uses a variable or function for the first key (e.g. ~(global-set-key my-key 'command)~ cannot be replaced directly with ~general-def~). To use general for definitions like this, you must either use the actual equivalent definer that ~general-def~ ends up using  (~general-define-key~, ~general-emacs-define-key~, or ~evil-define-key~) or explicitly separate the positional arguments from the first key with a bogus keyword argument (e.g. ~(general-def :start-maps my-key 'command)~).
 
 If you decide to do this, please make sure that your configuration is backed up, and test this out to make sure that there are no errors before permanently changing your configuration.
 
@@ -531,7 +531,12 @@ The third macro, ~general-def~, is provided for those who would prefer to use a 
 (evil-define-key 'normal org-mode-map (kbd "key") 'def)
 #+end_src
 
-Note that if you want to use variables to hold keys (e.g. =key-var 'def=), you should use ~general-define-key~. If those were the first arguments to ~general-def~, it would consider them a state and keymap. Using variables for keys isn't recommended and probably isn't useful. If you want to use a variable specifically with =:prefix= or another keyword argument, that is still supported by ~general-def~.
+Note that all leading quoted and unquoted symbols and lists are considered to be positional arguments. This means that if you want to use a variable or function for a key that could be a positional argument, you should either use the definer ~general-def~ would end up using (~general-define-key~, ~general-emacs-define-key~, or ~evil-define-key~)  or explicitly separate the positional arguments from the first key with a bogus keyword argument:
+#+begin_src emacs-lisp
+(general-def
+  :start-maps t
+  some-key 'some-command)
+#+end_src
 
 *** Mass Key Unbinding Wrapper
 ~general-unbind~ acts as ~general-def~, but the positional arguments should all be keys (instead of pairs of keys and definitions) that should be unbound:
@@ -592,6 +597,13 @@ The ~general-create-definer~ macro can create definers that wrap ~general-def~ b
 (tyrant-def org-mode-map "o" 'counsel-org-goto)
 ;; same as
 (tyrant-def :keymaps 'org-mode-map "o" 'counsel-org-goto)
+#+end_src
+
+It takes an optional =:wrapping= keyword argument that can be specified to use another definer instead of ~general-def~:
+#+begin_src emacs-lisp
+(general-create-definer my-prefix-def
+  :wrapping general-emacs-define-key
+  :prefix "M-,")
 #+end_src
 
 *** Vim-like Definers
