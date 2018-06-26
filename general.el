@@ -1461,7 +1461,7 @@ If X and Y are conses, the first element will be compared. Ordering is based on
   "Print the keybinding MAP."
   (cl-destructuring-bind (key command previous) map
     (princ (format "|=%.50s=|~%.50s~|~%.50s~|\n"
-                   (key-description key)
+                   (replace-regexp-in-string "|" "¦" (key-description key))
                    command
                    previous))))
 
