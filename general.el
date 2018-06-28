@@ -1498,18 +1498,24 @@ If X and Y are conses, the first element will be compared. Ordering is based on
 (declare-function outline-next-heading "outline")
 (defvar org-startup-folded)
 ;;;###autoload
-(defun general-describe-keybindings ()
+(defun general-describe-keybindings (&optional arg)
   "Show all keys that have been bound with general in an org buffer.
-Any local keybindings will be shown first followed by global keybindings."
-  (interactive)
+Any local keybindings will be shown first followed by global keybindings.
+With a non-nil prefix ARG only show bindings in active maps."
+  (interactive "P")
   (with-output-to-temp-buffer "*General Keybindings*"
     (let* ((keybindings (append
                          (copy-alist general-keybindings)
-                         (list (cons 'local general-local-keybindings)))))
+                         (list (cons 'local general-local-keybindings))))
+           (active-maps (current-active-maps)))
       ;; print prioritized keymaps first (if any)
       (dolist (keymap general-describe-priority-keymaps)
         (let ((keymap-cons (assq keymap keybindings)))
-          (when keymap-cons
+          (when (and keymap-cons
+                     (or (null arg)
+                         (and (boundp (car keymap-cons))
+                              (memq (symbol-value (car keymap-cons))
+                                    active-maps))))
             (general--print-keymap-heading keymap-cons)
             (setq keybindings (assq-delete-all keymap keybindings)))))
       ;; sort the remaining and then print them
@@ -1517,7 +1523,10 @@ Any local keybindings will be shown first followed by global keybindings."
         (setq keybindings (funcall general-describe-keymap-sort-function
                                    keybindings)))
       (dolist (keymap-cons keybindings)
-        (general--print-keymap-heading keymap-cons))))
+        (when (or (null arg)
+                  (and (boundp (car keymap-cons))
+                       (memq (symbol-value (car keymap-cons)) active-maps)))
+          (general--print-keymap-heading keymap-cons)))))
   (with-current-buffer "*General Keybindings*"
     (let ((org-startup-folded 'showall))
       (org-mode))
