@@ -262,6 +262,7 @@ This is only for non-evil keybindings (it won't override keys bound with
   "A global minor mode used for key definitions that should override others."
   :lighter ""
   :global t
+  :require 'general
   :keymap general-override-mode-map)
 
 (defvar-local general-override-local-mode-map (make-sparse-keymap)
