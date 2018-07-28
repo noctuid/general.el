@@ -224,10 +224,10 @@ Return t if successful or a cons corresponding to the failed key and def."
                "C-a" #'backward-char)
               "C-a")
             :to-equal "f|oo")
+    ;; should not affect other buffers
     (expect (general-with "fo|o"
               (evil-local-mode -1)
-              ;; TODO this test works in open emacs but when running
-              ;; (general-override-local-mode)
+              (general-override-local-mode)
               "C-a")
             :to-equal "|foo")
     (general-define-key

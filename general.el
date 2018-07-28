@@ -265,11 +265,12 @@ This is only for non-evil keybindings (it won't override keys bound with
   :require 'general
   :keymap general-override-mode-map)
 
-(defvar-local general-override-local-mode-map (make-sparse-keymap)
+(defvar-local general-override-local-mode-map nil
   "A keymap that will take priority over other minor mode keymaps.
 This keymap is buffer-local and will take precedence over
 `general-override-mode-map'. General uses this keymap when creating non-evil
 local keybindings.")
+(put 'general-override-local-mode-map 'permanent-local t)
 
 (define-minor-mode general-override-local-mode
   "A local minor mode used for key definitions that should override others."
@@ -328,9 +329,12 @@ local version."
 (cl-pushnew 'general-maps-alist emulation-mode-map-alists)
 
 (defun general-local-map ()
-  "Return `general-override-local-mode-map'.
+  "Return `general-override-local-mode-map', initializing it if necessary.
 Also turn on `general-override-local-mode' and update `general-maps-alist'."
   (or general-override-local-mode (general-override-local-mode))
+  (unless (and general-override-local-mode-map
+               (local-variable-p general-override-local-mode-map))
+    (setq general-override-local-mode-map (make-sparse-keymap)))
   (unless general--maps-alist-updated
     (general--update-maps-alist))
   general-override-local-mode-map)
