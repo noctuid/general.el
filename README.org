@@ -889,7 +889,7 @@ As a final note, if you, for example, bind =s= to a command using ~general-defin
 General.el also provides a few helper functions/macros for other configuration purposes. They are intended to be slightly more convenient versions of functions/macros provided by default.
 
 ** Settings
-~general-setq~ is a stripped-down ~customize-set-variable~ that can act as a drop-in replacement for ~setq~. Some variables defined with ~defcustom~ specify a custom setter with =:set= that must be used for changes to take effect (e.g. =auto-revert-interval=). ~setq~ cannot be used to set such variables correctly if the corresponding package has already been loaded, but ~general-setq~ will correctly use the custom setter when necessary. The benefit of ~general-setq~ over ~customize-set-variable~ is that it can be used to set multiple variables at once. It does not do everything ~customize-set-variable~ does (e.g. it cannot be used interactively, does not attempt to load variable dependencies, and does not allow the user to specify comments). From some basic testing, it is 10x to 100x faster because of this, but the speed difference should not be noticeable if you aren't setting thousands of variables during emacs initialization.
+~general-setq~ is a stripped-down ~customize-set-variable~ that can act as a drop-in replacement for ~setq~. The reason you might want to use it instead of ~setq~ is that ~setq~ cannot correctly set all variables. Some variables defined with ~defcustom~ specify a custom setter with =:set= that must be used for changes to take effect (e.g. =auto-revert-interval=). If the corresponding package has already been loaded, using ~setq~ will generally not work to set these variables. On the other hand, ~general-setq~ will correctly use the custom setter when necessary. One benefit of ~general-setq~ over ~customize-set-variable~ is that it can be used to set multiple variables at once. It does not do everything ~customize-set-variable~ does (e.g. it cannot be used interactively, does not attempt to load variable dependencies, and does not allow the user to specify comments). From some basic testing, it is 10x to 100x faster because of this, but the speed difference should not really be noticeable if you aren't setting thousands of variables during emacs initialization.
 
 Here's an example using variables that have a custom setter:
 #+begin_src emacs-lisp
@@ -899,6 +899,10 @@ Here's an example using variables that have a custom setter:
 #+end_src
 
 Note that ~setq~ will work as expected as long it is used before the corresponding package is loaded, but with ~customize-set-variable~ or ~general-setq~, you do not need to worry about whether or not the package has been loaded. If you decide to use ~general-setq~, I'd recommend aliasing it to something shorter like ~gsetq~.
+
+One major difference from ~customize-set-variable~ that you should be aware of is that ~general-setq~ falls back to using ~set~ instead of ~set-default~. This means that, like ~setq~, it will alter the local value of buffer-local variables instead of the default value.
+
+For now there is no ~general-setq-default~ or ~general-setq-local~. The reason for this is that I have never seen any setters that handle both local and default variable changes (they generally just use ~set-default~). If you are aware of a situation where it might be useful to have these setters, please make an issue.
 
 ** Hooks and Advice
 ~general-add-hook~, ~general-remove-hook~, ~general-advice-add~, and ~general-advice-remove~ all act as drop-in replacements for their corresponding functions but allow lists for some of the arguments. The hook functions allow specifying lists for the hooks and functions, and the advice functions allow specifying lists for the symbols and functions. Because I don't like the difference in naming for the default advice functions, ~general-add-advice~ and ~general-remove-advice~ are also provided as aliases.
