@@ -333,7 +333,7 @@ local version."
 Also turn on `general-override-local-mode' and update `general-maps-alist'."
   (or general-override-local-mode (general-override-local-mode))
   (unless (and general-override-local-mode-map
-               (local-variable-p general-override-local-mode-map))
+               (local-variable-p 'general-override-local-mode-map))
     (setq general-override-local-mode-map (make-sparse-keymap)))
   (unless general--maps-alist-updated
     (general--update-maps-alist))
