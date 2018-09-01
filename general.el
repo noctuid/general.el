@@ -40,7 +40,7 @@
 (defgroup general nil
   "Gives convenient wrappers for key definitions."
   :group 'convenience
-  :prefix 'general-)
+  :prefix "general-")
 
 (defcustom general-implicit-kbd t
   "Whether to implicitly wrap a (kbd) around `general-define-key' keys.
