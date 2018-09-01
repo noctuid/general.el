@@ -2386,35 +2386,35 @@ is the mode inferred hook to enable the package's mode. When ARGLIST is a symbol
 instead of a list, it will be considered to be a hook name unless
 SYMBOL-IS-FUNCTION-P is non-nil, in which case it will considered to be a
 function."
-    ;; standalone symbols are quoted automatically; unquote
-    (when (ignore-errors (memq (car arglist) (list 'quote 'function)))
-      (setq arglist (cadr arglist)))
-    (cond ((listp arglist)
-           ;; necessary to extract commands because they could be stored in a
-           ;; variable or returned by a macro/function
-           ;; e.g. (list #'func1 #'func2) needs to be evaluated
-           (setq arglist (mapcar (lambda (arg) (eval arg))
-                                 arglist))
+    (cond ((ignore-errors (memq (car arglist) (list 'quote 'function)))
+           ;; user passed in a hook or function; leave as is
+           (if symbol-is-function-p
+               ;; '<package>-mode-hook <user specified function>
+               `(',mode-hook ,arglist)
+             ;; <user specified hook> #'<package>-mode
+             `(,arglist ',mode-enable)))
+          ((symbolp arglist)
+           ;; user passed in an unquoted symbol (variable); don't quote it
+           (if symbol-is-function-p
+               `(',mode-hook ,arglist)
+             `(,arglist ',mode-enable)))
+          (t
+           ;; actual list for `general-add-hook'
            (if (= (length arglist) 1)
                ;; <user specified hook(s)> #'<package>-mode
-               (append arglist (list mode-enable))
+               `(,(car arglist) ',mode-enable)
              (let ((hooks (car arglist))
                    (functions (cadr arglist)))
                (when (or (null hooks)
                          (not (or (symbolp hooks)
                                   (listp hooks))))
-                 (setq hooks mode-hook))
+                 (setq hooks `',mode-hook))
                (when (or (null functions)
                          (not (or (symbolp functions)
                                   (listp functions))))
-                 (setq functions mode-enable))
-               (cons hooks (cons functions (cddr arglist))))))
-          (t
-           (if symbol-is-function-p
-               ;; '<package>-mode-hook <user specified function>
-               (list mode-hook arglist)
-             ;; <user specified hook> #'<package>-mode
-             (list arglist mode-enable)))))
+                 (setq functions `',mode-enable))
+               ;; (cons hooks (cons functions (cddr arglist)))
+               `(,hooks ,functions ,@(cddr arglist)))))))
 
   ;; altered args will be passed to the autoloads and handler functions
   (defun general-normalize-hook (name _keyword args &optional gfhookp)
@@ -2432,18 +2432,27 @@ Transform ARGS into arglists suitable for `general-add-hook'."
 
   (defun use-package-autoloads/:ghook (_name _keyword arglists)
     "Return an alist of commands extracted from ARGLISTS.
-Return something like '((some-command-to-autoload . command) ...)."
-    (let ((commands
-           (cl-loop for (_ functions) in arglists
-                    if (symbolp functions)
-                    collect functions
-                    else
-                    unless (functionp functions)
-                    append (cl-loop for function in functions
-                                    when (symbolp function)
-                                    collect function))))
-      (mapcar (lambda (command) (cons command 'command))
-              commands)))
+Return somethin"
+    (let (functions)
+      (dolist (arglist arglists)
+        (let ((function-position (cadr arglist)))
+          (cond ((not (listp function-position))
+                 ;; (not (ignore-errors (car function-position)))
+                 ;; ignore variables
+                 )
+                ((and (memq (car function-position) (list 'quote 'function))
+                      (not (listp (cadr function-position))))
+                 (push (cons (cadr function-position) 'command) functions))
+                ((eq (car function-position) 'list)
+                 (dolist (func (cdr function-position))
+                   ;; ignore variables and function/macro calls
+                   (when (and (listp func)
+                              (memq (car func) (list 'quote 'function)))
+                     (push (cons (cadr func) 'command) functions))))
+                (t
+                 (dolist (func (cadr function-position))
+                   (push (cons func 'command) functions))))))
+      functions))
 
   (defun use-package-handler/:ghook (name _keyword arglists rest state)
     "Use-package handler for :ghook and :gfhook."
@@ -2451,9 +2460,7 @@ Return something like '((some-command-to-autoload . command) ...)."
      (use-package-process-keywords name rest state)
      `(,@(mapcar (lambda (arglist)
                    arglist
-                   ;; requote (unfortunately need to evaluate in normalizer)
-                   `(general-add-hook ,@(mapcar (lambda (x) `',x)
-                                                arglist)))
+                   `(general-add-hook ,@arglist))
                  arglists))))
 
   (defun use-package-normalize/:gfhook (name keyword args)

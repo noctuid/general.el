@@ -956,20 +956,40 @@ Return t if successful or a cons corresponding to the failed key and def."
   (before-all
     (defvar general-hook1 nil)
     (defvar general-hook2 nil)
+    (defvar general-hook3 nil)
+    (defvar general-hook4 nil)
     (defvar general-hooks '(general-hook1 general-hook2)))
   (before-each
     (setq general-hook1 nil
-          general-hook2 nil))
-  (describe "with a hook symbol"
+          general-hook2 nil
+          general-hook3 nil
+          general-hook4 nil))
+  ;; :defer t isn't necessary since it is implied for :ghook
+  (describe "specified with a variable"
     (it "should infer the function to add based on the package name"
       (use-package general-fake
-        :ghook
-        general-hook1)
+        :ghook general-hooks)
+      (expect general-hook1
+              :to-equal '(general-fake-mode))
+      (expect general-hook2
+              :to-equal '(general-fake-mode))
+      ;; test with `let'
+      (let ((hooks '(general-hook3 general-hook4)))
+        (use-package general-fake-mode
+          :ghook hooks))
+      ;; should not add an extra -mode
+      (expect general-hook3
+              :to-equal '(general-fake-mode))
+      (expect general-hook4
+              :to-equal '(general-fake-mode))))
+  (describe "specified with a hook symbol"
+    (it "should infer the function to add based on the package name"
+      (use-package general-fake
+        :ghook 'general-hook1)
       (expect general-hook1
               :to-equal '(general-fake-mode))
       (use-package general-fake-mode
-        :ghook
-        general-hook2)
+        :ghook 'general-hook2)
       ;; should not add an extra -mode
       (expect general-hook2
               :to-equal '(general-fake-mode))))
@@ -997,8 +1017,7 @@ Return t if successful or a cons corresponding to the failed key and def."
               :to-equal '(general-fake-mode))
       (expect general-hook2
               :to-equal '(general-fake-mode)))
-    ;; TODO works in actual emacs but not in buttercup
-    (xit "should work, for example, with variable containing a list of hooks"
+    (it "should work, for example, with variable containing a list of hooks"
       (use-package general-fake
         :ghook
         (general-hooks))
@@ -1011,9 +1030,11 @@ Return t if successful or a cons corresponding to the failed key and def."
         :ghook
         ('general-hook1 #'general-fake-func1)
         ('general-hook1 '(general-fake-func2 general-fake-func3))
-        ('general-hook1 (list #'general-fake-func4)))
+        ('general-hook1 (list #'general-fake-func4))
+        ('general-hook1 (lambda ())))
       (expect general-hook1
-              :to-equal '(general-fake-func4
+              :to-equal `(,(lambda ())
+                          general-fake-func4
                           general-fake-func3
                           general-fake-func2
                           general-fake-func1)))
@@ -1026,37 +1047,60 @@ Return t if successful or a cons corresponding to the failed key and def."
               :to-equal '(general-fake-func1
                           general-fake-func2)))
     (it "should add autoloads for non-lambda functions"
-      ;; not necessary to run again
-      (use-package general-fake
-        :ghook 'general-hook1)
-      (expect (functionp #'general-fake-mode)))))
+      (expect (not (functionp #'general-autoload-me-mode)))
+      (expect (not (functionp #'general-autoload-me1)))
+      (expect (not (functionp #'general-autoload-me2)))
+      (expect (not (functionp #'general-autoload-me3)))
+      (expect (not (functionp #'general-autoload-me4)))
+      (defvar general-some-var nil)
+      (defun general-some-call ())
+      (use-package general-autoload-me
+        :ghook 'general-hook1
+        ('general-hook1 general-some-var)
+        ('general-hook1 (lambda ()))
+        ('general-hook1 #'general-autoload-me1)
+        ('general-hook1 'general-autoload-me2)
+        ('general-hook1 '(general-autoload-me3))
+        ('general-hook1 (list #'general-autoload-me4 general-some-var
+                              (general-some-call) (lambda ()))))
+      (expect (not (functionp 'general-some-var)))
+      (expect (functionp #'general-autoload-me-mode))
+      (expect (functionp #'general-autoload-me1))
+      (expect (functionp #'general-autoload-me2))
+      (expect (functionp #'general-autoload-me3))
+      (expect (functionp #'general-autoload-me4)))))
 
 ;; *** :gfhook
 (describe "the :gfhook use-package keyword"
   (before-all
     (defvar general-fake-mode-hook nil)
-    (defvar general-hook1 nil))
+    (defvar general-hook1 nil)
+    (defvar general-fake-functions '(general-fake-func1 general-fake-func2)))
   (before-each
     (setq general-fake-mode-hook nil
           general-hook1 nil))
-  (describe "with a function symbol"
+  (describe "specified with a variable"
     (it "should infer the hook to add to based on the package name"
       (use-package general-fake
         :defer t
-        :gfhook
-        general-fake-func1
-        #'general-fake-func2)
+        :gfhook general-fake-functions)
       (expect general-fake-mode-hook
-              :to-equal '(general-fake-func2 general-fake-func1))
+              :to-equal '(general-fake-func2 general-fake-func1))))
+  (describe "specified with a function symbol"
+    (it "should infer the hook to add to based on the package name"
+      (use-package general-fake
+        :defer t
+        :gfhook #'general-fake-func1)
+      (expect general-fake-mode-hook
+              :to-equal '(general-fake-func1))
       (use-package general-fake-mode
         :defer t
         :gfhook
-        'general-fake-func3
-        #'general-fake-func4)
+        'general-fake-func2
+        #'general-fake-func3)
       ;; should not add an extra -mode
       (expect general-fake-mode-hook
-              :to-equal '(general-fake-func4
-                          general-fake-func3
+              :to-equal '(general-fake-func3
                           general-fake-func2
                           general-fake-func1))))
   (describe "specified with a `general-add-hook' arglist"
@@ -1074,13 +1118,15 @@ Return t if successful or a cons corresponding to the failed key and def."
         :defer t
         :gfhook
         (nil '(general-fake-func1 general-fake-func2))
-        (nil (list #'general-fake-func3 #'general-fake-func4)))
+        (nil (list #'general-fake-func3 #'general-fake-func4))
+        (nil (lambda ())))
       (expect general-fake-mode-hook
-              :to-equal '(general-fake-func4
+              :to-equal `(,(lambda ())
+                          general-fake-func4
                           general-fake-func3
                           general-fake-func2
                           general-fake-func1)))
-    (xit "should work, for example, with a macro that expands to a function"
+    (it "should work, for example, with a macro that expands to a function"
       (defmacro disable (mode)
         `(lambda () (,mode -1)))
       (use-package general-fake
@@ -1088,7 +1134,7 @@ Return t if successful or a cons corresponding to the failed key and def."
         :gfhook
         (nil (disable visual-line-mode)))
       (expect general-fake-mode-hook
-              :to-equal '((lambda () (visual-line-mode -1)))))
+              :to-equal `(,(lambda () (visual-line-mode -1)))))
     (it "should work with explicitly specified hooks"
       (use-package general-fake
         :defer t
