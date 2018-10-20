@@ -2198,6 +2198,14 @@ instead of the default value."
                 collect `(funcall (or (get ',var 'custom-set) #'set)
                                   ',var ,val))))
 
+(defalias 'general-setq-default #'setq-default
+  "An alias for `setq-default'.
+In the future, this will automatically record user settings using annalist.el.")
+
+(defalias 'general-setq-local #'setq-local
+  "An alias for `setq-local'.
+In the future, this will automatically record user settings using annalist.el.")
+
 ;; ** Hooks
 ;;;###autoload
 (defun general-add-hook (hooks functions &optional append local)
