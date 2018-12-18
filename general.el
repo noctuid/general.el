@@ -2257,6 +2257,25 @@ Unlike `advice-remove', SYMBOLS and FUNCTIONS can be single items or lists."
 ;;;###autoload (autoload 'general-remove-advice "general")
 (defalias 'general-remove-advice #'general-advice-remove)
 
+;; ** Packages
+(defvar general-package nil
+  "Holds the current package name.
+This variable is used to automatically associated recorded keybindings,
+settings, etc. with a package.")
+
+(defmacro general-with-package (package &rest body)
+  "After PACKAGE is loaded, run BODY.
+This is a small wrapper around `with-eval-after-load' that sets
+`general-package', so that general commands that record information can
+automatically record the package as well. It is meant to be used in addition to
+`use-package' in cases where the user has a lot of configuration for a package
+and wants to split it up into sections instead of putting it all inside a single
+`use-package' statement."
+  (declare (indent 1))
+  `(let ((general-package ,package))
+     (general-with-eval-after-load ,package
+       ,@body)))
+
 ;; * Optional Setup
 ;;;###autoload
 (defun general-evil-setup (&optional short-names _)
