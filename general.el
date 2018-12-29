@@ -1344,15 +1344,10 @@ It has the following defaults:
   (or (keywordp arg)
       (general--positional-arg-p arg)))
 
-;;;###autoload
-(defmacro general-defs (&rest args)
-  "A wrapper that splits into multiple `general-def's.
-Each consecutive grouping of positional argument followed by keyword/argument
-pairs (having only one or the other is fine) marks the start of a new section.
-Each section corresponds to one use of `general-def'. This means that settings
-only apply to the keybindings that directly follow."
-  (declare (indent defun)
-           (debug [&rest sexp]))
+(defun general--parse-defs-arglists (args)
+  "Parse ARGS to `general-defs' into a list of `general-def' arglists.
+ARGS is split on \"starter arguments\" as determined by
+`general--starter-arg-p'."
   (let (arglists
         arglist)
     (while args
@@ -1365,10 +1360,21 @@ only apply to the keybindings that directly follow."
         (push (pop args) arglist))
       (push (nreverse arglist) arglists)
       (setq arglist nil))
-    `(progn
-       ,@(mapcar (lambda (arglist)
-                   (cons 'general-def arglist))
-                 (nreverse arglists)))))
+    (nreverse arglists)))
+
+;;;###autoload
+(defmacro general-defs (&rest args)
+  "A wrapper that splits into multiple `general-def's.
+Each consecutive grouping of positional argument followed by keyword/argument
+pairs (having only one or the other is fine) marks the start of a new section.
+Each section corresponds to one use of `general-def'. This means that settings
+only apply to the keybindings that directly follow."
+  (declare (indent defun)
+           (debug [&rest sexp]))
+  `(progn
+     ,@(mapcar (lambda (arglist)
+                 (cons 'general-def arglist))
+               (general--parse-defs-arglists args))))
 
 ;;;###autoload
 (cl-defmacro general-unbind (&rest args)
@@ -2350,17 +2356,24 @@ return nil."
                  unless (eq item :general)
                  collect item))
 
+  (defun general--sanitize-arglist (arglist)
+    "Remove positional/separator arguments from ARGLIST."
+    (let ((arglists (if (eq (car arglist) 'general-defs)
+                        (general--parse-defs-arglists (cdr arglist))
+                      (list arglist))))
+      (cl-loop for arglist in arglists
+               do (while (general--positional-arg-p (car arglist))
+                    (setq arglist (cdr arglist)))
+               and append arglist)))
+
   ;; altered args will be passed to the autoloads and handler functions
   (defun use-package-normalize/:general (_name _keyword general-arglists)
     "Return a plist containing the original ARGLISTS and autoloadable symbols."
     (let* ((sanitized-arglist
             ;; combine arglists into one without function names or
             ;; positional arguments
-            (let (result)
-              (dolist (arglist general-arglists result)
-                (while (general--positional-arg-p (car arglist))
-                  (setq arglist (cdr arglist)))
-                (setq result (append result arglist)))))
+            (cl-loop for arglist in general-arglists
+                     append (general--sanitize-arglist arglist)))
            (commands
             (cl-loop for (key def) on sanitized-arglist by 'cddr
                      when (and (not (keywordp key))

@@ -878,6 +878,36 @@ Return t if successful or a cons corresponding to the failed key and def."
     ;;                                  (general-nmap general-temp-map "a" #'a)))))
     (expect (general-test-keys 'normal general-temp-map
               "a" #'a)))
+  (it "should correctly extract definitions from general definer arglists"
+    (expect (plist-get (use-package-normalize/:general
+                        nil
+                        nil
+                        '((general-def "key" #'command)))
+                       :commands)
+            :to-equal '(command))
+    (expect (plist-get (use-package-normalize/:general
+                        nil
+                        nil
+                        '((general-def 'normal "key" #'command)))
+                       :commands)
+            :to-equal '(command))
+    (expect (plist-get (use-package-normalize/:general
+                        nil
+                        nil
+                        '((general-def 'normal general-temp-map
+                            "key" #'command)))
+                       :commands)
+            :to-equal '(command))
+    (expect (plist-get (use-package-normalize/:general
+                        nil
+                        nil
+                        '((general-defs
+                            'normal
+                            "key1" #'command1
+                            'visual
+                            "key2" #'command2)))
+                       :commands)
+            :to-equal '(command1 command2)))
   (it "should correctly extract symbols/commands to create autoloads from"
     (expect (general--extract-autoloadable-symbol nil)
             :to-be nil)
