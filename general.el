@@ -1368,7 +1368,12 @@ ARGS is split on \"starter arguments\" as determined by
 Each consecutive grouping of positional argument followed by keyword/argument
 pairs (having only one or the other is fine) marks the start of a new section.
 Each section corresponds to one use of `general-def'. This means that settings
-only apply to the keybindings that directly follow."
+only apply to the keybindings that directly follow.
+
+Since positional arguments can appear at any point, unqouted symbols are always
+considered to be positional arguments (e.g. a keymap). This means that variables
+can never be used for keys with `general-defs'. Variables can still be used for
+definitions or as arguments to keywords."
   (declare (indent defun)
            (debug [&rest sexp]))
   `(progn
