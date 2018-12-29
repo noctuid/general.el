@@ -31,6 +31,7 @@ Please switch to ~general-key~ or ~general-simulate-key~. Note that keyword argu
 
 * Table of Contents                                            :noexport:TOC:
 - [[#about][About]]
+- [[#dependency-versions][Dependency Versions]]
 - [[#key-features][Key Features]]
 - [[#reading-recommendations][Reading Recommendations]]
 - [[#usage-recommendations-and-documentation-clarifications][Usage Recommendations and Documentation Clarifications]]
@@ -88,6 +89,9 @@ Please switch to ~general-key~ or ~general-simulate-key~. Note that keyword argu
 One advantage of using ~general-define-key~ (or a wrapper for it) even in cases where its extra functionality isn't necessary and doesn't significantly improve brevity is that all keybindings are recorded and can be displayed later with ~general-describe-keybindings~.
 
 This manual explains the most relevant parts of every =general.el= feature. All user-facing functions, macros, and variables also have docstrings (e.g. accessible with =C-h f= or =C-h v=), so please consult these for further details.
+
+* Dependency Versions
+Please use MELPA and not MELPA stable for installing optional dependencies (e.g. evil and use-package). General may rely on functionality not in released versions for these packages, so if you are having trouble, please try updating them.
 
 * Key Features
 - Provides a single function, ~general-define-key~, that is usable for all key definition; wrappers are provided as well
