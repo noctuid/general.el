@@ -2379,7 +2379,12 @@ return nil."
                      when (and (not (keywordp key))
                                (not (null def))
                                (ignore-errors
-                                 ;; TODO use cdr instead if possible
+                                 ;; remove extra quote
+                                 ;; `eval' works in some cases that `cadr' does
+                                 ;; not (e.g. quoted string, '(list ...), etc.)
+                                 ;; `ignore-errors' handles cases where it fails
+                                 ;; (e.g. variable not defined at
+                                 ;; macro-expansion time)
                                  (setq def (eval def))
                                  (setq def (general--extract-autoloadable-symbol
                                             def))))
