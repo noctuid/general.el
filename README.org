@@ -298,7 +298,7 @@ Although ~general-define-key~ will automatically defer keybindings until the spe
   ;; ...
   )
 
-;; * Setings
+;; * Settings
 ;; change evil's search module after evil has been loaded (`setq' will not work)
 (general-setq evil-search-module 'evil-search)
 #+end_src
@@ -560,7 +560,7 @@ Note that all leading quoted and unquoted symbols and lists are considered to be
 
 This wrapper can also be used, for example, if you want to disable certain commands or keys from working in certain modes by using with =:with= keyword argument (example use case taken from [[https://github.com/emacs-evil/evil-collection/blob/9fc1a19807dfcd0cc2b221832b6e6faad80a291d/evil-collection-util.el#L32][evil-collection]]):
 #+begin_src emacs-lisp
-(general-unbind 'normalInfo-mode-map
+(general-unbind 'normal Info-mode-map
   :with 'ignore
   [remap evil-append]
   [remap evil-append-line]
