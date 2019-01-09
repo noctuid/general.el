@@ -1169,7 +1169,7 @@ There are several benefits to using general.el to add which-key replacements. Th
 
 Another related benefit of using =:which-key= instead of ~which-key-add-key-based-replacements~ directly even for keys that won't be bound is that replacements will be added for all prefix combinations (i.e. when =:non-normal-prefix= and/or =:global-prefix= are also specified).
 
-The argument supplied to =:which-key= or =:wk= is equivalent to the REPLACEMENT argument in ~which-key-add-key-based-replacements~. It can be a full replacement cons of =(KEY . BINDING)= or just a string (which will be used as the BINDING and serve as the new description). Additionally it can be a function that will return a replacement cons (see the docstring for ~which-key-replacements-alist~ or the which-key README).
+The argument supplied to =:which-key= or =:wk= is equivalent to the REPLACEMENT argument in ~which-key-add-key-based-replacements~. It can be a full replacement cons of =(KEY . BINDING)= or just a string (which will be used as the BINDING and serve as the new description). Additionally it can be a function that will return a replacement cons (see the docstring for ~which-key-replacements-alist~ or the which-key README). Finally, which-key allows for a special replacement of =t= to prevent a key from being shown in the which-key popup at all.
 
 The =:which-key= keyword can be used with the =:major-modes= keyword (locally or globally) which can be compared to using ~which-key-add-major-mode-key-based-replacements~. =:major-modes= can have the following values (see the examples below):
 - =t= - the major mode will be obtained from all keymaps by removing "-map"
@@ -1197,6 +1197,8 @@ Here are some examples:
  ;; for a keymap, only the keys will be matched;
  ;; :no-match-binding is not necessary
  "p" '(:keymap projectile-command-map :wk "projectile prefix")
+ ;; don't display this keybinding at all
+ "z" '(hidden-command :wk t)
  ...)
 
 (general-define-key

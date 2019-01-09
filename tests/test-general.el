@@ -557,7 +557,8 @@ Return t if successful or a cons corresponding to the failed key and def."
        "l" '(lispy-mode :wk my-lispy-which-key-display)
        ;; for a keymap, only the keys will be matched;
        ;; :no-match-binding is not necessary
-       "G" '(:keymap general-command-map :wk "general prefix"))
+       "G" '(:keymap general-command-map :wk "general prefix")
+       "z" '(no-display-command :wk t))
       (general-define-key
        :keymaps 'general-temp-map
        :wk-full-keys nil
@@ -574,6 +575,8 @@ Return t if successful or a cons corresponding to the failed key and def."
                            nil . "new apropos description")
                           (("A\\'" . "apropos-prefix-map")
                            nil . "apropos")
+                          (("\\`, z\\'" . "no-display-command")
+                           . t)
                           (("\\`, G\\'")
                            nil . "general prefix")
                           (("\\`, l\\'" . "lispy-mode")
