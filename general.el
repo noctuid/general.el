@@ -906,12 +906,12 @@ potentially altered extended definition plist."
   (cl-flet ((run-edef-functions
              (keywords &optional alter-def)
              (dolist (keyword keywords)
-               (when (or (plist-get edef keyword)
+               (when (or (plist-member edef keyword)
                          (and (not
                                (memq
                                 keyword
                                 general-extended-def-global-ignore-keywords))
-                              (plist-get kargs keyword)))
+                              (plist-member kargs keyword)))
                  (let ((ret (funcall
                              (intern (format "general-extended-def-%s" keyword))
                              state keymap key edef kargs)))
