@@ -344,7 +344,8 @@ Also turn on `general-override-local-mode' and update `general-maps-alist'."
   "Like `with-eval-after-load' but don't always add to `after-load-alist'.
 When FILE has already been loaded, execute BODY immediately without adding it to
 `after-load-alist'."
-  (declare (indent 1))
+  (declare (indent 1)
+           (debug t))
   `(if (if (stringp ,file)
            (load-history-filename-element
             (purecopy (load-history-regexp ,file)))
