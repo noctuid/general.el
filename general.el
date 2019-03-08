@@ -2219,6 +2219,16 @@ In the future, this will automatically record user settings using annalist.el."
   "An alias for `setq-local'.
 In the future, this will automatically record user settings using annalist.el.")
 
+(defmacro general-pushnew (x place &rest keys)
+  "Call `cl-pushnew' with X, PLACE, and KEYS.
+:test defaults to `equal'. In the future, this will automatically record user
+settings using annalist.el and call a variables :set function."
+  (declare (debug
+            (form place &rest
+                  &or [[&or ":test" ":test-not" ":key"] function-form]
+                  [keywordp form])))
+  `(cl-pushnew ,x ,place ,@keys :test #'equal))
+
 ;; ** Hooks
 ;;;###autoload
 (defun general-add-hook (hooks functions &optional append local)
