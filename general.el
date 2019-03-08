@@ -2294,7 +2294,7 @@ automatically record the package as well. It is meant to be used in addition to
 `use-package' in cases where the user has a lot of configuration for a package
 and wants to split it up into sections instead of putting it all inside a single
 `use-package' statement."
-  (declare (indent 1))
+  (declare (indent 1) (debug t))
   `(let ((general-package ,package))
      (general-with-eval-after-load ,package
        ,@body)))
