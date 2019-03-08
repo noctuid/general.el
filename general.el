@@ -581,6 +581,10 @@ nil, it will be set to (list nil)."
                     (setq ,var (list ,var))))
                vars)))
 
+;; TODO stop using `cl-gensym' for counter functionality
+(defvar general--counter 0
+  "Counter to use to prevent name clashes for automatically named functions.")
+
 ;; * Extended Key Definition Language
 ;; ** Variables
 (defvar general-extended-def-keywords
@@ -2230,14 +2234,46 @@ settings using annalist.el and call a variables :set function."
   `(cl-pushnew ,x ,place ,@keys :test #'equal))
 
 ;; ** Hooks
+;; using a function instead of a macro in order to keeping the original function
+;; name as a prefix (can pass in variable for function and still work)
+(defun general--define-transient-function (function hook &optional advice)
+  "Define and return a modified FUNCTION that removes itself from HOOK.
+The new function will automatically remove itself from HOOK after the first time
+it is called. If ADVICE is non-nil, HOOK should specify a function to remove
+advice from instead."
+  (let ((name (intern (format "general--transient-%s"
+                              (if (symbolp function)
+                                  (symbol-name function)
+                                ;; lambda; name with counter
+                                (cl-incf general--counter))))))
+    (defalias name
+      (if advice
+          (lambda (&rest args)
+            (apply function args)
+            (advice-remove hook name))
+        (lambda (&rest args)
+          (apply function args)
+          (remove-hook hook name)))
+      (format "Call %s with ARGS and then remove it from `%s'."
+              (if (symbolp function)
+                  (format "`%s'" function)
+                ;; TODO put full lambda in docstring or use backquote instead of
+                ;; relying on lexical-binding (so full lambda is in definition)
+                "given lambda")
+              hook))
+    name))
+
 ;;;###autoload
-(defun general-add-hook (hooks functions &optional append local)
+(defun general-add-hook (hooks functions &optional append local transient)
   "A drop-in replacement for `add-hook'.
 Unlike `add-hook', HOOKS and FUNCTIONS can be single items or lists. APPEND and
-LOCAL are passed directly to `add-hook'."
+LOCAL are passed directly to `add-hook'. When TRANSIENT is non-nil, each
+function will remove itself from the hook it is in after it is run once."
   (general--ensure-lists hooks functions)
   (dolist (hook hooks)
     (dolist (func functions)
+      (when transient
+        (setq func (general--define-transient-function func hook)))
       (add-hook hook func append local))))
 
 ;;;###autoload
