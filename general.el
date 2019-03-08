@@ -2210,9 +2210,10 @@ instead of the default value."
                 collect `(funcall (or (get ',var 'custom-set) #'set)
                                   ',var ,val))))
 
-(defalias 'general-setq-default #'setq-default
+(defmacro general-setq-default (&rest settings)
   "An alias for `setq-default'.
-In the future, this will automatically record user settings using annalist.el.")
+In the future, this will automatically record user settings using annalist.el."
+  `(setq-default ,@settings))
 
 (defalias 'general-setq-local #'setq-local
   "An alias for `setq-local'.
