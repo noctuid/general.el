@@ -1623,8 +1623,11 @@ when general is compiled)."
                               accept-default no-remap position)
   "Act as KEY's definition in the current context.
 This uses an extended menu item's capability of dynamically computing a
-definition. It is recommended over `general-simulate-key' wherever possible. KEY
-should be a string given in `kbd' notation and should correspond to a single
+definition. It is recommended over `general-simulate-key' wherever possible. See
+the docstring of `general-simulate-key' and the readme for information about the
+benefits and downsides of `general-key'.
+
+KEY should be a string given in `kbd' notation and should correspond to a single
 definition (as opposed to a sequence of commands). When STATE is specified, look
 up KEY with STATE as the current evil state. When specified, DOCSTRING will be
 the menu item's name/description. ACCEPT-DEFAULT, NO-REMAP, and POSITION are
@@ -1690,12 +1693,34 @@ leftover keys (or nil if the full KEYS was matched)."
               nil
             (substring keys ind len)))))
 
+(declare-function evil-echo "evil-common")
+(defvar evil-move-cursor-back)
+(defun general--execute-in-state (state)
+  "Execute the next command in STATE.
+This is an altered version of `evil-execute-in-normal-state'."
+  (interactive)
+  (evil-delay '(not (memq this-command
+                          '(evil-use-register
+                            digit-argument
+                            negative-argument
+                            universal-argument
+                            universal-argument-minus
+                            universal-argument-more
+                            universal-argument-other-key)))
+      `(progn
+         (with-current-buffer ,(current-buffer)
+           (evil-change-state ',evil-state)
+           (setq evil-move-cursor-back ',evil-move-cursor-back)))
+    'post-command-hook)
+  (setq evil-move-cursor-back nil)
+  (evil-change-state state))
+
 (cl-defun general--simulate-keys (command keys &optional state keymap
                                           (lookup t)
                                           (remap t))
   "Simulate COMMAND followed by KEYS in STATE and/or KEYMAP.
-If COMMAND is nil, just simulate KEYS. If STATE and KEYMAP are nil, simulate the
-keys in the current context. When COMMAND is non-nil, STATE and KEYMAP will have
+If COMMAND is nil, just simulate KEYS. If STATE and KEYMAP are nil, simulate
+KEYS in the current context. When COMMAND is non-nil, STATE and KEYMAP will have
 no effect. KEYS should be a string that can be passed to `kbd' or nil. If KEYS
 is nil, the COMMAND will just be called interactively. If COMMAND is nil and
 LOOKUP is non-nil, KEYS will be looked up in the correct context to determine if
@@ -1711,30 +1736,21 @@ REMAP is specified as nil (it is true by default)."
          (state (if (eq state t)
                     'emacs
                   state)))
-    (unless (or command (not lookup))
+    (when (and lookup (null command))
       (cl-destructuring-bind (match leftover-keys)
           (general--key-binding keys state keymap)
-        (cond ((commandp match)
-               (setq command match
-                     keys leftover-keys))
-              ;; not documented because no current use case
-              ;; left in because may be useful later
-              ((and (eq lookup 'always) (keymapp match))
-               (setq keymap match
-                     state nil
-                     ;; should be nil
-                     keys leftover-keys)))))
-    ;; set context for keys
-    (when (and keymap (not command))
-      ;; TODO is it possible to set transient map and then use e.g.
-      ;; `evil-execute-in-normal-state' (so that commands bound in the motion
-      ;; state auxiliary map could also be executed)?
-      (set-transient-map (general--get-keymap state keymap)))
+        (when (commandp match)
+          (setq command match
+                keys leftover-keys))))
     (when keys
-      ;; only set prefix-arg when only keys
-      ;; (otherwise will also affect the next command)
+      ;; only set prefix-arg when there are only keys (otherwise will also
+      ;; affect the next command)
       (unless command
-        (setq prefix-arg current-prefix-arg))
+        (setq prefix-arg current-prefix-arg)
+        (cl-case state
+          (emacs (evil-execute-in-emacs-state))
+          (normal (evil-execute-in-normal-state))
+          (t (general--execute-in-state state))))
       (when (or general--simulate-as-is
                 general--simulate-next-as-is
                 (not executing-kbd-macro))
@@ -1825,6 +1841,15 @@ REMAP is specified as nil (it is true by default)."
                                    which-key
                                    (remap t))
   "Create and return a command that simulates KEYS in STATE and KEYMAP.
+
+`general-key' should be prefered over this whenever possible as it is simpler
+and has saner functionality in many cases because it does not rely on
+`unread-command-events' (e.g. \"C-h k\" will show the docstring of the command
+to be simulated ; see the readme for more information). The main downsides of
+`general-key' are that it cannot simulate a command followed by keys or
+subsequent commands, and which-key does not currently work well with it when
+simulating a prefix key/incomplete key sequence.
+
 KEYS should be a string given in `kbd' notation. It can also be a list of a
 single command followed by a string of the key(s) to simulate after calling that
 command. STATE should only be specified by evil users and should be a quoted

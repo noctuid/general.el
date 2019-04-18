@@ -727,7 +727,9 @@ Note that when a named prefix keymap/command exists (e.g. ~help-command~), you s
 
 Although both will work correctly, [[https://github.com/justbur/emacs-which-key][which-key]] does not currently show all available keys when ~general-key~ is used, so I would currently recommend using ~general-simulate-key~ instead for an example like this.
 
-On the other hand, ~general-key~ should be preferred for simulating a key that corresponds to a single command. Unlike ~general-simulate-key~, which creates/returns a function, ~general-key~ expands to an extended menu item like ~general-predicate-dispatch~. Using an extended menu item is a simpler and more direct approach as emacs will dynamically look up and act as the specified key. This has the advantage of showing the docstring for the exact command with =C-h k=. If the key to act as is unbound, key lookup can continue (like if =:predicate= returns nil), so having a fallback keybinding is possible with ~general-key~ but not with ~general-simulate-key~.
+On the other hand, ~general-key~ should be preferred for simulating a key that corresponds to a single command. Unlike ~general-simulate-key~, which creates/returns a function, ~general-key~ expands to an extended menu item like ~general-predicate-dispatch~. Using an extended menu item is a simpler and more direct approach as emacs will dynamically look up and act as the specified key. This has the advantage of showing the docstring for the exact command with =C-h k=. If the key to act as is unbound, key lookup can continue (like if =:predicate= returns nil), so having a fallback keybinding is possible with ~general-key~ but not with ~general-simulate-key~. 
+
+Another downside of ~general-simulate-key~ is that any commands/functions called just afterwards will actually be run before the keys are simulated. This won't affect the most common use cases, but it makes setting up and tearing down a context more difficult (e.g. simulating a key in a specific evil state requires using =post-command-hook= for ~general-simulate-key~ but not for ~general-key~).
 
 ~general-key~ may be useful when you want to have a key act as another without having to bind it to the exact command in every relevant keymap:
 #+begin_src emacs-lisp
@@ -736,7 +738,7 @@ On the other hand, ~general-key~ should be preferred for simulating a key that c
 (general-nmap "RET" "C-c C-c")
 #+end_src
 
-~general-simulate-key~ and ~general-key~ also support keyword arguments (=:state= and =:keymap=) to control the context the keys are simulated in. For example:
+~general-simulate-key~ and ~general-key~ also support keyword arguments to control the context the keys are simulated in (both support =:state=; ~general-simulate-key~ supports =:keymap= for now but I don't know how useful it is; please make an issue if you think it would be useful to add =:keymap= to ~general-key~). For example:
 #+begin_src emacs-lisp
 (general-nmap "j" (general-simulate-key "C-n" :state 'emacs))
 ;; `general-key' supports :state only`
