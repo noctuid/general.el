@@ -1747,10 +1747,11 @@ REMAP is specified as nil (it is true by default)."
       ;; affect the next command)
       (unless command
         (setq prefix-arg current-prefix-arg)
-        (cl-case state
-          (emacs (evil-execute-in-emacs-state))
-          (normal (evil-execute-in-normal-state))
-          (t (general--execute-in-state state))))
+        (when state
+          (cl-case state
+            (emacs (evil-execute-in-emacs-state))
+            (normal (evil-execute-in-normal-state))
+            (t (general--execute-in-state state)))))
       (when (or general--simulate-as-is
                 general--simulate-next-as-is
                 (not executing-kbd-macro))
