@@ -1695,25 +1695,37 @@ leftover keys (or nil if the full KEYS was matched)."
 
 (declare-function evil-echo "evil-common")
 (defvar evil-move-cursor-back)
-(defun general--execute-in-state (state)
+(defun general--execute-in-state (state &optional delay-revert)
   "Execute the next command in STATE.
-This is an altered version of `evil-execute-in-normal-state'."
+This is an altered version of `evil-execute-in-normal-state' and
+`evil-execute-in-emacs-state'. When calling this in a command, specify
+DELAY-REVERT as non-nil to prevent switching the state back until after
+`this-command' is finished."
   (interactive)
-  (evil-delay '(not (memq this-command
-                          '(evil-use-register
-                            digit-argument
-                            negative-argument
-                            universal-argument
-                            universal-argument-minus
-                            universal-argument-more
-                            universal-argument-other-key)))
-      `(progn
-         (with-current-buffer ,(current-buffer)
-           (evil-change-state ',evil-state)
-           (setq evil-move-cursor-back ',evil-move-cursor-back)))
-    'post-command-hook)
-  (setq evil-move-cursor-back nil)
-  (evil-change-state state))
+  (let ((ignore-commands '(evil-use-register
+                           digit-argument
+                           negative-argument
+                           universal-argument
+                           universal-argument-minus
+                           universal-argument-more
+                           universal-argument-other-key)))
+    (when delay-revert
+      (push this-command ignore-commands))
+    (general--delay `(not (memq this-command ',ignore-commands))
+        `(progn
+           (with-current-buffer ,(current-buffer)
+             (evil-change-state ',evil-state)
+             (setq evil-move-cursor-back ',evil-move-cursor-back)))
+      'post-command-hook))
+  (if (and (eq state 'emacs)
+           (evil-visual-state-p))
+      (let ((mrk (mark))
+            (pnt (point)))
+        (evil-emacs-state)
+        (set-mark mrk)
+        (goto-char pnt))
+    (setq evil-move-cursor-back nil)
+    (evil-change-state state)))
 
 (cl-defun general--simulate-keys (command keys &optional state keymap
                                           (lookup t)
@@ -1748,10 +1760,7 @@ REMAP is specified as nil (it is true by default)."
       (unless command
         (setq prefix-arg current-prefix-arg)
         (when state
-          (cl-case state
-            (emacs (evil-execute-in-emacs-state))
-            (normal (evil-execute-in-normal-state))
-            (t (general--execute-in-state state)))))
+          (general--execute-in-state state t)))
       (when (or general--simulate-as-is
                 general--simulate-next-as-is
                 (not executing-kbd-macro))
