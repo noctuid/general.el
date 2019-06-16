@@ -1022,34 +1022,33 @@ non-nil if no custom definer is specified."
   "Whether the current keybinding is being created with `general-define-key'.")
 
 (defun general--define-key
-    (states keymap maps non-normal-maps global-maps kargs)
+    (state keymap maps non-normal-maps global-maps kargs)
   "A helper function for `general-define-key'.
-Choose based on STATES and KEYMAP which of MAPS, NON-NORMAL-MAPS, and
-GLOBAL-MAPS to use for the keybindings. This function will rewrite extended
-definitions, add predicates when applicable, and then choose the base function
-to bind the keys with by calling `general--define-key-dispatch'."
+Choose based on STATE and KEYMAP which of MAPS, NON-NORMAL-MAPS, and GLOBAL-MAPS
+to use for the keybindings. This function will rewrite extended definitions, add
+predicates when applicable, and then choose the base function to bind the keys
+with by calling `general--define-key-dispatch'."
   (let ((general--definer-p t))
-    (dolist (state states)
-      (let* ((non-normal-p (if state
-                               (memq state general-non-normal-states)
-                             (memq keymap
-                                   (mapcar #'general--evil-keymap-for-state
-                                           general-non-normal-states))))
-             (valid-maps (list (cond ((and non-normal-maps non-normal-p)
-                                      non-normal-maps)
-                                     ((and global-maps non-normal-p)
-                                      nil)
-                                     (t
-                                      maps))
-                               global-maps)))
-        (dolist (maps valid-maps)
-          (when maps
-            (setq maps (general--parse-maps state keymap maps kargs))
-            ;; NOTE: :definer 'minor-mode cannot be specified locally
-            (general--record-keybindings keymap state maps
-                                         (eq (cl-getf kargs :definer)
-                                             'minor-mode))
-            (general--define-key-dispatch state keymap maps kargs)))))))
+    (let* ((non-normal-p (if state
+                             (memq state general-non-normal-states)
+                           (memq keymap
+                                 (mapcar #'general--evil-keymap-for-state
+                                         general-non-normal-states))))
+           (valid-maps (list (cond ((and non-normal-maps non-normal-p)
+                                    non-normal-maps)
+                                   ((and global-maps non-normal-p)
+                                    nil)
+                                   (t
+                                    maps))
+                             global-maps)))
+      (dolist (maps valid-maps)
+        (when maps
+          (setq maps (general--parse-maps state keymap maps kargs))
+          ;; NOTE: :definer 'minor-mode cannot be specified locally
+          (general--record-keybindings keymap state maps
+                                       (eq (cl-getf kargs :definer)
+                                           'minor-mode))
+          (general--define-key-dispatch state keymap maps kargs))))))
 
 ;; * Functions With Keyword Arguments
 ;;;###autoload
@@ -1237,17 +1236,23 @@ keywords that are used for each corresponding custom DEFINER."
                           (list "" prefix-def))
                         maps)))
     (dolist (keymap keymaps)
-      (general--delay `(or (memq ',keymap '(local global))
-                           (boundp ',keymap))
-          `(general--define-key ',states
-                                ',keymap
-                                ',maps
-                                ',non-normal-prefix-maps
-                                ',global-prefix-maps
-                                ',kargs)
-        'after-load-functions t nil
-        (symbol-name
-         (cl-gensym (format "general-define-key-in-%s" keymap)))))))
+      (dolist (state (or states (list nil)))
+        (general--delay `(or (boundp ',keymap)
+                             (and (memq ',keymap '(local global))
+                                  (if ',state
+                                      ;; this is `evil-state-p'
+                                      (and (boundp 'evil-state-properties)
+                                           (assq ',state evil-state-properties))
+                                    t)))
+            `(general--define-key ',state
+                                  ',keymap
+                                  ',maps
+                                  ',non-normal-prefix-maps
+                                  ',global-prefix-maps
+                                  ',kargs)
+          'after-load-functions t nil
+          (symbol-name
+           (cl-gensym (format "general-define-key-in-%s" keymap))))))))
 
 ;;;###autoload
 (defmacro general-emacs-define-key (keymaps &rest args)

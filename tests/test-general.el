@@ -646,6 +646,14 @@ Return t if successful or a cons corresponding to the failed key and def."
     (expect (not (boundp 'general-delay-map)))
     (require 'general-delay)
     (expect (general-test-keys nil general-delay-map
+              "a" #'a)))
+  (it "should support delaying keybindings until the state exists"
+    (general-define-key
+     :states 'non-existent
+     "a" #'a)
+    (expect (not (boundp 'evil-non-existent-state-map)))
+    (require 'general-non-existent-state)
+    (expect (general-test-keys nil evil-non-existent-state-map
               "a" #'a))))
 
 ;; ** Positional Definers
