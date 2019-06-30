@@ -2145,16 +2145,22 @@ can be specified as a description for the menu item."
 STATES should be the name of an evil state, a list of states, or nil. KEYMAPS
 should be a symbol corresponding to the keymap to make the translations in or a
 list of keymap names. Keymap and state aliases are supported (as well as 'local
-and 'global for KEYMAPS). MAPS corresponds to a list of translations (key
-replacement pairs). For example, specifying \"a\" \"b\" will bind \"a\" to
-\"b\"'s definition in the keymap. If DESTRUCTIVE is non-nil, the keymap will be
-destructively altered without creating a backup. If DESTRUCTIVE is nil, a backup
-of the keymap will be stored on the initial invocation, and future invocations
-will always look up keys in the backup keymap. On the other hand, if DESTRUCTIVE
-is non-nil, calling this function multiple times with \"a\" \"b\" \"b\" \"a\",
-for example, would continue to swap and unswap the definitions of these keys.
-This means that when DESTRUCTIVE is non-nil, all related swaps/cycles should be
-done in the same invocation."
+and 'global for KEYMAPS).
+
+MAPS corresponds to a list of translations (key replacement pairs). For example,
+specifying \"a\" \"b\" will bind \"a\" to \"b\"'s definition in the keymap.
+Specifying nil as a replacement will unbind a key.
+
+If DESTRUCTIVE is non-nil, the keymap will be destructively altered without
+creating a backup. If DESTRUCTIVE is nil, store a backup of the keymap on the
+initial invocation, and for future invocations always look up keys in the
+original/backup keymap. On the other hand, if DESTRUCTIVE is non-nil, calling
+this function multiple times with \"a\" \"b\" \"b\" \"a\", for example, would
+continue to swap and unswap the definitions of these keys. This means that when
+DESTRUCTIVE is non-nil, all related swaps/cycles should be done in the same
+invocation.
+
+If both MAPS and DESCTRUCTIVE are nil, only create the backup keymap."
   (declare (indent defun))
   (general--ensure-lists states keymaps)
   (dolist (keymap-name keymaps)
@@ -2175,9 +2181,12 @@ done in the same invocation."
                             ;; :destructive can be in MAPS
                             unless (keywordp key)
                             collect (general--kbd key)
-                            and collect (lookup-key
-                                         lookup-keymap
-                                         (general--kbd replacement)))))
+                            and collect (if replacement
+                                            (lookup-key
+                                             lookup-keymap
+                                             (general--kbd replacement))
+                                          ;; unbind
+                                          nil))))
         (unless (or destructive
                     (boundp backup-keymap))
           (set backup-keymap lookup-keymap))

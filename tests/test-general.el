@@ -1525,7 +1525,20 @@ Return t if successful or a cons corresponding to the failed key and def."
       (general-translate-key nil 'general-temp-map
         (kbd "C-b") "b")
       (expect (general-test-keys nil general-temp-map
-                "C-b" #'b)))))
+                "C-b" #'b))))
+  (it "should just make the backup keymap if MAPS and DESCTRUCTIVE are nil"
+    (makunbound 'general-general-temp-map-backup-map)
+    (general-translate-key nil 'general-temp-map)
+    (expect (boundp 'general-general-temp-map-backup-map)))
+  (it "should allow unbinding keys"
+    (general-define-key :keymaps 'general-temp-map
+      "a" #'a)
+    (general-test-keys nil general-temp-map
+      "a" #'a)
+    (general-translate-key nil 'general-temp-map
+      "a" nil)
+    (general-test-keys nil general-temp-map
+      "a" nil)))
 
 (describe "general-swap-key"
   (after-each
