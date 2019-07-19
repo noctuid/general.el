@@ -1,6 +1,6 @@
 ;;; general.el --- Convenience wrappers for keybindings. -*- lexical-binding: t -*-
 
-;; Author: Fox Kiester <noct@openmailbox.org>
+;; Author: Fox Kiester <noct@posteo.net>
 ;; URL: https://github.com/noctuid/general.el
 ;; Created: February 17, 2016
 ;; Keywords: vim, evil, leader, keybindings, keys
