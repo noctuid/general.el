@@ -417,7 +417,7 @@ The user can use the ~:predicate~ keyword to specify a condition under which the
  "<right>" 'beginning-of-buffer)
 #+end_src
 
-~<right>~ will now behave normally except at the end of the buffer where it will jump to the beginning of the buffer. Note that with ~:predicate~, you can still only have a key bound once in a single keymap. If you want to have a key take different actions depending on conditions in a single keymap, see [[#choosing-definitions-based-on-predicates][Choosing Definition Based on Predicates]].
+~<right>~ will now behave normally except at the end of the buffer where it will jump to the beginning of the buffer. Note that with ~:predicate~, you can still only have a key bound once in a single keymap. In other words, =:predicate= is only useful if a fallback keybinding already exists in a different, lower precedence keymap. If you want to have a key take different actions depending on conditions in a single keymap, see [[#choosing-definitions-based-on-predicates][Choosing Definition Based on Predicates]].
 
 See [[http://endlessparentheses.com/define-context-aware-keys-in-emacs.html][this post]] for more information about how this works.
 
