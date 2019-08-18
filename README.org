@@ -802,6 +802,33 @@ Commands created in this way support an optional timeout, meaning you could stil
                 "k" 'evil-normal-state))
 #+end_src
 
+If there is input lag, a timeout will not work well (this is also true for packages like key-chord.el). One example is vterm (even though there is not normally visible input lag). In vterm, the real amount of time you would have to wait after pressing "j" before pressing "k" is longer than 0.25 seconds. It is also likely that the next character you type will be input instead (e.g. "jo" would result in "oo"). There's not much that can be done about the first problem. You can try lowering the timeout in a problematic mode. However, if the input lag is inconsistently present (e.g. caused by some minor mode) and/or severe, this probably won't help much. You can at least address the second problem by explicitly specifying the character you want to insert:
+#+begin_src emacs-lisp
+(defun my-insert-j ()
+  (interactive)
+  (insert "j"))
+
+(general-imap "j" (general-key-dispatch 'my-insert-j
+                    :timeout 0.25
+                    "k" 'evil-normal-state))
+#+end_src
+
+If input lag is an issue, =:timeout= can still be used as a visual enhancement. For example, you can bind =SPC SPC= to end a sentence if you don't normally need to type two spaces anywhere else. This works without =:timeout= but is visually confusing since spaces are never be inserted until the next keypress. =:timeout= can be used to enhance such a keybinding:
+#+begin_src emacs-lisp
+(defun my-insert-space ()
+  (interactive)
+  (insert " "))
+
+(defun my-sentence-end ()
+  (interactive)
+  (insert ".  "))
+
+(general-def 'insert text-mode-map
+  "SPC" (general-key-dispatch 'my-insert-space
+          :timeout 0.1
+          "SPC" 'my-sentence-end))
+#+end_src
+
 If you are using ~general-key-dispatch~ with a timeout to mirror some prefix keymap in insert state, it may also convenient to use the =:inherit-keymap= keyword. This allows using prefix keybindings without the need to re-specify them in the ~general-key-dispatch~:
 #+begin_src emacs-lisp
 (general-nmap :prefix ","
