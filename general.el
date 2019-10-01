@@ -721,7 +721,7 @@ run on it)."
                    (when (and (general--getf edef kargs :wk-match-binding)
                               binding
                               (symbolp binding))
-                     (symbol-name binding)))
+                     (regexp-quote (symbol-name binding))))
              replacement)))
       (general--add-which-key-replacement mode match/replacement)
       (when (and (consp replacement)
