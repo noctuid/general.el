@@ -1625,6 +1625,7 @@ when general is compiled)."
 (cl-defmacro general-key (key &key
                               state
                               docstring
+                              let
                               setup
                               teardown
                               accept-default
@@ -1641,6 +1642,10 @@ definition (as opposed to a sequence of commands). When STATE is specified, look
 up KEY with STATE as the current evil state. When specified, DOCSTRING will be
 the menu item's name/description.
 
+Let can be used to bind variables around key lookup. For example:
+(general-key \"some key\"
+  :let ((some-var some-val)))
+
 SETUP and TEARDOWN can be used to run certain functions before and after key
 lookup. For example, something similar to using :state 'emacs would be:
 (general-key \"some key\"
@@ -1654,16 +1659,17 @@ ACCEPT-DEFAULT, NO-REMAP, and POSITION are passed to `key-binding'."
      nil
      :filter
      (lambda (&optional _)
-       ,setup
-       (prog1
-           ,(if state
-                `(general--save-state
-                   (evil-change-state ,state)
-                   (key-binding (general--kbd ,key) ,accept-default ,no-remap
-                                ,position))
-              `(key-binding (general--kbd ,key) ,accept-default ,no-remap
-                            ,position))
-         ,teardown))))
+       (let ,let
+         ,setup
+         (prog1
+             ,(if state
+                  `(general--save-state
+                     (evil-change-state ,state)
+                     (key-binding (general--kbd ,key) ,accept-default ,no-remap
+                                  ,position))
+                `(key-binding (general--kbd ,key) ,accept-default ,no-remap
+                              ,position))
+           ,teardown)))))
 
 (defvar general--last-simulated-command nil
   "Holds the last simulated command (or nil for incomplete key sequence).")
