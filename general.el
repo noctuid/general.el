@@ -1625,7 +1625,11 @@ when general is compiled)."
 (cl-defmacro general-key (key &key
                               state
                               docstring
-                              accept-default no-remap position)
+                              setup
+                              teardown
+                              accept-default
+                              no-remap
+                              position)
   "Act as KEY's definition in the current context.
 This uses an extended menu item's capability of dynamically computing a
 definition. It is recommended over `general-simulate-key' wherever possible. See
@@ -1635,20 +1639,31 @@ benefits and downsides of `general-key'.
 KEY should be a string given in `kbd' notation and should correspond to a single
 definition (as opposed to a sequence of commands). When STATE is specified, look
 up KEY with STATE as the current evil state. When specified, DOCSTRING will be
-the menu item's name/description. ACCEPT-DEFAULT, NO-REMAP, and POSITION are
-passed to `key-binding'."
+the menu item's name/description.
+
+SETUP and TEARDOWN can be used to run certain functions before and after key
+lookup. For example, something similar to using :state 'emacs would be:
+(general-key \"some key\"
+  :setup (evil-local-mode -1)
+  :teardown (evil-local-mode))
+
+ACCEPT-DEFAULT, NO-REMAP, and POSITION are passed to `key-binding'."
+  (declare (indent 1))
   `'(menu-item
      ,(or docstring "")
      nil
      :filter
      (lambda (&optional _)
-       ,(if state
-            `(general--save-state
-               (evil-change-state ,state)
-               (key-binding (general--kbd ,key) ,accept-default ,no-remap
+       ,setup
+       (prog1
+           ,(if state
+                `(general--save-state
+                   (evil-change-state ,state)
+                   (key-binding (general--kbd ,key) ,accept-default ,no-remap
+                                ,position))
+              `(key-binding (general--kbd ,key) ,accept-default ,no-remap
                             ,position))
-          `(key-binding (general--kbd ,key) ,accept-default ,no-remap
-                        ,position)))))
+         ,teardown))))
 
 (defvar general--last-simulated-command nil
   "Holds the last simulated command (or nil for incomplete key sequence).")

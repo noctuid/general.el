@@ -1427,6 +1427,30 @@ Return t if successful or a cons corresponding to the failed key and def."
      :keymaps 'general-test-mode-map
      [remap left-char] nil)))
 
+(describe "general-key"
+  (it "should support custom setup and teardown"
+    (general-define-key
+     :states 'normal
+     :keymaps 'general-test-mode-map
+     "C-a" (general-key "C-f")
+     "C-f" #'backward-char)
+    (expect (general-with "fo|o"
+              "C-a")
+            :to-equal "f|oo")
+
+    (general-define-key
+     :states 'normal
+     :keymaps 'general-test-mode-map
+     "C-a" (general-key "C-f"
+             :setup (evil-local-mode -1)
+             :teardown (evil-local-mode)))
+    (expect (general-with "fo|o"
+              "C-a")
+            :to-equal "foo|")
+    (expect (general-with "fo|o"
+              "C-a" "C-f")
+            :to-equal "fo|o")))
+
 ;; ** General Key Dispatch
 ;; TODO
 ;; - add tests for REMAP
