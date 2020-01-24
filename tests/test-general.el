@@ -1719,7 +1719,29 @@ Return t if successful or a cons corresponding to the failed key and def."
     ;; remove
     (general-remove-hook 'general--test-hook (lambda ()))
     (general-remove-hook 'general--test-hook (list (lambda () 1)))
-    (expect (null general--test-hook))))
+    (expect (null general--test-hook)))
+  (it "should allow creating \"transient\" hooks that are removed after one run"
+    (let ((test-val 0))
+      (general-add-hook 'general--test-hook (lambda () (cl-incf test-val))
+                        nil nil t)
+      (run-hooks 'general--test-hook)
+      (run-hooks 'general--test-hook)
+      (expect test-val
+              :to-equal 1)))
+  (it "should allow creating \"transient\" hooks that are removed after success"
+    (let ((test-val 0))
+      (general-add-hook 'general--test-hook
+                        (lambda ()
+                          (cl-incf test-val)
+                          (if (= test-val 2)
+                              t
+                            nil))
+                        nil nil 'on-success)
+      (run-hooks 'general--test-hook)
+      (run-hooks 'general--test-hook)
+      (run-hooks 'general--test-hook)
+      (expect test-val
+              :to-equal 2))))
 
 ;; ** Advice
 (describe "general-advice-add and general-advice-remove"

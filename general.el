@@ -2306,31 +2306,44 @@ settings using annalist.el and call a variables :set function."
 ;; ** Hooks
 ;; using a function instead of a macro in order to keeping the original function
 ;; name as a prefix (can pass in variable for function and still work)
-(defun general--define-transient-function (function hook &optional advice)
+(defun general--define-transient-function (function hook &optional advice
+                                                    on-success)
   "Define and return a modified FUNCTION that removes itself from HOOK.
 The new function will automatically remove itself from HOOK after the first time
 it is called. If ADVICE is non-nil, HOOK should specify a function to remove
-advice from instead."
-  (let ((name (intern (format "general--transient-%s"
+advice from instead. If ON-SUCCESS is non-nil, only remove the function if it
+returns non-nil."
+  (let ((name (intern (format "general--transient-%s%s%s"
                               (if (symbolp function)
                                   (symbol-name function)
                                 ;; lambda; name with counter
-                                (cl-incf general--counter))))))
+                                (cl-incf general--counter))
+                              (if advice
+                                  "-for-advice"
+                                "-for-hook")
+                              (if on-success
+                                  "-removed-on-success"
+                                "")))))
     (defalias name
       (if advice
           (lambda (&rest args)
-            (apply function args)
-            (advice-remove hook name))
+            (let ((res (apply function args)))
+              (when (or (not on-success) res)
+                (advice-remove hook name))))
         (lambda (&rest args)
-          (apply function args)
-          (remove-hook hook name)))
-      (format "Call %s with ARGS and then remove it from `%s'."
+          (let ((res (apply function args)))
+            (when (or (not on-success) res)
+              (remove-hook hook name)))))
+      (format "Call %s with ARGS and then remove it from `%s'%s."
               (if (symbolp function)
                   (format "`%s'" function)
                 ;; TODO put full lambda in docstring or use backquote instead of
                 ;; relying on lexical-binding (so full lambda is in definition)
                 "given lambda")
-              hook))
+              hook
+              (if on-success
+                  " if it returns non-nil"
+                "")))
     name))
 
 ;;;###autoload
@@ -2338,12 +2351,15 @@ advice from instead."
   "A drop-in replacement for `add-hook'.
 Unlike `add-hook', HOOKS and FUNCTIONS can be single items or lists. APPEND and
 LOCAL are passed directly to `add-hook'. When TRANSIENT is non-nil, each
-function will remove itself from the hook it is in after it is run once."
+function will remove itself from the hook it is in after it is run once. If
+TRANSIENT is 'on-success, each function will remove itself only after it returns
+non-nil."
   (general--ensure-lists hooks functions)
   (dolist (hook hooks)
     (dolist (func functions)
       (when transient
-        (setq func (general--define-transient-function func hook)))
+        (setq func (general--define-transient-function
+                    func hook nil (eq transient 'on-success))))
       (add-hook hook func append local))))
 
 ;;;###autoload

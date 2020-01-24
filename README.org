@@ -957,6 +957,8 @@ For example:
                     :before #'evil-set-jump)
 #+end_src
 
+~general-add-hook~ can optionally remove the function from the hook after it runs once or after it returns non-nil. For an example of this, see ~general-after-gui~. If you would like this functionality for ~general-add-advice~, feel free to make a feature request.
+
 * Integration with Other Packages
 ** Use-package Keywords
 *** :general Keyword
