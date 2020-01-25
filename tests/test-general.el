@@ -49,6 +49,12 @@
 
 ;;; Code:
 ;; * Setup
+(when (require 'undercover nil t)
+  (undercover "*.el"
+              (:exclude "test-*.el")
+              (:report-type :codecov)
+              (:send-report nil)))
+
 (require 'buttercup)
 (require 'general)
 (require 'evil)
@@ -58,7 +64,8 @@
 (push "tests/" load-path)
 
 (setq evil-want-change-word-to-end nil
-      evil-move-cursor-back nil)
+      evil-move-cursor-back nil
+      evil-move-beyond-eol t)
 
 (defvar general-test-mode-map (make-sparse-keymap))
 

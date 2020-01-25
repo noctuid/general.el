@@ -27,7 +27,7 @@
 ;; keybindings. It allows defining multiple keys at once, specifying an
 ;; arbitrary number of named prefix keys to be used in key definitions,
 ;; implicitly wrapping key strings with (kbd ...), and more. It provides a
-;; single function for standard emacs key definitions as well as evil key
+;; single function for standard Emacs key definitions as well as evil key
 ;; definitions for any evil state and any keymap. It also provides a setup
 ;; function to generate "nmap", "vmap", etc. keybinding functions for evil.
 
@@ -67,7 +67,7 @@ effect when binding keys in the 'emacs and/or 'insert states or in the
 'evil-insert-state-map and/or 'evil-emacs-state-map keymaps. When this is not
 specified, `general-default-prefix' will be the default prefix for any states
 and keymaps. If this is specified `general-default-prefix' or the arg to :prefix
-will not be used when binding keys in the insert and emacs states."
+will not be used when binding keys in the insert and Emacs states."
   :group 'general
   :type 'string)
 (make-obsolete-variable 'general-default-non-normal-prefix
@@ -80,7 +80,7 @@ This setting is only useful for evil users. Note that like with
 `general-default-non-normal-prefix', if this or :global-prefix is specified,
 `general-default-prefix' or the arg to :prefix will not be used for binding
 keys in the insert and emacs states. If you don't need a different or extra
-prefix for one or both state types (insert and emacs vs. the other states),
+prefix for one or both state types (insert and Emacs vs. the other states),
 just use `general-default-prefix'/:prefix by itself."
   :group 'general
   :type 'string)
@@ -1720,6 +1720,8 @@ leftover keys (or nil if the full KEYS was matched)."
             (substring keys ind len)))))
 
 (declare-function evil-echo "evil-common")
+(declare-function evil-visual-state-p "evil-common" t t)
+(declare-function evil-emacs-state "evil-states" t t)
 (defvar evil-move-cursor-back)
 (defun general--execute-in-state (state &optional delay-revert)
   "Execute the next command in STATE.
@@ -2479,8 +2481,8 @@ return nil."
          (cdr def))))
 
 (general-with-eval-after-load 'use-package-core
-  (declare-function use-package-concat "use-package")
-  (declare-function use-package-process-keywords "use-package")
+  (declare-function use-package-concat "use-package-core")
+  (declare-function use-package-process-keywords "use-package-core")
   (defvar use-package-keywords)
   (defvar use-package-deferring-keywords)
   ;; ** :general Keyword

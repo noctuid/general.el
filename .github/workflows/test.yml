@@ -1,0 +1,51 @@
+name: test
+
+on:
+  pull_request:
+    paths:
+      - '**.el'
+      - '**test.yml'
+  push:
+    paths:
+      - '**.el'
+      - '**test.yml'
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        # no 24.4 or 24.5 since some optional dependencies require higher
+        # versions
+        emacs_version: [25.3, 26.3, snapshot]
+    steps:
+    - uses: purcell/setup-emacs@master
+      with:
+        version: ${{ matrix.emacs_version }}
+
+    - uses: actions/checkout@v2
+
+    - name: Checkout submodules
+      shell: bash
+      run: |
+        auth_header=$(git config --local \
+                          --get http.https://github.com/.extraheader)
+        git submodule sync --recursive
+        git -c "http.extraheader=$auth_header" \
+            -c protocol.version=2 submodule update --init --force \
+            --recursive --depth=1
+
+    - name: Install dependencies through brew
+      if: contains(matrix.os, 'macos')
+      run: brew install coreutils bash gnu-sed gawk grep gnu-getopt
+
+    - name: Initialize sandbox
+      run: make deps
+
+    # - name: Lint
+    #   run: make lint
+
+    - name: Test
+      run: make test

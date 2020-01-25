@@ -1,0 +1,6 @@
+[submodule "makem"]
+	path = makem
+	url = https://github.com/alphapapa/makem.sh
+[submodule "with-gnu-utils"]
+	path = with-gnu-utils
+	url = https://github.com/noctuid/with-gnu-utils
