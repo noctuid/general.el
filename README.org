@@ -7,7 +7,9 @@
 
 # NOTE: If you are viewing this in org-mode, it is recommended that you install and enable [[https://github.com/snosov1/toc-org][toc-org]], so that all internal links open correctly
 
-[[https://melpa.org/#/general][file:https://melpa.org/packages/general-badge.svg]] [[https://travis-ci.org/noctuid/general.el][file:https://travis-ci.org/noctuid/general.el.svg?branch=master]]
+[[https://melpa.org/#/general][file:https://melpa.org/packages/general-badge.svg]]
+[[https://github.com/noctuid/general.el/actions?query=workflow%3Atest][https://github.com/noctuid/general.el/workflows/test/badge.svg]]
+[[https://codecov.io/gh/noctuid/general.el][https://codecov.io/gh/noctuid/general.el/branch/master/graph/badge.svg]]
 
 [[https://github.com/noctuid/general.el][file:http://i.imgur.com/SXA66y7.png]]
 #+BEGIN_QUOTE

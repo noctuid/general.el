@@ -48,4 +48,11 @@ jobs:
     #   run: make lint
 
     - name: Test
+      env:
+        UNDERCOVER_FORCE: do-coverage
       run: make test
+
+    - uses: codecov/codecov-action@v1
+      with:
+        # set in repo settings
+        token: ${{ secrets.CODECOV_TOKEN }}
