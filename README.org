@@ -62,6 +62,7 @@ Please switch to ~general-key~ or ~general-simulate-key~. Note that keyword argu
 - [[#non-keybinding-related-configuration-helpers][Non-keybinding-related Configuration Helpers]]
   - [[#settings][Settings]]
   - [[#hooks-and-advice][Hooks and Advice]]
+  - [[#miscellaneous][Miscellaneous]]
 - [[#integration-with-other-packages][Integration with Other Packages]]
   - [[#use-package-keywords][Use-package Keywords]]
     - [[#general-keyword][:general Keyword]]
@@ -959,6 +960,23 @@ For example:
 
 ~general-add-hook~ can optionally remove the function from the hook after it runs once or after it returns non-nil. For an example of this, see ~general-after-gui~. If you would like this functionality for ~general-add-advice~, feel free to make a feature request.
 
+** Miscellaneous
+~general-after-init~ can be used to run code after initialization (e.g. ~(general-after-init (do-something) (do-something-else))~). It just adds to =after-init-hook=.
+
+~general-after-gui~ and ~general-after-tty~ can be used to run some code once after the first graphical or terminal frame is created. Here is an example use case:
+#+begin_src emacs-lisp
+(use-package clipetty
+  :ensure t
+  :init
+  ;; only need to load if create a terminal frame
+  ;; `global-clipetty-mode' will not cause issues if enabled for a server with
+  ;; both graphical and terminal frames
+  (general-after-tty
+    (global-clipetty-mode)))
+#+end_src
+
+These both use ~general-add-hook~ to create "transient" hooks.
+
 * Integration with Other Packages
 ** Use-package Keywords
 *** :general Keyword
@@ -1382,3 +1400,8 @@ If you would rather force key definitions to always be made regardless of whethe
 
 ** Why don't some evil keybindings work (immediately)?
 This is a [[https://github.com/emacs-evil/evil/issues/301][known issue for evil]]. To work around this problem, you can use [[#wrapping-evil-define-minor-mode-key][:definer 'minor-mode]]. See [[https://github.com/noctuid/evil-guide#why-dont-keys-defined-with-evil-define-key-work-immediately][here]] for more information.
+
+# increase max depth
+# Local Variables:
+# toc-org-max-depth: 4
+# End:

@@ -2423,7 +2423,42 @@ and wants to split it up into sections instead of putting it all inside a single
      (general-with-eval-after-load ,package
        ,@body)))
 
+;; ** Miscellaneous
+(defmacro general-after-gui (&rest body)
+  "Run BODY once after the first GUI frame is created."
+  (declare (indent 0) (debug t))
+  `(if (and (not (daemonp)) (display-graphic-p))
+       (progn ,@body)
+     (general-add-hook 'server-after-make-frame-hook
+                       (lambda ()
+                         (when (display-graphic-p)
+                           ,@body
+                           t))
+                       nil
+                       nil
+                       'on-success)))
+
+(defmacro general-after-tty (&rest body)
+  "Run BODY once after the first terminal frame is created."
+  (declare (indent 0) (debug t))
+  `(if (and (not (daemonp)) (not (display-graphic-p)))
+       (progn ,@body)
+     (general-add-hook 'server-after-make-frame-hook
+                       (lambda ()
+                         (unless (display-graphic-p)
+                           ,@body
+                           t))
+                       nil
+                       nil
+                       'on-success)))
+
+(defmacro general-after-init (&rest body)
+  "Run BODY after emacs initialization."
+  (declare (indent 0) (debug t))
+  `(general-add-hook 'after-init-hook (lambda () ,@body)))
+
 ;; * Optional Setup
+
 ;;;###autoload
 (defun general-evil-setup (&optional short-names _)
   "Set up some basic equivalents for vim mapping functions.
