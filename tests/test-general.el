@@ -1727,28 +1727,41 @@ Return t if successful or a cons corresponding to the failed key and def."
     (general-remove-hook 'general--test-hook (lambda ()))
     (general-remove-hook 'general--test-hook (list (lambda () 1)))
     (expect (null general--test-hook)))
-  (it "should allow creating \"transient\" hooks that are removed after one run"
-    (let ((test-val 0))
-      (general-add-hook 'general--test-hook (lambda () (cl-incf test-val))
-                        nil nil t)
-      (run-hooks 'general--test-hook)
-      (run-hooks 'general--test-hook)
-      (expect test-val
-              :to-equal 1)))
-  (it "should allow creating \"transient\" hooks that are removed after success"
-    (let ((test-val 0))
-      (general-add-hook 'general--test-hook
-                        (lambda ()
-                          (cl-incf test-val)
-                          (if (= test-val 2)
-                              t
-                            nil))
-                        nil nil 'on-success)
-      (run-hooks 'general--test-hook)
-      (run-hooks 'general--test-hook)
-      (run-hooks 'general--test-hook)
-      (expect test-val
-              :to-equal 2))))
+  (describe "should allow creating \"transient\" hooks"
+    (it "that are removed after one run"
+      (let ((test-val 0))
+        (general-add-hook 'general--test-hook (lambda () (cl-incf test-val))
+                          nil nil t)
+        (run-hooks 'general--test-hook)
+        (run-hooks 'general--test-hook)
+        (expect test-val
+                :to-equal 1)))
+    (it "that are removed after success"
+      (let ((test-val 0))
+        (general-add-hook 'general--test-hook
+                          (lambda ()
+                            (cl-incf test-val)
+                            (if (= test-val 2)
+                                t
+                              nil))
+                          nil nil #'identity)
+        (run-hooks 'general--test-hook)
+        (run-hooks 'general--test-hook)
+        (run-hooks 'general--test-hook)
+        (expect test-val
+                :to-equal 2)))
+    (it "that are removed after any other condition"
+      (let ((test-val 0))
+        (general-add-hook 'general--test-hook
+                          (lambda ()
+                            (cl-incf test-val))
+                          nil nil (lambda (val) (= val 3)))
+        (run-hooks 'general--test-hook)
+        (run-hooks 'general--test-hook)
+        (run-hooks 'general--test-hook)
+        (run-hooks 'general--test-hook)
+        (expect test-val
+                :to-equal 3)))))
 
 ;; ** Advice
 (describe "general-advice-add and general-advice-remove"
@@ -1819,7 +1832,46 @@ Return t if successful or a cons corresponding to the failed key and def."
     (general-remove-advice 'general--test-func
                            (list (lambda () (signal 'general--test-error2 nil))))
     (expect (general--test-func)
-            :to-equal 1)))
+            :to-equal 1))
+  (describe "should allow creating \"transient\" advice"
+    (it "that is removed after one run"
+      (defun general-1 ()
+        1)
+      (general-add-advice 'general-1 :override (lambda (&rest _) 2)
+                          nil t)
+      (expect (general-1) :to-equal 2)
+      (expect (general-1) :to-equal 1)
+      (fmakunbound 'general-1))
+    (it "that is removed after success"
+      (let ((test-val 0))
+        (defun general-1 ()
+          1)
+        (general-add-advice 'general-1
+                            :override (lambda (&rest _)
+                                        (if (= test-val 3)
+                                            t
+                                          (cl-incf test-val)
+                                          nil))
+                            nil #'identity)
+        (expect (general-1) :to-equal nil)
+        (expect (general-1) :to-equal nil)
+        (expect (general-1) :to-equal nil)
+        (expect (general-1) :to-equal t)
+        (expect (general-1) :to-equal 1)
+        (fmakunbound 'general-1)))
+    (it "that is removed after any other condition"
+      (let ((test-val 0))
+        (defun general-1 ()
+          1)
+        (general-add-advice 'general-1
+                            :override (lambda (&rest _)
+                                        (cl-incf test-val))
+                            nil (lambda (val) (= val 3)))
+        (expect (general-1) :to-equal 1)
+        (expect (general-1) :to-equal 2)
+        (expect (general-1) :to-equal 3)
+        (expect (general-1) :to-equal 1)
+        (fmakunbound 'general-1)))))
 
 (provide 'test-general)
 ;;; test-general.el ends here

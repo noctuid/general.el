@@ -955,12 +955,12 @@ For example:
 (general-add-hook my-lisp-mode-hooks
                   (list #'lispy-mode #'rainbow-delimiters-mode))
 ;; note that setting the :jump command property is recommended instead of this
-(general-add-advice (list #'git-gutter:next-hunk
-                          #'git-gutter:previous-hunk)
+(general-add-advice (list 'git-gutter:next-hunk
+                          'git-gutter:previous-hunk)
                     :before #'evil-set-jump)
 #+end_src
 
-~general-add-hook~ can optionally remove the function from the hook after it runs once or after it returns non-nil. For an example of this, see ~general-after-gui~. If you would like this functionality for ~general-add-advice~, feel free to make a feature request.
+~general-add-hook~ and ~general-add-advice~ can add "transient" functions to hooks or as advice. These transient functions will remove themselves from the hook or as advice after they run once (inspired by Doom Emacs). Additionally, they can remove themselves after the first time they return non-nil or after any arbitrary condition is met. For an example of this, see the implementation of ~general-after-gui~.
 
 ** Miscellaneous
 ~general-after-init~ can be used to run code after initialization (e.g. ~(general-after-init (do-something) (do-something-else))~). It just adds to =after-init-hook=.

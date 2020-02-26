@@ -2306,15 +2306,16 @@ settings using annalist.el and call a variables :set function."
   `(cl-pushnew ,x ,place ,@keys :test #'equal))
 
 ;; ** Hooks
-;; using a function instead of a macro in order to keeping the original function
-;; name as a prefix (can pass in variable for function and still work)
+;; using a function instead of a macro in order to keep the original function
+;; name as a prefix (can pass in variable for function)
 (defun general--define-transient-function (function hook &optional advice
-                                                    on-success)
+                                                    condition)
   "Define and return a modified FUNCTION that removes itself from HOOK.
 The new function will automatically remove itself from HOOK after the first time
-it is called. If ADVICE is non-nil, HOOK should specify a function to remove
-advice from instead. If ON-SUCCESS is non-nil, only remove the function if it
-returns non-nil."
+it is called. If ADVICE is non-nil, HOOK should specify a function to advise
+instead. If CONDITION is a function, only remove the function if calling
+CONDITION on the return value returns true. For example, if CONDITION is
+#'identity, only remove the function if it returns non-nil."
   (let ((name (intern (format "general--transient-%s%s%s"
                               (if (symbolp function)
                                   (symbol-name function)
@@ -2323,19 +2324,27 @@ returns non-nil."
                               (if advice
                                   "-for-advice"
                                 "-for-hook")
-                              (if on-success
-                                  "-removed-on-success"
+                              (if (functionp condition)
+                                  (if (symbolp function)
+                                      (format "-on-%s" condition)
+                                    ;; lambda; name with counter
+                                    (format "-on-lambda-%s"
+                                            (cl-incf general--counter)))
                                 "")))))
     (defalias name
       (if advice
           (lambda (&rest args)
             (let ((res (apply function args)))
-              (when (or (not on-success) res)
-                (advice-remove hook name))))
+              (when (or (not (functionp condition)) (funcall condition res))
+                (advice-remove hook name)
+                (fmakunbound name))
+              res))
         (lambda (&rest args)
           (let ((res (apply function args)))
-            (when (or (not on-success) res)
-              (remove-hook hook name)))))
+            (when (or (not (functionp condition)) (funcall condition res))
+              (remove-hook hook name)
+              (fmakunbound name))
+            res)))
       (format "Call %s with ARGS and then remove it from `%s'%s."
               (if (symbolp function)
                   (format "`%s'" function)
@@ -2343,8 +2352,11 @@ returns non-nil."
                 ;; relying on lexical-binding (so full lambda is in definition)
                 "given lambda")
               hook
-              (if on-success
-                  " if it returns non-nil"
+              (if (functionp condition)
+                  (format " once calling %s on the return value succeeds."
+                          (if (symbolp condition)
+                              condition
+                            "given lambda"))
                 "")))
     name))
 
@@ -2354,14 +2366,16 @@ returns non-nil."
 Unlike `add-hook', HOOKS and FUNCTIONS can be single items or lists. APPEND and
 LOCAL are passed directly to `add-hook'. When TRANSIENT is non-nil, each
 function will remove itself from the hook it is in after it is run once. If
-TRANSIENT is 'on-success, each function will remove itself only after it returns
-non-nil."
+TRANSIENT is a function, call it on the return value in order to determine
+whether to remove a function from the hook. For example, if TRANSIENT is
+#'identity, remove each function only if it returns non-nil. TRANSIENT could
+alternatively check something external and ignore the function's return value."
   (general--ensure-lists hooks functions)
   (dolist (hook hooks)
     (dolist (func functions)
       (when transient
         (setq func (general--define-transient-function
-                    func hook nil (eq transient 'on-success))))
+                    func hook nil transient)))
       (add-hook hook func append local))))
 
 ;;;###autoload
@@ -2376,14 +2390,22 @@ passed directly to `remove-hook'."
 
 ;; ** Advice
 ;;;###autoload
-(defun general-advice-add (symbols where functions &optional props)
+(defun general-advice-add (symbols where functions &optional props transient)
   "A drop-in replacement for `advice-add'.
 SYMBOLS, WHERE, FUNCTIONS, and PROPS correspond to the arguments for
 `advice-add'. Unlike `advice-add', SYMBOLS and FUNCTIONS can be single items or
-lists."
+lists. When TRANSIENT is non-nil, each function will remove itself as advice
+after it is run once. If TRANSIENT is a function, call it on the return value in
+order to determine whether to remove a function as advice. For example, if
+TRANSIENT is #'identity, remove each function only if it returns non-nil.
+TRANSIENT could alternatively check something external and ignore the function's
+return value."
   (general--ensure-lists symbols functions)
   (dolist (symbol symbols)
     (dolist (func functions)
+      (when transient
+        (setq func (general--define-transient-function
+                    func symbol t transient)))
       (advice-add symbol where func props))))
 
 ;; specify full autoload to prevent function indirection (autoload generation
@@ -2436,7 +2458,7 @@ and wants to split it up into sections instead of putting it all inside a single
                            t))
                        nil
                        nil
-                       'on-success)))
+                       #'identity)))
 
 (defmacro general-after-tty (&rest body)
   "Run BODY once after the first terminal frame is created."
@@ -2450,7 +2472,7 @@ and wants to split it up into sections instead of putting it all inside a single
                            t))
                        nil
                        nil
-                       'on-success)))
+                       #'identity)))
 
 (defmacro general-after-init (&rest body)
   "Run BODY after emacs initialization."
