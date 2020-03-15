@@ -19,7 +19,11 @@ jobs:
         os: [ubuntu-latest, macos-latest]
         # no 24.4 or 24.5 since some optional dependencies require higher
         # versions
-        emacs_version: [25.3, 26.3, snapshot]
+        emacs_version: [25.3, 26.3]
+        # emacs_version: [25.3, 26.3, snapshot]
+        # include:
+        #   - emacs_version: snapshot
+        #     allow-failure: true
     steps:
     - uses: purcell/setup-emacs@master
       with:
@@ -39,7 +43,10 @@ jobs:
 
     - name: Install dependencies through brew
       if: contains(matrix.os, 'macos')
-      run: brew install coreutils bash gnu-sed gawk grep gnu-getopt
+      # not all of these are actually used, but this takes care of all commands with-gnu-utils supports
+      run: |
+        brew install bash coreutils gawk findutils grep gnu-sed gnu-tar \
+             gnu-getopt
 
     - name: Initialize sandbox
       run: make deps
@@ -51,6 +58,7 @@ jobs:
       env:
         UNDERCOVER_FORCE: do-coverage
       run: make test
+      continue-on-error: ${{ matrix.allow_failure == 'true' }}
 
     - uses: codecov/codecov-action@v1
       with:
