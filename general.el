@@ -2258,6 +2258,7 @@ advice."
 ;; ** Interactive Lambdas
 (defmacro general-lambda (&rest body)
   "Wrap BODY in an interactive lamba"
+  (declare (indent defun))
   `(lambda () (interactive)
      ,@body))
 
@@ -2444,6 +2445,8 @@ and wants to split it up into sections instead of putting it all inside a single
   `(let ((general-package ,package))
      (general-with-eval-after-load ,package
        ,@body)))
+
+(defalias 'general-with #'general-with-package)
 
 ;; ** Miscellaneous
 (defmacro general-after-gui (&rest body)
