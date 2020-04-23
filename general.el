@@ -353,6 +353,8 @@ When FILE has already been loaded, execute BODY immediately without adding it to
        (progn ,@body)
      (eval-after-load ,file (lambda () ,@body))))
 
+(defalias 'general-after #'general-with-eval-after-load)
+
 (defun general--unalias (symbol &optional statep)
   "Return the full keymap or state name associated with SYMBOL.
 If STATEP is non-nil, check `general-state-aliases' instead of
