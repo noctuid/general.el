@@ -2697,7 +2697,7 @@ Return somethin"
                    (when (and (listp func)
                               (memq (car func) (list 'quote 'function)))
                      (push (cons (cadr func) 'command) functions))))
-                (t
+                ((eq (car function-position) 'quote)
                  (dolist (func (cadr function-position))
                    (push (cons func 'command) functions))))))
       functions))
