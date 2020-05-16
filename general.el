@@ -2480,9 +2480,12 @@ and wants to split it up into sections instead of putting it all inside a single
                        #'identity)))
 
 (defmacro general-after-init (&rest body)
-  "Run BODY after emacs initialization."
+  "Run BODY after emacs initialization.
+If after emacs initialization already, run BODY now."
   (declare (indent 0) (debug t))
-  `(general-add-hook 'after-init-hook (lambda () ,@body)))
+  `(if after-init-time
+       (progn ,@body)
+     (general-add-hook 'after-init-hook (lambda () ,@body))))
 
 ;; * Optional Setup
 
