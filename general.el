@@ -353,6 +353,8 @@ When FILE has already been loaded, execute BODY immediately without adding it to
        (progn ,@body)
      (eval-after-load ,file (lambda () ,@body))))
 
+(defalias 'general-after #'general-with-eval-after-load)
+
 (defun general--unalias (symbol &optional statep)
   "Return the full keymap or state name associated with SYMBOL.
 If STATEP is non-nil, check `general-state-aliases' instead of
@@ -2258,6 +2260,7 @@ advice."
 ;; ** Interactive Lambdas
 (defmacro general-lambda (&rest body)
   "Wrap BODY in an interactive lamba"
+  (declare (indent defun))
   `(lambda () (interactive)
      ,@body))
 
@@ -2445,6 +2448,8 @@ and wants to split it up into sections instead of putting it all inside a single
      (general-with-eval-after-load ,package
        ,@body)))
 
+(defalias 'general-with #'general-with-package)
+
 ;; ** Miscellaneous
 (defmacro general-after-gui (&rest body)
   "Run BODY once after the first GUI frame is created."
@@ -2475,9 +2480,12 @@ and wants to split it up into sections instead of putting it all inside a single
                        #'identity)))
 
 (defmacro general-after-init (&rest body)
-  "Run BODY after emacs initialization."
+  "Run BODY after emacs initialization.
+If after emacs initialization already, run BODY now."
   (declare (indent 0) (debug t))
-  `(general-add-hook 'after-init-hook (lambda () ,@body)))
+  `(if after-init-time
+       (progn ,@body)
+     (general-add-hook 'after-init-hook (lambda () ,@body))))
 
 ;; * Optional Setup
 
@@ -2692,7 +2700,7 @@ Return somethin"
                    (when (and (listp func)
                               (memq (car func) (list 'quote 'function)))
                      (push (cons (cadr func) 'command) functions))))
-                (t
+                ((eq (car function-position) 'quote)
                  (dolist (func (cadr function-position))
                    (push (cons func 'command) functions))))))
       functions))

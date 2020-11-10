@@ -1116,7 +1116,12 @@ Return t if successful or a cons corresponding to the failed key and def."
       (expect (functionp #'general-autoload-me1))
       (expect (functionp #'general-autoload-me2))
       (expect (functionp #'general-autoload-me3))
-      (expect (functionp #'general-autoload-me4)))))
+      (expect (functionp #'general-autoload-me4)))
+    (it "should ignore macro/function calls and not fail"
+      (use-package general-autoload-me
+        :ghook ('general-hook1 (progn
+                                 (defun some-func ())
+                                 #'some-func))))))
 
 ;; *** :gfhook
 (describe "the :gfhook use-package keyword"

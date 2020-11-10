@@ -963,7 +963,7 @@ For example:
 ~general-add-hook~ and ~general-add-advice~ can add "transient" functions to hooks or as advice. These transient functions will remove themselves from the hook or as advice after they run once (inspired by Doom Emacs). Additionally, they can remove themselves after the first time they return non-nil or after any arbitrary condition is met. For an example of this, see the implementation of ~general-after-gui~.
 
 ** Miscellaneous
-~general-after-init~ can be used to run code after initialization (e.g. ~(general-after-init (do-something) (do-something-else))~). It just adds to =after-init-hook=.
+~general-after-init~ can be used to run code after initialization (e.g. ~(general-after-init (do-something) (do-something-else))~). It just adds to =after-init-hook= or runs the code immediately if initialization has happened already.
 
 ~general-after-gui~ and ~general-after-tty~ can be used to run some code once after the first graphical or terminal frame is created. Here is an example use case:
 #+begin_src emacs-lisp
