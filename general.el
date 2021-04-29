@@ -678,33 +678,34 @@ run on it)."
            (real-keymap (if (boundp keymap) (symbol-value keymap) (symbol-value (intern (format "%s-map" keymap)))))
            )
       (condition-case-unless-debug err
-          (general--add-which-key-keymap-replacement _state real-keymap key `(,replacement . ,binding))
+          (general-which-key-add-keymap-based-evil-replacement _state real-keymap key `(,replacement . ,binding))
         (error (message "Binding Update Error for: (%s : %s : %s : %s) : %s" keymap key binding replacement err))
         )
       )
     )
   )
 
-(defun general--add-which-key-keymap-replacement (state keymap key replacement)
+(defun general-which-key-add-keymap-based-evil-replacement (state keymap key replacement &rest more)
   " Alt implementation of which-key-add-keymap-based-replacements
-that uses evil-define-key*, allowing state bindings
+that uses evil-define-key, allowing state bindings
+
+Mainly this is useful for a keymap-based-replacement implementation
+of general-extended-def-:which-key
 "
+  (while key
     (let* ((string (if (stringp replacement)
                        replacement
                      (car-safe replacement)))
            (command (cdr-safe replacement))
            (pseudo-key (which-key--pseudo-key (kbd key)))
-           (bind `(which-key ,(cons string command)))
-          )
-      ;;(message "adding replacement: %s : %s" pseudo-key bind)
-      ;; NOTE: not evil-define-key, the star is needed to correctly bind to the aux map
+           (bind `(which-key ,string ,command))
+           )
       (if state
           (evil-define-key* state keymap pseudo-key bind)
         (define-key keymap pseudo-key bind)
-        )
-      )
-    )
-
+        ))
+    (setq key (pop more)
+          replacement (pop more))))
 
 (defalias 'general-extended-def-:wk #'general-extended-def-:which-key)
 
