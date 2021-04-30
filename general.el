@@ -661,7 +661,6 @@ Add a which-key description for KEY.
 If :major-modes is specified in EDEF, add the description for the corresponding
 major mode. KEY should not be in the kbd format (kbd should have already been
 run on it)."
-  (general-with-eval-after-load 'which-key
     (let* ((wk (general--getf2 edef :which-key :wk))
            (keymaps (plist-get kargs :keymaps))
            (key (key-description key))
@@ -679,11 +678,18 @@ run on it)."
            )
       (condition-case-unless-debug err
           (general-which-key-add-keymap-based-evil-replacement _state real-keymap key `(,replacement . ,binding))
-        (error (message "Binding Update Error for: (%s : %s : %s : %s) : %s" keymap key binding replacement err))
-        )
-      )
+         (error (message "Binding Update Error for: (%s : %s : %s : %s) : %s" keymap key binding replacement err))
+         )
     )
   )
+
+(defun general-which-key--pseudo-key (key &optional prefix)
+  "Replace the last key in the sequence KEY by a special symbol
+in order for which-key to allow looking up a description for the key."
+  (let ((seq (listify-key-sequence key)))
+    (vconcat (or prefix (butlast seq)) [which-key] (last seq))))
+
+
 
 (defun general-which-key-add-keymap-based-evil-replacement (state keymap key replacement &rest more)
   " Alt implementation of which-key-add-keymap-based-replacements
@@ -697,7 +703,7 @@ of general-extended-def-:which-key
                        replacement
                      (car-safe replacement)))
            (command (cdr-safe replacement))
-           (pseudo-key (which-key--pseudo-key (kbd key)))
+           (pseudo-key (general-which-key--pseudo-key (kbd key)))
            (bind `(which-key ,string ,command))
            )
       (if state
