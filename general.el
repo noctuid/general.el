@@ -650,13 +650,15 @@ the other hand, doesn't make sense at all globally.")
 ;; *** Which Key Integration
 
 ;; TODO better documentation
-(defun general-extended-def-:which-key (state keymap key edef _kargs)
+(defun general-extended-def-:which-key (state keymap key edef kargs)
   "Add a which-key description for KEY.
 KEY should not be in the kbd format (kbd should have already been run on it)."
   (general-with-eval-after-load 'which-key
-    (let ((wk (general--getf2 edef :which-key :wk))
-          (key (key-description key))
-          (keymap (general--get-keymap state keymap)))
+    (let* ((wk (general--getf2 edef :which-key :wk))
+           (key (key-description key))
+           (minor-mode (eq 'minor-mode
+                           (general--getf edef kargs :definer)))
+           (keymap (general--get-keymap state keymap minor-mode)))
       (which-key-add-keymap-based-replacements keymap key wk))))
 
 (defalias 'general-extended-def-:wk #'general-extended-def-:which-key)
