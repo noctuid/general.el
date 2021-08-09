@@ -317,6 +317,20 @@ should either set it using customize (e.g. `general-setq' or
   :type '(repeat general-state)
   :set #'general-override-make-intercept-maps)
 
+(defcustom general-use-package-emit-autoloads t
+  "Whether the `use-package' integration should autoload bound commands.
+By default, any command bound in the `:general' section of `use-package'
+is added to the list of autoloaded commands.
+Setting this variable to nil prevents such behavior.
+
+Note that if your configuration is byte-compiled, this variable needs
+to be set at macro-expansion time, with `eval-when-compile'
+or `eval-and-compile', before the `use-package' declarations.
+
+Also see the documentation of the `:no-autoload' keyword argument."
+  :group 'general
+  :type 'boolean)
+
 (defun general--update-maps-alist ()
   "Update `general-maps-alist' for override modes.
 This is necessary to ensure `general-override-local-mode-map' is the buffer's
@@ -2531,14 +2545,18 @@ aliases such as `nmap' for `general-nmap'."
 This will also correctly extract the definition from a cons of the form (STRING
 . DEFN). If the extracted definition is nil, a string, a lambda, a keymap symbol
 from an extended definition, or some other definition that cannot be autoloaded,
-return nil."
+or the `:no-autoload' keyword argument is non-nil, return nil."
   ;; explicit null checks not required because nil return value means no def
   (when (general--extended-def-p def)
     ;; extract definition
-    (let ((first (car def)))
-      (setq def (if (keywordp first)
-                    (plist-get def :def)
-                  first))))
+    (let* ((first (car def))
+           (is-plist (keywordp first))
+           (arg-plist (if is-plist def (cdr def)))
+           (should-autoload (not (plist-get arg-plist :no-autoload))))
+      (setq def (when should-autoload
+                  (if is-plist
+                      (plist-get arg-plist :def)
+                    first)))))
   (cond ((symbolp def)
          def)
         ((and (consp def)
@@ -2575,33 +2593,34 @@ return nil."
   ;; altered args will be passed to the autoloads and handler functions
   (defun use-package-normalize/:general (_name _keyword general-arglists)
     "Return a plist containing the original ARGLISTS and autoloadable symbols."
-    (let* ((sanitized-arglist
-            ;; combine arglists into one without function names or
-            ;; positional arguments
+    (let ((commands
             (cl-loop for arglist in general-arglists
-                     append (general--sanitize-arglist arglist)))
-           (commands
-            (cl-loop for (key def) on sanitized-arglist by 'cddr
-                     when (and (not (keywordp key))
-                               (not (null def))
-                               (ignore-errors
-                                 ;; remove extra quote
-                                 ;; `eval' works in some cases that `cadr' does
-                                 ;; not (e.g. quoted string, '(list ...), etc.)
-                                 ;; `ignore-errors' handles cases where it fails
-                                 ;; (e.g. variable not defined at
-                                 ;; macro-expansion time)
-                                 (setq def (eval def))
-                                 (setq def (general--extract-autoloadable-symbol
-                                            def))))
-                     collect def)))
+                     for sanitized = (general--sanitize-arglist arglist)
+                     unless (plist-get sanitized :no-autoload)
+                     append
+                     (cl-loop
+                      for (key def) on sanitized by #'cddr
+                      when (and (not (keywordp key))
+                                (not (null def))
+                                (ignore-errors
+                                  ;; remove extra quote
+                                  ;; `eval' works in some cases that `cadr' does
+                                  ;; not (e.g. quoted string, '(list ...), etc.)
+                                  ;; `ignore-errors' handles cases where it fails
+                                  ;; (e.g. variable not defined at
+                                  ;; macro-expansion time)
+                                  (setq def (eval def))
+                                  (setq def (general--extract-autoloadable-symbol
+                                             def))))
+                      collect def))))
       (list :arglists general-arglists :commands commands)))
 
   (defun use-package-autoloads/:general (_name _keyword args)
     "Return an alist of commands extracted from ARGS.
 Return something like '((some-command-to-autoload . command) ...)."
-    (mapcar (lambda (command) (cons command 'command))
-            (plist-get args :commands)))
+    (and general-use-package-emit-autoloads
+         (mapcar (lambda (command) (cons command 'command))
+                 (plist-get args :commands))))
 
   (defun use-package-handler/:general (name _keyword args rest state)
     "Use-package handler for :general."
