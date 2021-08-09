@@ -2535,10 +2535,14 @@ return nil."
   ;; explicit null checks not required because nil return value means no def
   (when (general--extended-def-p def)
     ;; extract definition
-    (let ((first (car def)))
-      (setq def (if (keywordp first)
-                    (plist-get def :def)
-                  first))))
+    (let* ((first (car def))
+           (is-plist (keywordp first))
+           (arg-plist (if is-plist def (cdr def)))
+           (should-autoload (not (plist-get arg-plist :no-autoload))))
+      (setq def (when should-autoload
+                  (if is-plist
+                      (plist-get arg-plist :def)
+                    first)))))
   (cond ((symbolp def)
          def)
         ((and (consp def)
