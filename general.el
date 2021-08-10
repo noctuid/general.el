@@ -2579,28 +2579,20 @@ return nil."
   ;; altered args will be passed to the autoloads and handler functions
   (defun use-package-normalize/:general (_name _keyword general-arglists)
     "Return a plist containing the original ARGLISTS and autoloadable symbols."
-    (let* ((sanitized-arglist
-            ;; combine arglists into one without function names or
-            ;; positional arguments
+    (let* ((commands
             (cl-loop for arglist in general-arglists
-                     append (general--sanitize-arglist arglist)))
-           (should-autoload (not (plist-get sanitized-arglist :no-autoload)))
-           (commands
-            (and should-autoload
-                 (cl-loop for (key def) on sanitized-arglist by 'cddr
-                          when (and (not (keywordp key))
-                                    (not (null def))
-                                    (ignore-errors
-                                      ;; remove extra quote
-                                      ;; `eval' works in some cases that `cadr' does
-                                      ;; not (e.g. quoted string, '(list ...), etc.)
-                                      ;; `ignore-errors' handles cases where it fails
-                                      ;; (e.g. variable not defined at
-                                      ;; macro-expansion time)
-                                      (setq def (eval def))
-                                      (setq def (general--extract-autoloadable-symbol
-                                                 def))))
-                          collect def))))
+                     for sanitized = (general--sanitize-arglist arglist)
+                     unless (plist-get sanitized :no-autoload)
+                     append
+                     (cl-loop
+                      for (key def) on sanitized by #'cddr
+                      when (and (not (keywordp key))
+                                (not (null def))
+                                (ignore-errors
+                                  (setq def (eval def))
+                                  (setq def (general--extract-autoloadable-symbol
+                                             def))))
+                      collect def))))
       (list :arglists general-arglists :commands commands)))
 
   (defun use-package-autoloads/:general (_name _keyword args)
