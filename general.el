@@ -2540,7 +2540,7 @@ aliases such as `nmap' for `general-nmap'."
 This will also correctly extract the definition from a cons of the form (STRING
 . DEFN). If the extracted definition is nil, a string, a lambda, a keymap symbol
 from an extended definition, or some other definition that cannot be autoloaded,
-return nil."
+or the `:no-autoload' keyword argument is non-nil, return nil."
   ;; explicit null checks not required because nil return value means no def
   (when (general--extended-def-p def)
     ;; extract definition

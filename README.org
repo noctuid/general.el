@@ -982,7 +982,7 @@ These both use ~general-add-hook~ to create "transient" hooks.
 * Integration with Other Packages
 ** Use-package Keywords
 *** :general Keyword
-General also optionally provides a use-package keyword. =:general= is similar to =:bind= in that it implies =:defer t= whenever there are bound commands that can be autoloaded (e.g. it will not imply =:defer t= if the only bound command is to a lambda, for example). Whenever autoloadable commands are bound, use-package will create autoloads for them (though this is usually not necessary). The keyword is followed by one or more lists containing arguments for ~general-def~; there is no difference in syntax:
+General also optionally provides a use-package keyword. =:general= is similar to =:bind= in that it implies =:defer t= whenever there are bound commands that can be autoloaded (e.g. it will not imply =:defer t= if the only bound command is to a lambda, for example). Whenever autoloadable commands are bound, and the option ~general-use-package-emit-autoloads~ is non-nil, use-package will create autoloads for them (though this is usually not necessary). The keyword is followed by one or more lists containing arguments for ~general-def~; there is no difference in syntax:
 #+begin_src emacs-lisp
 (use-package org
   :general
@@ -1008,6 +1008,30 @@ One annoyance you may encounter is that the default function for indentation wil
 #+end_src
 
 This is an annoyance you may have using other emacs packages as well and can be fixed by modifying =lisp-indent-function= (see [[http://emacs.stackexchange.com/q/10230/5278][this emacs stackexchange question]] and Fuco1's modified ~lisp-indent-function~ in one of the answers there).
+
+*** :no-autoload Keyword
+
+If generating autoloads for commands is not desirable, it can be disabled globally (with the ~general-use-package-emit-autoloads~ option), on a per-binding, or on a per-form basis. To skip generating autoloads for a command, use the extended command definition and set the =:no-autoload= option to non-nil. This can be particularly handy when binding to functions defined in the same use-package block, otherwise the byte-compiler complains about multiple definitions of the same function:
+#+begin_src emacs-lisp
+(use-package org
+  :general
+  (:states 'normal
+   "SPC oa" '(my-org-agenda :no-autoload t))
+  :preface
+  (defun my-org-agenda ()
+    (interactive)
+    (let ((org-agenda-tag-filter-preset '("-drill")))
+      (call-interactively #'org-agenda))))
+#+end_src
+
+The keyword can also be used at the global level, instructing general to skip autoloads for all the keybindings in a form:
+#+begin_src emacs-lisp
+:general
+(:states 'normal
+ :no-autoload t
+ "SPC oa" #'my-org-agenda
+ "SPC oc" #'my-org-capture)
+#+end_src
 
 *** Hook Keywords
 General provides two alternatives to =:hook= that use ~general-add-hook~ called =:ghook= and =:gfhook=. Both take any number of arguments of symbols or lists. List arguments work the same for both; they correspond to a list of arguments for [[#hooks-and-advice][~general-add-hook~]]. The primary difference between the two is that symbol arguments to =:ghook= are /hooks/, but they are /functions/ for =:gfhook= (hence the =f=). Furthermore, =:ghook= usually implies =:defer t=, and =:gfhook= never implies =:defer t=. =:ghook= should be used when the ~general-add-hook~ is meant to trigger the loading of the package. =:gfhook= should be used when the ~general-add-hook~ is meant to trigger some function in response to the package's mode being enabled (or toggled in the case of a minor mode). More simply put, =:ghook= is suited towards enabling minor modes, and =:gfhook= is suited towards performing setup once some mode has loaded. The use case for each is further explained below.
