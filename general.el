@@ -317,6 +317,15 @@ should either set it using customize (e.g. `general-setq' or
   :type '(repeat general-state)
   :set #'general-override-make-intercept-maps)
 
+(defcustom general-use-package-emit-autoloads t
+  "Whether the `use-package' integration should autoload bound commands.
+By default, any command bound in the `:general' section of `use-package'
+is added to the list of autoloaded commands.
+Setting this variable to nil prevents such behavior.
+Also see the documentation of the `:no-autoload' keyword argument."
+  :group 'general
+  :type 'boolean)
+
 (defun general--update-maps-alist ()
   "Update `general-maps-alist' for override modes.
 This is necessary to ensure `general-override-local-mode-map' is the buffer's
@@ -2598,8 +2607,9 @@ return nil."
   (defun use-package-autoloads/:general (_name _keyword args)
     "Return an alist of commands extracted from ARGS.
 Return something like '((some-command-to-autoload . command) ...)."
-    (mapcar (lambda (command) (cons command 'command))
-            (plist-get args :commands)))
+    (and general-use-package-emit-autoloads
+         (mapcar (lambda (command) (cons command 'command))
+                 (plist-get args :commands))))
 
   (defun use-package-handler/:general (name _keyword args rest state)
     "Use-package handler for :general."
