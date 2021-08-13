@@ -2588,7 +2588,7 @@ or the `:no-autoload' keyword argument is non-nil, return nil."
   ;; altered args will be passed to the autoloads and handler functions
   (defun use-package-normalize/:general (_name _keyword general-arglists)
     "Return a plist containing the original ARGLISTS and autoloadable symbols."
-    (let* ((commands
+    (let ((commands
             (cl-loop for arglist in general-arglists
                      for sanitized = (general--sanitize-arglist arglist)
                      unless (plist-get sanitized :no-autoload)
@@ -2598,6 +2598,12 @@ or the `:no-autoload' keyword argument is non-nil, return nil."
                       when (and (not (keywordp key))
                                 (not (null def))
                                 (ignore-errors
+                                  ;; remove extra quote
+                                  ;; `eval' works in some cases that `cadr' does
+                                  ;; not (e.g. quoted string, '(list ...), etc.)
+                                  ;; `ignore-errors' handles cases where it fails
+                                  ;; (e.g. variable not defined at
+                                  ;; macro-expansion time)
                                   (setq def (eval def))
                                   (setq def (general--extract-autoloadable-symbol
                                              def))))

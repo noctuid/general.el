@@ -1010,8 +1010,7 @@ One annoyance you may encounter is that the default function for indentation wil
 This is an annoyance you may have using other emacs packages as well and can be fixed by modifying =lisp-indent-function= (see [[http://emacs.stackexchange.com/q/10230/5278][this emacs stackexchange question]] and Fuco1's modified ~lisp-indent-function~ in one of the answers there).
 
 *** :no-autoload Keyword
-
-If generating autoloads for commands is not desirable, it can be disabled globally (with the ~general-use-package-emit-autoloads~ option), on a per-binding, or on a per-form basis. To skip generating autoloads for a command, use the extended command definition and set the =:no-autoload= option to non-nil. This can be particularly handy when binding to functions defined in the same use-package block, otherwise the byte-compiler complains about multiple definitions of the same function:
+If generating autoloads for commands is not desirable, it can be disabled globally (with the =general-use-package-emit-autoloads= option), on a per-binding, or on a per-form basis. To skip generating autoloads for a command, use the extended command definition and set the =:no-autoload= option to non-nil. This can be particularly handy when binding to functions defined in the same use-package block, otherwise the byte-compiler complains about multiple definitions of the same function:
 #+begin_src emacs-lisp
 (use-package org
   :general
