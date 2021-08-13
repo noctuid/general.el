@@ -322,6 +322,11 @@ should either set it using customize (e.g. `general-setq' or
 By default, any command bound in the `:general' section of `use-package'
 is added to the list of autoloaded commands.
 Setting this variable to nil prevents such behavior.
+
+Note that if your configuration is byte-compiled, this variable needs
+to be set at macro-expansion time, with `eval-when-compile'
+or `eval-and-compile', before the `use-package' declarations.
+
 Also see the documentation of the `:no-autoload' keyword argument."
   :group 'general
   :type 'boolean)

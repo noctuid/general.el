@@ -1032,6 +1032,8 @@ The keyword can also be used at the global level, instructing general to skip au
  "SPC oc" #'my-org-capture)
 #+end_src
 
+If you wish to disable emitting autoloads with the =general-use-package-emit-autoloads= variable in a byte-compiled configuration, make sure it is set during macro-expansion time before the =use-package= declarations, with something like =(eval-when-compile (setq general-use-package-emit-autoloads nil))=.
+
 *** Hook Keywords
 General provides two alternatives to =:hook= that use ~general-add-hook~ called =:ghook= and =:gfhook=. Both take any number of arguments of symbols or lists. List arguments work the same for both; they correspond to a list of arguments for [[#hooks-and-advice][~general-add-hook~]]. The primary difference between the two is that symbol arguments to =:ghook= are /hooks/, but they are /functions/ for =:gfhook= (hence the =f=). Furthermore, =:ghook= usually implies =:defer t=, and =:gfhook= never implies =:defer t=. =:ghook= should be used when the ~general-add-hook~ is meant to trigger the loading of the package. =:gfhook= should be used when the ~general-add-hook~ is meant to trigger some function in response to the package's mode being enabled (or toggled in the case of a minor mode). More simply put, =:ghook= is suited towards enabling minor modes, and =:gfhook= is suited towards performing setup once some mode has loaded. The use case for each is further explained below.
 
