@@ -926,6 +926,22 @@ Return t if successful or a cons corresponding to the failed key and def."
                             "key2" #'command2)))
                        :commands)
             :to-equal '(command1 command2)))
+  (it "should extract symbols depending on general-use-package-emit-autoloads"
+    (expect (use-package-autoloads/:general
+             nil nil
+             (use-package-normalize/:general
+              nil
+              nil
+              '((general-def "key" #'command))))
+            :to-equal '((command . command)))
+    (let (general-use-package-emit-autoloads)
+      (expect (use-package-autoloads/:general
+               nil nil
+               (use-package-normalize/:general
+                nil
+                nil
+                '((general-def "key" #'command))))
+              :to-equal nil)))
   (it "should correctly extract symbols/commands to create autoloads from"
     (expect (general--extract-autoloadable-symbol nil)
             :to-be nil)
@@ -997,6 +1013,32 @@ Return t if successful or a cons corresponding to the failed key and def."
             :to-equal 'general-describe-keybindings)
     (expect (general--extract-autoloadable-symbol
              '(:def (fake-map . "char")))
+            :to-equal nil))
+  (it "should not extract autoloads when :no-autoload t is specified globally"
+    (expect (use-package-autoloads/:general
+             nil nil
+             (use-package-normalize/:general
+              nil
+              nil
+              '((general-def :no-autoload t "key" #'command))))
+            :to-equal nil)
+    ;; it should be local to the current :general form
+    (expect (use-package-autoloads/:general
+             nil nil
+             (use-package-normalize/:general
+              nil
+              nil
+              '((general-def "key" #'command-1)
+                (general-def :no-autoload t "key" #'command-2)
+                (general-def "key" #'command-3))))
+            :to-equal
+            '((command-1 . command) (command-3 . command))))
+  (it "should not extract autoloads when :no-autoload t is specified locally"
+    (expect (general--extract-autoloadable-symbol
+             '(symbol/command :wk "replacement" :no-autoload t))
+            :to-equal nil)
+    (expect (general--extract-autoloadable-symbol
+             '(:def symbol/command :wk "replacement" :no-autoload t))
             :to-equal nil)))
 
 ;; *** :ghook

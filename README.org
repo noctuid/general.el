@@ -68,6 +68,7 @@ Please switch to ~general-key~ or ~general-simulate-key~. Note that keyword argu
 - [[#integration-with-other-packages][Integration with Other Packages]]
   - [[#use-package-keywords][Use-package Keywords]]
     - [[#general-keyword][:general Keyword]]
+    - [[#no-autoload-keyword][:no-autoload Keyword]]
     - [[#hook-keywords][Hook Keywords]]
       - [[#ghook-keyword][:ghook Keyword]]
       - [[#gfhook-keyword][:gfhook Keyword]]
@@ -1010,7 +1011,7 @@ One annoyance you may encounter is that the default function for indentation wil
 This is an annoyance you may have using other emacs packages as well and can be fixed by modifying =lisp-indent-function= (see [[http://emacs.stackexchange.com/q/10230/5278][this emacs stackexchange question]] and Fuco1's modified ~lisp-indent-function~ in one of the answers there).
 
 *** :no-autoload Keyword
-If generating autoloads for commands is not desirable, it can be disabled globally (with the =general-use-package-emit-autoloads= option), on a per-binding, or on a per-form basis. To skip generating autoloads for a command, use the extended command definition and set the =:no-autoload= option to non-nil. This can be particularly handy when binding to functions defined in the same use-package block, otherwise the byte-compiler complains about multiple definitions of the same function:
+If generating autoloads for commands is not desirable, it can be disabled globally (with the =general-use-package-emit-autoloads= option), on a per-binding basis, or on a per-form basis. To skip generating autoloads for a command, use the extended command definition and set the =:no-autoload= option to non-nil. This can be particularly handy when binding to functions defined in the same use-package block, otherwise the byte-compiler complains about multiple definitions of the same function:
 #+begin_src emacs-lisp
 (use-package org
   :general
@@ -1032,7 +1033,7 @@ The keyword can also be used at the global level, instructing general to skip au
  "SPC oc" #'my-org-capture)
 #+end_src
 
-If you wish to disable emitting autoloads with the =general-use-package-emit-autoloads= variable in a byte-compiled configuration, make sure it is set during macro-expansion time before the =use-package= declarations, with something like =(eval-when-compile (setq general-use-package-emit-autoloads nil))=.
+If you wish to disable emitting autoloads with the =general-use-package-emit-autoloads= variable in a byte-compiled configuration, make sure it is set during macro-expansion time before the =use-package= declarations, with something like ~(eval-and-compile (setq general-use-package-emit-autoloads nil))~.
 
 *** Hook Keywords
 General provides two alternatives to =:hook= that use ~general-add-hook~ called =:ghook= and =:gfhook=. Both take any number of arguments of symbols or lists. List arguments work the same for both; they correspond to a list of arguments for [[#hooks-and-advice][~general-add-hook~]]. The primary difference between the two is that symbol arguments to =:ghook= are /hooks/, but they are /functions/ for =:gfhook= (hence the =f=). Furthermore, =:ghook= usually implies =:defer t=, and =:gfhook= never implies =:defer t=. =:ghook= should be used when the ~general-add-hook~ is meant to trigger the loading of the package. =:gfhook= should be used when the ~general-add-hook~ is meant to trigger some function in response to the package's mode being enabled (or toggled in the case of a minor mode). More simply put, =:ghook= is suited towards enabling minor modes, and =:gfhook= is suited towards performing setup once some mode has loaded. The use case for each is further explained below.
