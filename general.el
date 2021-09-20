@@ -2595,35 +2595,32 @@ or if the `:no-autoload' keyword argument is non-nil, return nil."
 
   ;; altered args will be passed to the autoloads and handler functions
   (defun use-package-normalize/:general (_name _keyword general-arglists)
-    "Return a plist containing the original ARGLISTS and autoloadable symbols."
-    (let ((commands
-           (cl-loop for arglist in general-arglists
-                    for sanitized = (general--sanitize-arglist arglist)
-                    unless (plist-get sanitized :no-autoload)
-                    append
-                    (cl-loop
-                     for (key def) on sanitized by #'cddr
-                     when (and (not (keywordp key))
-                               (not (null def))
-                               (ignore-errors
-                                 ;; remove extra quote
-                                 ;; `eval' works in some cases that `cadr' does
-                                 ;; not (e.g. quoted string, '(list ...), etc.)
-                                 ;; `ignore-errors' handles cases where it fails
-                                 ;; (e.g. variable not defined at
-                                 ;; macro-expansion time)
-                                 (setq def (eval def))
-                                 (setq def (general--extract-autoloadable-symbol
-                                            def))))
-                     collect def))))
-      (list :arglists general-arglists :commands commands)))
+    "Return a list of bindings to be made using general."
+    general-arglists)
 
-  (defun use-package-autoloads/:general (_name _keyword args)
+  (defun use-package-autoloads/:general (_name _keyword general-arglists)
     "Return an alist of commands extracted from ARGS.
 Return something like '((some-command-to-autoload . command) ...)."
     (when general-use-package-emit-autoloads
-      (mapcar (lambda (command) (cons command 'command))
-              (plist-get args :commands))))
+      (cl-loop for arglist in general-arglists
+               for sanitized = (general--sanitize-arglist arglist)
+               unless (plist-get sanitized :no-autoload)
+               append
+               (cl-loop
+                for (key def) on sanitized by #'cddr
+                when (and (not (keywordp key))
+                          (not (null def))
+                          (ignore-errors
+                            ;; remove extra quote
+                            ;; `eval' works in some cases that `cadr' does
+                            ;; not (e.g. quoted string, '(list ...), etc.)
+                            ;; `ignore-errors' handles cases where it fails
+                            ;; (e.g. variable not defined at
+                            ;; macro-expansion time)
+                            (setq def (eval def))
+                            (setq def (general--extract-autoloadable-symbol
+                                       def))))
+                collect (cons def 'command)))))
 
   (defun use-package-handler/:general (name _keyword args rest state)
     "Use-package handler for :general."
@@ -2637,7 +2634,7 @@ Return something like '((some-command-to-autoload . command) ...)."
                      `(general-def
                         ,@arglist
                         :package ',name)))
-                 (plist-get args :arglists)))))
+                 args))))
 
   ;; ** :ghook and :gfhook Keyword
   (setq use-package-keywords
