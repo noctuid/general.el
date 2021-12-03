@@ -2249,7 +2249,7 @@ with `general-translate-key') and optionally keyword arguments for
   `(general-translate-key ,states ,keymaps ,@args))
 
 ;; ** Automatic Key Unbinding
-(defun general-unbind-non-prefix-key (define-key keymap key def)
+(defun general-unbind-non-prefix-key (define-key keymap key def &rest _)
   "Use DEFINE-KEY in KEYMAP to unbind an existing non-prefix subsequence of KEY.
 When a general key definer is in use and a subsequnece of KEY is already bound
 in KEYMAP, unbind it using DEFINE-KEY. Always bind KEY to DEF using DEFINE-KEY."
