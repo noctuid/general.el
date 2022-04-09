@@ -2636,6 +2636,19 @@ Return something like '((some-command-to-autoload . command) ...)."
                         :package ',name)))
                  args))))
 
+  ;; ** :general-config Keyword
+  (setq use-package-keywords
+        (cl-loop for item in use-package-keywords
+                 if (eq item :config)
+                 collect :config and collect :general-config
+                 else
+                 ;; don't add duplicates
+                 unless (eq item :general-config)
+                 collect item))
+  (defalias 'use-package-normalize/:general-config
+    #'use-package-normalize/:general)
+  (defalias 'use-package-handler/:general-config #'use-package-handler/:general)
+
   ;; ** :ghook and :gfhook Keyword
   (setq use-package-keywords
         ;; should go in the same location as :bind

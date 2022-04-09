@@ -36,7 +36,7 @@ Please switch to ~general-key~ or ~general-simulate-key~. Note that keyword argu
 - [[#dependency-versions][Dependency Versions]]
 - [[#key-features][Key Features]]
 - [[#reading-recommendations][Reading Recommendations]]
-- [[#usage-recommendations-and-documentation-clarifications][Usage Recommendations and Documentation Clarifications]]
+- [[#best-practices][Best Practices]]
 - [[#basic-examples][Basic Examples]]
   - [[#general-examples][General Examples]]
   - [[#evil-examples][Evil Examples]]
@@ -68,6 +68,7 @@ Please switch to ~general-key~ or ~general-simulate-key~. Note that keyword argu
 - [[#integration-with-other-packages][Integration with Other Packages]]
   - [[#use-package-keywords][Use-package Keywords]]
     - [[#general-keyword][:general Keyword]]
+    - [[#general-config-keyword][:general-config Keyword]]
     - [[#no-autoload-keyword][:no-autoload Keyword]]
     - [[#hook-keywords][Hook Keywords]]
       - [[#ghook-keyword][:ghook Keyword]]
@@ -84,6 +85,7 @@ Please switch to ~general-key~ or ~general-simulate-key~. Note that keyword argu
   - [[#worf-integration-wrapping-worf-define-key][Worf Integration/ Wrapping ~worf-define-key~]]
   - [[#other-provided-definers][Other Provided Definers]]
 - [[#faq][FAQ]]
+  - [[#will-generalel-slow-my-initialization-time][Will general.el slow my initialization time?]]
   - [[#how-do-i-prevent-key-sequence-starts-with-non-prefix-key-errors][How do I prevent =Key sequence starts with non-prefix key= errors?]]
   - [[#why-dont-some-evil-keybindings-work-immediately][Why don't some evil keybindings work (immediately)?]]
 
@@ -113,7 +115,7 @@ Please use MELPA and not MELPA stable for installing optional dependencies (e.g.
 - Allows using an arbitrary number of prefix keys or "leaders" of any length (but does not require prefix keys like) (unlike =evil-leader.el=)
 - Allows for automatically creating prefix commands (but does not require creating them like ~bind-key~ does)
 - Allows for buffer-local keybindings (unlike ~local-set-key~)
-- Allows deferring keybindings until the specified keymap exists (no need to use ~(with-)eval-after-load~) (like ~evil-define-key~)
+- Allows deferring keybindings until the specified keymap exists (no need to use ~(with-)eval-after-load~) (like ~evil-define-key~) though it is slow compared to ~eval-after-load~ and therefore not recommended
 - Allows displaying defined keys (like =bind-key.el=)
 - Provides integration with other packages such as =key-chord.el= and =which-key.el= (unique)
 - Provides other helpers for keybindings (unique):
@@ -131,14 +133,25 @@ If you are also using evil, you should first be familiar with how ~evil-define-k
 
 A large number of issues opened on this repository are not specifically related to =general.el= (e.g. user usage or syntax errors that would also occur without ~general-define-key~). While I don't mind generic questions about keybinding issues, you may save yourself some time if you first determine whether or not an issue is related to ~general-define-key~ by, if possible, testing with an equivalent ~define-key~, ~evil-define-key~, etc. statement.
 
-See also the [[#faq][FAQ]] for commonly asked questions.
-
-* Usage Recommendations and Documentation Clarifications
-To facilitate extensibility and easy creation of wrappers, ~general-define-key~ uses keyword arguments to specify everything besides the key definitions, including for the =:states= and =:keymaps=. Since users will most often specify one or both of these keyword arguments, ~general-define-key~ is often less concise than ~define-key~ or ~evil-define-key~. It is for this reason that it is recommended that ~general-define-key~ not be used directly. =general.el= provides wrappers around ~general-define-key~ that take positional arguments, and it is recommended that you use these instead of ~general-define-key~. ~general-create-definer~ can also be used to create a new definer with certain default settings (e.g. prefix settings). For clarity and consistency, examples in the documentation usually use ~general-define-key~ unless the example is explicitly for a wrapper. However, [[#positional-argument-wrappers][~general-def~]] is recommended over ~general-define-key~ as it is more flexible and concise. Positional arguments are /optional but not required/, so ~general-def~ can basically act as a drop-in replacement for many key definers (including ~general-define-key~, ~define-key~, and ~evil-define-key~). Note that ~general-create-definer~ and the =:general= keyword argument for ~use-package~ use ~general-def~. I personally only use ~general-def~.
+* Best Practices
+To facilitate extensibility and easy creation of wrappers, ~general-define-key~ uses keyword arguments to specify everything besides the key definitions, including for the =:states= and =:keymaps=. Since users will most often specify one or both of these keyword arguments, ~general-define-key~ is often less concise than ~define-key~ or ~evil-define-key~. It is for this reason that it is recommended that ~general-define-key~ not be used directly. =general.el= provides wrappers around ~general-define-key~ that take positional arguments like ~define-key~ and ~evil-define-key~ (~general-emacs-define-key~, ~general-evil-define-key~, and ~general-def~). It is recommended that you use these instead of ~general-define-key~. ~general-create-definer~ can also be used to create a new definer with certain default settings (e.g. prefix settings). For clarity and consistency, examples in the documentation usually use ~general-define-key~ unless the example is explicitly for a wrapper. However, [[#positional-argument-wrappers][~general-def~]] is recommended over ~general-define-key~ as it is more flexible and concise. Positional arguments are /optional but not required/, so ~general-def~ can mostly act as a drop-in replacement for many key definers (including ~general-define-key~, ~define-key~, and ~evil-define-key~). Note that ~general-create-definer~ and the =:general= keyword argument for ~use-package~ use ~general-def~. I personally only use ~general-def~.
 
 Since it is more common for commands to not be sharp quoted in key definitions, this package's examples use single quotes for commands. I personally prefer to always properly sharp quote functions, so commands in the actual non-example code are always sharp quoted.
 
-Although ~general-define-key~ will automatically defer keybindings until the specified keymaps exist, you can still use it with ~with-eval-after-load~ or use-package's =:config= keyword whenever it makes sense to. If you have a lot of keybindings, this could potentially shave some fraction of a second off of your startup time.
+Although ~general-define-key~ will automatically defer keybindings until the specified keymaps exist, it is recommended you use it with ~with-eval-after-load~ or use-package's =:config= keyword instead. This is because while the deferring mechanism works, it is much slower than using ~eval-after-load~. See [[#will-generalel-slow-my-initialization-time][Will general.el slow my initialization time?]] for more information on ensuring you are not unnecessarily slowing down Emacs initialization.
+
+See also the rest of [[#faq][FAQ]] for commonly asked questions
+
+To summarize, my recommended usage of general.el looks like this:
+- Use ~general-def~, other positional definers, and your own definers created with ~general-create-definer~
+- Use =use-package=
+- Use =:general= for keybindings meant to load a package
+- Use =:general-config= or =:config= for other keybindings
+- Follow the other recommendations in [[#will-generalel-slow-my-initialization-time][Will general.el slow my initialization time?]]
+
+From a stylistic perspective (completely personal preference) I:
+- Explicitly use the command name with =:general=, e.g. ~:general (general-def <keymap> ...)~ instead of ~:general (<keymap> ...)~. This allows individually evaling the forms or moving them elsewhere without having to change them.
+- Sharp quote commands (e.g. ~#'execute-extended-command~) but not lambdas
 
 * Basic Examples
 ** General Examples
@@ -398,6 +411,9 @@ General is flexible in allowing you to choose how you write things, so if the ab
 #+begin_src emacs-lisp
 (my-normal-and-insert-define-key "/" 'swiper)
 #+end_src
+
+If you will be creating a definer and making a lot of keymaps it is recommended you use a prefix keymap instead of just the prefix keywords for performance reasons (see the example in
+ [[#will-generalel-slow-my-initialization-time][Will general.el slow my initialization time?]]).
 
 The =:infix= keyword can be used to sandwich keys in between all of the specified prefix keys and the keys in each mapping. This is mainly useful when using multiple prefix keywords and especially when using wrappers. For example, if you wanted to define several keys that were prefixed with =SPC g= in normal state and =M-SPC g= in insert state, you could use the previous wrapper with =:infix= instead of re-specifying both =:prefix= and =:non-normal-prefix=:
 #+begin_src emacs-lisp
@@ -1010,6 +1026,9 @@ One annoyance you may encounter is that the default function for indentation wil
 
 This is an annoyance you may have using other emacs packages as well and can be fixed by modifying =lisp-indent-function= (see [[http://emacs.stackexchange.com/q/10230/5278][this emacs stackexchange question]] and Fuco1's modified ~lisp-indent-function~ in one of the answers there).
 
+*** :general-config Keyword
+=:general-config= is the same as =:general= except it will be run after loading the package (after anything in =:config= is run) and will never generate any autoloads. You can use =:general= for keybindings meant to load the package and =:general-config= for keybindings only needed after the package is loaded. This will reduce Emacs initialization time if you make a lot of keybindings.
+
 *** :no-autoload Keyword
 If generating autoloads for commands is not desirable, it can be disabled globally (with the =general-use-package-emit-autoloads= option), on a per-binding basis, or on a per-form basis. To skip generating autoloads for a command, use the extended command definition and set the =:no-autoload= option to non-nil. This can be particularly handy when binding to functions defined in the same use-package block, otherwise the byte-compiler complains about multiple definitions of the same function:
 #+begin_src emacs-lisp
@@ -1407,6 +1426,74 @@ To use ~worf-define-key~ to make the definitions, =:definer 'worf= can be specif
 To use ~lpy-define-key~ to make the definitions, =:definer 'lpy= can be specified.
 
 * FAQ
+** Will general.el slow my initialization time?
+There is an open issue where I talk about improving performance when rewriting general.el (and a "no overhead" experiment), but using general.el should not cause a major increase in startup time if you follow the guidelines listed here (see #180 and #502 for the original issues).
+
+1. Don't use general.el's deferred keybinding functionality
+
+General.el borrows a generic keybinding deferring mechanism from ~evil-define-key~. If a specified keymap does not exist when ~general-define-key~ is called, it will repeatedly check if that keymap now exists after loading something new until it does (e.g. see issue #180). It is much more efficient to use ~with-eval-after-load~ or the =use-package= =:config= or =:general-config= keywords.
+
+#+begin_src emacs-lisp
+;; If you don't load evil (or any package) immediately, do one of these
+(with-eval-after-load 'evil
+  (general-def 'normal ";" #'evil-ex))
+
+(use-package evil
+  :general-config
+  ('normal ";" #'evil-ex))
+
+(use-package evil
+  :config
+  (general-def 'normal ";" #'evil-ex))
+
+;; not this!
+(general-def 'normal ";" #'evil-ex)
+#+end_src
+
+2. Bind keys in a prefix map instead of always using =:prefix=, =:non-normal-prefix=, and/or =:global-prefix=
+
+This applies even if you are not using evil and only use =:prefix=, though it will not be nearly as much of an issue (unless you are binding in multiple keymaps). Where possible, you may have some improvements by using prefix keymaps so general.el does not have to concatenate the prefix to every key.
+
+In addition to requiring concatenating each prefix to all keys, the prefix keywords also require making separate keybindings for every single listed keymap. Having 2+ prefix keywords will also double the number of keybindings required (e.g. if you specify =:global-prefix= and =:prefix=, it will create 1 keybinding for each in normal state). This means if you have 3 states and 2 or 3 prefix keywords, 6x the keybindings will be required.
+
+Make prefix keybindings in a named prefix keymap when possible instead so that only a single ~define-key~ is required under the hood:
+#+begin_src emacs-lisp
+;; this will bind the prefixes to `my-prefix-map'
+(general-define-key
+ :states '(emacs insert normal)
+ :prefix-map 'my-prefix-map
+ :global-prefix "C-c"
+ :non-normal-prefix "M-SPC"
+ :prefix "SPC")
+
+(general-create-definer my-map
+  :keymaps 'my-prefix-map)
+
+;; this will make one binding that will result in all the following keys being
+;; bound to 'foo:
+;; - C-c f in all states
+;; - SPC f in normal state
+;; - M-SPC f in emacs and insert states
+(my-map "f" 'foo)
+
+;; don't do this (6x the keybindings)!
+(general-create-definer my-map
+  :states '(emacs insert normal)
+  :prefix-map 'my-prefix-map
+  :global-prefix "C-c"
+  :non-normal-prefix "M-SPC"
+  :prefix "SPC")
+(my-map "f" 'foo)
+#+end_src
+
+3. Defer your keybindings and configuration where possible
+
+This applies regardless of whether you are using general.el but should be mentioned for completeness. Only use =:general= for keybindings that are meant to load a package (e.g. ~magit-status-here~). For keybindings that cannot be used or are not needed immediately (e.g. ~magit-stage~), use ~with-eval-after-load~, =:config=, or =:general-config= to defer making them until the package has loaded. If you have a lot of keybindings/packages, this will shave some time off initialization.
+
+4. Set =general-emit-autoloads= to =nil= (this may not significantly improve startup time)
+
+While this may not have a significant impact, this functionality should not be needed for most packages. If a package does not properly create autoloads for its commands already, you should make an issue asking the maintainer to add autoload cookies.
+
 ** How do I prevent =Key sequence starts with non-prefix key= errors?
 By default, emacs does not support binding a key sequence where a subsequence of the key is already bound in the same keymap (e.g. you cannot bind =C-a a= to a command in a keymap where =C-a= is already bound to a command).
 
