@@ -1061,6 +1061,18 @@ Return t if successful or a cons corresponding to the failed key and def."
              '(:def symbol/command :wk "replacement" :no-autoload t))
             :to-equal nil)))
 
+;; *** :general-config
+(describe "the :general-config use-package keyword"
+  (it "should work like :general but after a package is loaded"
+    (use-package general-delay2
+      :defer t
+      :general-config
+      (general-def general-delay2-map "a" #'a))
+    (expect (not (boundp 'general-delay2-map)))
+    (require 'general-delay2)
+    (expect (general-test-keys nil general-delay2-map
+              "a" #'a))))
+
 ;; *** :ghook
 (describe "the :ghook use-package keyword"
   (before-all
