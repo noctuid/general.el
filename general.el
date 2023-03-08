@@ -112,7 +112,7 @@ Non-evil users should keep this nil."
                         "This functionality will be removed in the future."
                         "2018-01-21")
 
-(defcustom general-non-normal-states '(insert emacs hybrid iedit-insert)
+(defcustom general-non-normal-states '(insert replace emacs hybrid iedit-insert)
   "List of \"non-normal\" evil states (used with :non-normal-prefix). When
   :states is not specified (only :keymaps), these will automatically be expanded
   to their full global evil keymap equivalents."
