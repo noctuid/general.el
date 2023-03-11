@@ -1507,10 +1507,14 @@ If X and Y are conses, the first element will be compared. Ordering is based on
 (defun general--print-map (map)
   "Print the keybinding MAP."
   (cl-destructuring-bind (key command previous) map
-    (princ (format "|=%.50s=|~%.50s~|~%.50s~|\n"
-                   (replace-regexp-in-string "|" "¦" (key-description key))
-                   command
-                   previous))))
+    (princ (concat
+            (replace-regexp-in-string
+             "\n" ""
+             (format "|=%.50s=|~%.50s~|~%.50s~|"
+                     (replace-regexp-in-string "|" "¦" (key-description key))
+                     command
+                     previous))
+            "\n"))))
 
 (defun general--print-maps-table (maps)
   "Print an org table for MAPS."
