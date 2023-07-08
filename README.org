@@ -600,7 +600,7 @@ The ~general-create-definer~ macro can create definers that wrap ~general-def~ b
 ;; states to `swiper'
 (tyrant-def "/" 'swiper)
 
-;; for org-mode, bind "SPC o" in normal state and "M-SPC /" in the insert/emacs
+;; for org-mode, bind "SPC o" in normal state and "M-SPC o" in the insert/emacs
 ;; states to `counsel-org-goto'
 (tyrant-def org-mode-map "o" 'counsel-org-goto)
 ;; same as
