@@ -16,6 +16,41 @@
 A general is a leader. -- onioncheese
 #+END_QUOTE
 
+* Project Status
+** General.el is Stable
+#+BEGIN_QUOTE
+The joke from when I worked in Google was "deprecated means stable" -- romwell
+#+END_QUOTE
+
+General.el will eventually (maybe a decade from now) be superseded by a rewrite, or I will recommend a different package instead.  However this does not mean I will "deprecate" general, only that I will not add new features and will recommend the rewrite to any newcomers.  If you are already happy with general, stick with it.  It has been stable for years and had very new few bug reports or feature requests.  I will not remove the package from MELPA, just limit changes to bug fixes.  All existing feature requests for general.el will either be implemented in the rewrite or have open issues on its tracker.  If you need any new functionality, you should switch (or use both as you gradually transition, e.g. the rewrite for new keybindings or specific cases).
+
+** Roadmap
+To rewrite general.el, I have split its functionality into separate packages that I will incrementally develop and add to MELPA roughly in this order:
+
+- [[https://github.com/noctuid/annalist.el][annalist]] - Replaces general's key recording/displaying utilities in a generic way (already on MELPA)
+- [[https://github.com/emacs-magus/once][once]] - Better deferred evaluation utilities (like those provided in Doom); the main use case is to simplify autoloading packages (replaces general helpers like ~general-after-gui~, ~general-after-init~, and ~general-with-package~)
+- [[https://github.com/emacs-magus/satch.el][satch.el]] - More convenient helpers for settings, hooks, and advice (replaces ~general-setq~, ~general-add-hook~, and ~general-advice-add~)
+- [[https://github.com/emacs-magus/arcana][arcana]] - Miscellaneous key definitions helpers (to create commands/definitions not keybindings; replaces ~general-key~, ~general-simulate-key~, ~general-key-dispatch~, ~general-predicate-dispatch~, etc.)
+- [[https://github.com/emacs-magus/usul][usul]] - Library/dsl for creating key definers (using context-sensitive local macros; basically [[https://www.emacswiki.org/emacs/SetupEl][setup.el]] but for keybindings)
+- [[https://github.com/emacs-magus/familiar][familiar]] - general-like key definer built on top of usul
+  - [[https://github.com/emacs-magus/imp][imp]] - evil support for familiar
+
+The current status is that once.el is nearly ready to be on MELPA.  If you are interested in using once.el, feel free to bump issues there to remind me to finish it/put it on MELPA.  The other packages are very low priority to me, and I don't have plans to work on them for now.
+
+** Making the Most of General
+- See [[#will-generalel-slow-my-initialization-time][Will general.el slow my initialization time?]]
+- See [[#best-practices][Best Practices]]
+
+Eventually I will segment general, so you can optionally only load the keybinding helpers, but this won't really save much time when loading it.
+
+** Why Rewrite
+- Breaking changes to syntax and extension system are necessary to improve the package, and I can't make breaking changes in general.el without breaking people's configurations.
+- General.el does too many things.  Many users think it only provides keybinding helpers or are overwhelmed by the size of this readme.  It should be split into more focused packages for simplicity and clarity and so that users can use only the packages they need.
+- The implementation is inflexible. Evil support, for example, is hardcoded rather than added in a separate package using the extension system.  The new implementation will be built on top of a library that will do all the heavy lifting but be syntax-agnostic.  The library could be used to build a definer with any syntax (e.g. ~bind-key~ syntax), so if I decided in the future that some syntax was preferable to general's, a full rewrite would not be necessary.
+- General.el is not transparent.  A large amount of the opened issues are questions caused by a misunderstanding normal keybindings work or how general translates to normal keybindings (e.g. questions about things that happen even if you don't use general but just ~define-key~ or ~evil-define-key~).  The rewrite will provide an "instructor" (leto.el) that will generate a readable expansion given a key definition form to show you the actual code that will end up running (e.g. ~define-key~).  This will help new users learn what the key definer is actually doing and will help determine whether issues are actually bugs or not.
+
+For a more detailed explanation, see [[https://github.com/noctuid/general.el/issues/497#issuecomment-1120235049][issue 497]].
+
 * Recent Breaking Changes                                          :noexport:
 ** 2018-01-21 =general-default-...= variables are obsolete
 =general-default-prefix=, =general-default-non-normal-prefix=, =general-default-global-prefix=, =general-default-states=, and =general-default-keymaps= still work. However, they will eventually be removed, so please switch to using ~general-create-definer~ if you want to use a definer with different defaults.
@@ -32,6 +67,11 @@ If you update general, please make sure that you are also using a recent version
 Please switch to ~general-key~ or ~general-simulate-key~. Note that keyword arguments have replaced the positional arguments of ~general-simulate-keys~. ~general-simulate-keys~ will likely be removed sometime in the future.
 
 * Table of Contents                                            :noexport:TOC:
+- [[#project-status][Project Status]]
+  - [[#generalel-is-stable][General.el is Stable]]
+  - [[#roadmap][Roadmap]]
+  - [[#making-the-most-of-general][Making the Most of General]]
+  - [[#why-rewrite][Why Rewrite]]
 - [[#about][About]]
 - [[#dependency-versions][Dependency Versions]]
 - [[#key-features][Key Features]]
@@ -144,9 +184,10 @@ See also the rest of [[#faq][FAQ]] for commonly asked questions
 
 To summarize, my recommended usage of general.el looks like this:
 - Use ~general-def~, other positional definers, and your own definers created with ~general-create-definer~
-- Use =use-package=
+- Use =use-package= or a similar helper
 - Use =:general= for keybindings meant to load a package
 - Use =:general-config= or =:config= for other keybindings
+- Do not use use the =:which-key= extended definition keyword unless you absolutely need to (see [[#which-key-integration][Which Key Integration]] for details)
 - Follow the other recommendations in [[#will-generalel-slow-my-initialization-time][Will general.el slow my initialization time?]]
 
 From a stylistic perspective (completely personal preference) I:
@@ -1266,6 +1307,12 @@ Using this feature, a key can be bound to a keymap that does not exist yet and s
 =:package= is a helper keyword that can be specified locally within the extended definition or globally. When using the use-package =:general= keyword, it will automatically be specified.
 
 ** Which Key Integration
+*NOTE*: Which-key integration was added to general before which-key had [[https://github.com/justbur/emacs-which-key#keymap-based-replacement][keymap-based replacement]].  It is recommended that you *never* use general's =:which-key= when it is possible to use keymap-based replacement instead.  This is because keymap-based replacement is more performant and will give correct results in cases where a basic =:which-key= will not.  The exception where ~which-key-replacement-alist~ is still very useful is when you need more advanced matching/replacement capabilities or want to replace what shows up for the key, not just the definition.  Most users should never need =:which-key=, and any basic =:which-key "string"= (doesn't change the text shown for the key) can definitely be swapped to use keymap-based replacement.
+
+To use keymap-based replacement, just bind your key to a cons cell in the form ~(cons "key description" <original definition>)~, e.g. ~(general-def "<key>" '("<description>" . <definition>))~.  The definition can be a command, prefix map, or whatever.  Please see the which-key documentation for more details.
+
+The rest of this section is related to general's =:which-key= keyword and should be ignored if you use keymap-based replacement.
+
 If you are not already familiar with which-key's replacement system, please see the docstring for ~which-key-replacement-alist~ if you don't understand any of the examples or information here.
 
 There are several benefits to using general.el to add which-key replacements. The main benefit is that because the keys and definition are already specified, general.el can automatically assemble the match cons. This reuse of information saves a little space since it is not necessary to make an additional call to ~which-key-add-key-based-replacements~ with the key information. It is also useful since which-key does not currently provide any convenience function for creating a replacement that matches a binding (you have to manually add to ~which-key-replacement-alist~). However, see which-key's [[https://github.com/justbur/emacs-which-key#automatic][which-key-enable-extended-define-key]] which provides another method for automatically creating replacements and binding keys simultaneously.
@@ -1431,10 +1478,11 @@ There is an open issue where I talk about improving performance when rewriting g
 
 1. Don't use general.el's deferred keybinding functionality
 
-General.el borrows a generic keybinding deferring mechanism from ~evil-define-key~. If a specified keymap does not exist when ~general-define-key~ is called, it will repeatedly check if that keymap now exists after loading something new until it does (e.g. see issue #180). It is much more efficient to use ~with-eval-after-load~ or the =use-package= =:config= or =:general-config= keywords.
+General.el borrows a generic keybinding deferring mechanism from ~evil-define-key~. If a specified keymap does not exist when ~general-define-key~ is called, it will repeatedly check if that keymap now exists after loading something new until it does (e.g. see issue #180). It is much more efficient to use ~with-eval-after-load~, the =use-package= =:config=, the =:general-config= keyword, or any other similar functionality instead.
 
 #+begin_src emacs-lisp
-;; If you don't load evil (or any package) immediately, do one of these
+;; If you don't load evil (or any package that creates a keymap you are binding
+;; keys in) immediately, do one of these
 (with-eval-after-load 'evil
   (general-def 'normal ";" #'evil-ex))
 
@@ -1469,8 +1517,8 @@ Make prefix keybindings in a named prefix keymap when possible instead so that o
 (general-create-definer my-map
   :keymaps 'my-prefix-map)
 
-;; this will make one binding that will result in all the following keys being
-;; bound to 'foo:
+;; this will make one keybinding that will result in all the following keys
+;; being bound to 'foo:
 ;; - C-c f in all states
 ;; - SPC f in normal state
 ;; - M-SPC f in emacs and insert states
