@@ -1309,7 +1309,21 @@ Using this feature, a key can be bound to a keymap that does not exist yet and s
 ** Which Key Integration
 *NOTE*: Which-key integration was added to general before which-key had [[https://github.com/justbur/emacs-which-key#keymap-based-replacement][keymap-based replacement]].  It is recommended that you *never* use general's =:which-key= when it is possible to use keymap-based replacement instead.  This is because keymap-based replacement is more performant and will give correct results in cases where a basic =:which-key= will not.  The exception where ~which-key-replacement-alist~ is still very useful is when you need more advanced matching/replacement capabilities or want to replace what shows up for the key, not just the definition.  Most users should never need =:which-key=, and any basic =:which-key "string"= (doesn't change the text shown for the key) can definitely be swapped to use keymap-based replacement.
 
-To use keymap-based replacement, just bind your key to a cons cell in the form ~(cons "key description" <original definition>)~, e.g. ~(general-def "<key>" '("<description>" . <definition>))~.  The definition can be a command, prefix map, or whatever.  Please see the which-key documentation for more details.
+To use keymap-based replacement, just bind your key to a cons cell in the form ~(cons "key description" <original definition>)~, e.g. ~(general-def "<key>" '("<description>" . <definition>))~.  The definition can be a command, prefix map, or whatever. For example, something like this:
+
+#+begin_src emacs-lisp
+(general-define-key
+    "g"  '(:ignore t :which-key "goto"))
+#+end_src
+
+Should become:
+
+#+begin_src emacs-lisp
+(general-define-key
+    "g"  '("goto" . (keymap))
+#+end_src
+
+Please see the which-key documentation for more details.
 
 The rest of this section is related to general's =:which-key= keyword and should be ignored if you use keymap-based replacement.
 
