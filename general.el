@@ -665,89 +665,18 @@ the other hand, doesn't make sense at all globally.")
 
 ;; ** Normal Extended Definition Functions
 ;; *** Which Key Integration
-(defvar which-key-replacement-alist)
-(defun general--add-which-key-replacement (mode replacement)
-  (let* ((mode-match (assq mode which-key-replacement-alist))
-         (mode-alist (cdr mode-match)))
-    (cond (mode
-           (push replacement mode-alist)
-           (if mode-match
-               (setcdr mode-match mode-alist)
-             (push (cons mode mode-alist)
-                   which-key-replacement-alist)))
-          (t
-           (push replacement which-key-replacement-alist)))))
-
-(defvar which-key--prefix-title-alist)
-(defun general--add-which-key-title-prefix (mode keys title-prefix)
-  (let* ((mode-match (assq mode which-key--prefix-title-alist))
-         (title-mode-alist (cdr mode-match))
-         (title-cons (cons keys title-prefix)))
-    (cond (mode
-           (push title-cons title-mode-alist)
-           (if mode-match
-               (setcdr mode-match
-                       title-mode-alist)
-             (push (cons mode title-mode-alist)
-                   which-key--prefix-title-alist)))
-          (t
-           (push title-cons which-key--prefix-title-alist)))))
-
-(defun general--remove-map (keymap)
-  "Remove \"-map\" from the symbol KEYMAP." ;
-  (intern (replace-regexp-in-string "-map$" "" (symbol-name keymap))))
 
 ;; TODO better documentation
-(defun general-extended-def-:which-key (_state keymap key edef kargs)
+(defun general-extended-def-:which-key (state keymap key edef kargs)
   "Add a which-key description for KEY.
-If :major-modes is specified in EDEF, add the description for the corresponding
-major mode. KEY should not be in the kbd format (kbd should have already been
-run on it)."
+KEY should not be in the kbd format (kbd should have already been run on it)."
   (general-with-eval-after-load 'which-key
     (let* ((wk (general--getf2 edef :which-key :wk))
-           (major-modes (general--getf edef kargs :major-modes))
-           (keymaps (plist-get kargs :keymaps))
-           ;; index of keymap in :keymaps
-           (keymap-index (cl-dotimes (ind (length keymaps))
-                           (when (eq (nth ind keymaps) keymap)
-                             (cl-return ind))))
-           (mode (let ((mode (if (and major-modes (listp major-modes))
-                                 (nth keymap-index major-modes)
-                               major-modes)))
-                   (if (eq mode t)
-                       (general--remove-map keymap)
-                     mode)))
            (key (key-description key))
-           (key-regexp (concat (when (general--getf edef kargs :wk-full-keys)
-                                 "\\`")
-                               (regexp-quote key)
-                               "\\'"))
-           (prefix (plist-get kargs :prefix))
-           (binding (or (when (and (plist-get edef :def)
-                                   (not (plist-get edef :keymp)))
-                          (plist-get edef :def))
-                        (when (and prefix
-                                   (string= key prefix))
-                          (plist-get kargs :prefix-command))))
-           (replacement (cond ((stringp wk)
-                               (cons nil wk))
-                              (t
-                               wk)))
-           (match/replacement
-            (cons
-             (cons (when (general--getf edef kargs :wk-match-keys)
-                     key-regexp)
-                   (when (and (general--getf edef kargs :wk-match-binding)
-                              binding
-                              (symbolp binding))
-                     (regexp-quote (symbol-name binding))))
-             replacement)))
-      (general--add-which-key-replacement mode match/replacement)
-      (when (and (consp replacement)
-                 ;; lambda
-                 (not (functionp replacement)))
-        (general--add-which-key-title-prefix
-         mode key (cdr replacement))))))
+           (minor-mode (eq 'minor-mode
+                           (general--getf edef kargs :definer)))
+           (keymap (general--get-keymap state keymap minor-mode)))
+      (which-key-add-keymap-based-replacements keymap key wk))))
 
 (defalias 'general-extended-def-:wk #'general-extended-def-:which-key)
 
