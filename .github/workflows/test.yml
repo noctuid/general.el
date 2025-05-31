@@ -6,6 +6,8 @@ on:
       - '**.el'
       - '**test.yml'
   push:
+    branches:
+      - main
     paths:
       - '**.el'
       - '**test.yml'
@@ -19,7 +21,7 @@ jobs:
         os: [ubuntu-latest, macos-latest]
         # no 24.4 or 24.5 since some optional dependencies require higher
         # versions
-        emacs_version: [25.3, 26.3]
+        emacs_version: [28.2, 29.3]
         # emacs_version: [25.3, 26.3, snapshot]
         # include:
         #   - emacs_version: snapshot
