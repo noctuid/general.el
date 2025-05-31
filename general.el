@@ -2255,9 +2255,11 @@ with `general-translate-key') and optionally keyword arguments for
 ;; ** Automatic Key Unbinding
 (defun general-unbind-non-prefix-key (define-key keymap key &rest args)
   "Use DEFINE-KEY in KEYMAP to unbind an existing non-prefix subsequence of KEY.
-When a general key definer is in use and a subsequnece of KEY is already bound
+When a general key definer is in use and a subsequence of KEY is already bound
 in KEYMAP, unbind it using DEFINE-KEY. Always bind KEY to DEF using DEFINE-KEY."
-  (when general--definer-p
+  (when (and general--definer-p
+             (keymapp keymap)
+             (arrayp key))
     (let ((key (if (stringp key)
                    (string-to-vector key)
                  key)))

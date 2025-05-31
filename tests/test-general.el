@@ -647,6 +647,7 @@ Return t if successful or a cons corresponding to the failed key and def."
         (expect (evil-get-command-properties 'general-should-repeat-and-jump)
                 :to-be nil))))
   (it "should support delaying keybindings until the keymap exists"
+    (expect (not (featurep 'general-delay)))
     (general-define-key
      :keymaps 'general-delay-map
      "a" #'a)
