@@ -1356,7 +1356,6 @@ different definer than `general-def'. It should not be quoted."
                            and collect val))
         (definer (or wrapping 'general-def)))
     `(defmacro ,name (&rest args)
-       (declare (indent defun))
        ,(let ((print-quoted t))
           (format
            "A wrapper for `%s'.
@@ -1364,9 +1363,10 @@ different definer than `general-def'. It should not be quoted."
 It has the following defaults:
 %s"
            definer defaults))
+       (declare (indent defun))
        ;; can still override keywords afterwards (first keyword takes precedence)
        `(,',definer
-          ,@args ,@',defaults))))
+         ,@args ,@',defaults))))
 
 (defun general--starter-arg-p (arg)
   "Return whether ARG is a keyword or positional argument for a key definer."
